@@ -1,0 +1,25 @@
+{
+  "name": "Settings",
+  "type": "object",
+  "properties": {
+    "erp_name": {
+      "type": "string",
+      "description": "Nome personalizado do ERP"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "URL do logo do estabelecimento"
+    },
+    "cashback_percentage": {
+      "type": "number",
+      "default": 5,
+      "description": "Porcentagem de cashback padrão"
+    },
+    "cashback_expiration_days": {
+      "type": "number",
+      "default": 30,
+      "description": "Dias até o vencimento do cashback"
+    }
+  },
+  "required": []
+}

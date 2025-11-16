@@ -1,0 +1,39 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do produto"
+    },
+    "barcode": {
+      "type": "string",
+      "description": "C\u00f3digo de barras do produto"
+    },
+    "price": {
+      "type": "number",
+      "description": "Pre\u00e7o de venda"
+    },
+    "cost": {
+      "type": "number",
+      "description": "Custo do produto"
+    },
+    "stock": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade em estoque"
+    },
+    "category": {
+      "type": "string",
+      "description": "Categoria do produto"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "URL da imagem do produto"
+    }
+  },
+  "required": [
+    "name",
+    "price"
+  ]
+}

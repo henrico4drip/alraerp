@@ -1,0 +1,140 @@
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Save, Store } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+export default function Settings() {
+  const [settings, setSettings] = useState(null);
+  const [erpName, setErpName] = useState("");
+  const [cashbackPercentage, setCashbackPercentage] = useState(5);
+  const [cashbackExpirationDays, setCashbackExpirationDays] = useState(30);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const settingsList = await base44.entities.Settings.list();
+      if (settingsList.length > 0) {
+        const s = settingsList[0];
+        setSettings(s);
+        setErpName(s.erp_name || "");
+        setCashbackPercentage(s.cashback_percentage || 5);
+        setCashbackExpirationDays(s.cashback_expiration_days || 30);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (settings) {
+        await base44.entities.Settings.update(settings.id, {
+          erp_name: erpName,
+          cashback_percentage: cashbackPercentage,
+          cashback_expiration_days: cashbackExpirationDays,
+        });
+      } else {
+        await base44.entities.Settings.create({
+          erp_name: erpName,
+          cashback_percentage: cashbackPercentage,
+          cashback_expiration_days: cashbackExpirationDays,
+        });
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
+          <p className="text-gray-500 mt-2">Personalize seu sistema ERP</p>
+        </div>
+
+        {saved && (
+          <Alert className="mb-6 bg-green-50 border-green-200 rounded-2xl">
+            <AlertDescription className="text-green-800">
+              Configurações salvas com sucesso!
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <Card className="shadow-sm border-0 rounded-2xl bg-white">
+          <CardHeader className="border-b bg-gray-50 rounded-t-2xl">
+            <CardTitle className="flex items-center gap-3 text-gray-900">
+              <div className="bg-indigo-600 p-2 rounded-xl">
+                <Store className="w-5 h-5 text-white" />
+              </div>
+              Informações do Estabelecimento
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="erpName" className="text-sm text-gray-700">Nome do seu Negócio</Label>
+              <Input
+                id="erpName"
+                value={erpName}
+                onChange={(e) => setErpName(e.target.value)}
+                placeholder="Ex: Minha Loja"
+                className="rounded-xl border-gray-200"
+              />
+              <p className="text-sm text-gray-500">
+                Este nome aparecerá como "<strong>{erpName || "Seu Nome"} ERP</strong>" em todo o sistema
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cashback" className="text-sm text-gray-700">Porcentagem de Cashback Padrão (%)</Label>
+              <Input
+                id="cashback"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={cashbackPercentage}
+                onChange={(e) => setCashbackPercentage(parseFloat(e.target.value))}
+                className="rounded-xl border-gray-200"
+              />
+              <p className="text-sm text-gray-500">
+                Clientes ganharão {cashbackPercentage}% de cashback em cada compra
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cashback_expires" className="text-sm text-gray-700">Validade do Cashback (dias)</Label>
+              <Input
+                id="cashback_expires"
+                type="number"
+                min="1"
+                step="1"
+                value={cashbackExpirationDays}
+                onChange={(e) => setCashbackExpirationDays(parseInt(e.target.value) || 0)}
+                className="rounded-xl border-gray-200"
+              />
+              <p className="text-sm text-gray-500">
+                O saldo de cashback vence em {cashbackExpirationDays} dias após cada compra.
+              </p>
+            </div>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl h-12 text-base font-semibold"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {saving ? "Salvando..." : "Salvar Configurações"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

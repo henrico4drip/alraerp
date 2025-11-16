@@ -1,0 +1,16 @@
+# Node
+node_modules/
+# Vite build
+/dist
+# Environment secrets
+.env
+.env.local
+# MacOS
+.DS_Store
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Editor
+.vscode/
+.idea/

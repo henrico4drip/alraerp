@@ -1,0 +1,31 @@
+import React, { useMemo } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, TrendingUp, DollarSign, Users, Calendar } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from "date-fns";
+
+export default function Reports() {
+  const { data: sales = [] } = useQuery({
+    queryKey: ['sales'],
+    queryFn: () => base44.entities.Sale.list('-created_date'),
+    initialData: [],
+  });
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => base44.entities.Customer.list(),
+    initialData: [],
+  });
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const totalRevenue = sales.reduce((sum, sale) => sum + (sale.total_amount || 0), 0);
+    const totalCashbackGiven = sales.reduce((sum, sale) => sum + (sale.cashback_earned || 0), 0);
+    const totalCashbackUsed = sales.reduce((sum, sale) => sum + (sale.cashback_used || 0), 0);
+    const averageTicket = sales.length > 0 ? totalRevenue / sales.length : 0;
+
+    return {
+      totalRevenue,
+ 

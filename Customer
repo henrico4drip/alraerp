@@ -1,0 +1,36 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Telefone do cliente"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email do cliente"
+    },
+    "cashback_balance": {
+      "type": "number",
+      "default": 0,
+      "description": "Saldo de cashback dispon\u00edvel"
+    },
+    "total_spent": {
+      "type": "number",
+      "default": 0,
+      "description": "Total gasto pelo cliente"
+    },
+    "total_purchases": {
+      "type": "number",
+      "default": 0,
+      "description": "N\u00famero total de compras"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

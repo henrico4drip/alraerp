@@ -1,0 +1,276 @@
+import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Package, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+
+export default function Inventory() {
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    barcode: "",
+    price: "",
+    cost: "",
+    stock: "",
+    category: "",
+  });
+
+  const queryClient = useQueryClient();
+
+  const { data: products = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => base44.entities.Product.list('-created_date'),
+    initialData: [],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data) => base44.entities.Product.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['products']);
+      handleCloseDialog();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Product.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['products']);
+      handleCloseDialog();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.Product.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['products']);
+    },
+  });
+
+  const handleOpenDialog = (product = null) => {
+    if (product) {
+      setEditingProduct(product);
+      setFormData({
+        name: product.name || "",
+        barcode: product.barcode || "",
+        price: product.price || "",
+        cost: product.cost || "",
+        stock: product.stock || "",
+        category: product.category || "",
+      });
+    } else {
+      setEditingProduct(null);
+      setFormData({
+        name: "",
+        barcode: "",
+        price: "",
+        cost: "",
+        stock: "",
+        category: "",
+      });
+    }
+    setShowDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setShowDialog(false);
+    setEditingProduct(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const data = {
+      ...formData,
+      price: parseFloat(formData.price),
+      cost: parseFloat(formData.cost || 0),
+      stock: parseInt(formData.stock || 0),
+    };
+
+    if (editingProduct) {
+      await updateMutation.mutateAsync({ id: editingProduct.id, data });
+    } else {
+      await createMutation.mutateAsync(data);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Estoque</h1>
+            <p className="text-gray-500 mt-1">Gerencie seus produtos</p>
+          </div>
+          <Button
+            onClick={() => handleOpenDialog()}
+            className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Produto
+          </Button>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map(product => (
+            <Card key={product.id} className="shadow-sm border-0 hover:shadow-md transition-shadow rounded-2xl bg-white">
+              <CardHeader className="bg-gray-50 border-b border-gray-100 rounded-t-2xl">
+                <CardTitle className="flex items-center justify-between">
+                  <span className="text-base flex items-center gap-2 text-gray-900">
+                    <Package className="w-5 h-5 text-indigo-600" />
+                    {product.name}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 rounded-lg"
+                      onClick={() => handleOpenDialog(product)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 rounded-lg"
+                      onClick={() => deleteMutation.mutate(product.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                {product.barcode && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-mono text-xs rounded-lg">
+                      {product.barcode}
+                    </Badge>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500">Preço</p>
+                    <p className="text-base font-semibold text-green-600">
+                      R$ {product.price?.toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Estoque</p>
+                    <p className={`text-base font-semibold ${
+                      (product.stock || 0) > 10 ? 'text-green-600' : 
+                      (product.stock || 0) > 0 ? 'text-yellow-600' : 
+                      'text-red-600'
+                    }`}>
+                      {product.stock || 0} un.
+                    </p>
+                  </div>
+                </div>
+                {product.category && (
+                  <Badge className="bg-indigo-100 text-indigo-800 rounded-lg">
+                    {product.category}
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {editingProduct ? "Editar Produto" : "Novo Produto"}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="name" className="text-sm text-gray-700">Nome *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="barcode" className="text-sm text-gray-700">Código de Barras</Label>
+                <Input
+                  id="barcode"
+                  value={formData.barcode}
+                  onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                  placeholder="Digite ou escaneie"
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="price" className="text-sm text-gray-700">Preço de Venda *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    required
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cost" className="text-sm text-gray-700">Custo</Label>
+                  <Input
+                    id="cost"
+                    type="number"
+                    step="0.01"
+                    value={formData.cost}
+                    onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="stock" className="text-sm text-gray-700">Estoque</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    value={formData.stock}
+                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="category" className="text-sm text-gray-700">Categoria</Label>
+                  <Input
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={handleCloseDialog} className="flex-1 rounded-xl">
+                  Cancelar
+                </Button>
+                <Button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 rounded-xl">
+                  {editingProduct ? "Salvar" : "Criar"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
