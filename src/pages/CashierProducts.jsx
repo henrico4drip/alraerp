@@ -94,7 +94,7 @@ export default function CashierProducts() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 pb-32 lg:pb-4">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 pb-32 lg:pb-4 overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-3 gap-4 min-h-[calc(100vh-112px-64px)]">
           <div className="lg:col-span-2 space-y-4">
@@ -130,7 +130,7 @@ export default function CashierProducts() {
 
                 <div className="max-h-80 overflow-y-auto divide-y divide-gray-200">
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="grid grid-cols-[2fr_1fr_1fr_120px_100px] gap-6 px-6 sm:px-8 py-3 text-[11px] font-semibold text-gray-500 tracking-wide border-b border-gray-200">
+                    <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-semibold text-gray-500 tracking-wide border-b border-gray-200">
                       <div>PRODUTO</div>
                       <div>CATEGORIA</div>
                       <div>CÓDIGO</div>
@@ -139,40 +139,72 @@ export default function CashierProducts() {
                     </div>
                     <div className="divide-y divide-gray-100">
                       {filteredProducts.map((product) => (
-                        <button
-                          key={product.id}
-                          className="grid grid-cols-[2fr_1fr_1fr_120px_100px] gap-6 items-center w-full text-left px-6 sm:px-8 py-3 hover:bg-gray-50/70"
-                          onClick={() => addToCart(product)}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            {(product.image_url || product.imageUrl) ? (
-                              <img
-                                src={product.image_url || product.imageUrl}
-                                alt={product.name}
-                                className="w-8 h-8 rounded-md object-cover"
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <Package className="w-5 h-5 text-indigo-600" />
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
-                              <p className="text-xs text-gray-500 truncate">{product.description || ''}</p>
+                        <React.Fragment key={product.id}>
+                          {/* Desktop layout */}
+                          <button
+                            className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px] gap-6 items-center w-full text-left px-3 sm:px-8 py-3 hover:bg-gray-50/70"
+                            onClick={() => addToCart(product)}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              {(product.image_url || product.imageUrl) ? (
+                                <img
+                                  src={product.image_url || product.imageUrl}
+                                  alt={product.name}
+                                  className="w-8 h-8 rounded-md object-cover"
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              ) : (
+                                <Package className="w-5 h-5 text-indigo-600" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
+                                <p className="text-xs text-gray-500 truncate">{product.description || ''}</p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-xs text-gray-500 truncate">{product.category || '-'}</div>
-                          <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
-                          <div className="text-right tabular-nums">
-                            <p className="font-semibold text-green-600 text-sm">R$ {product.price?.toFixed(2)}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className={`font-semibold text-sm ${
-                              (product.stock || 0) > 10 ? 'text-green-600' :
-                              (product.stock || 0) > 0 ? 'text-yellow-600' :
-                              'text-red-600'
-                            }`}>{product.stock || 0}</p>
-                          </div>
-                        </button>
+                            <div className="text-xs text-gray-500 truncate">{product.category || '-'}</div>
+                            <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
+                            <div className="text-right tabular-nums">
+                              <p className="font-semibold text-green-600 text-sm">R$ {product.price?.toFixed(2)}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`font-semibold text-sm ${
+                                (product.stock || 0) > 10 ? 'text-green-600' :
+                                (product.stock || 0) > 0 ? 'text-yellow-600' :
+                                'text-red-600'
+                              }`}>{product.stock || 0}</p>
+                            </div>
+                          </button>
+                          {/* Mobile compact layout */}
+                          <button
+                            className="lg:hidden w-full text-left px-3 py-2 hover:bg-gray-50/70"
+                            onClick={() => addToCart(product)}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              {(product.image_url || product.imageUrl) ? (
+                                <img
+                                  src={product.image_url || product.imageUrl}
+                                  alt={product.name}
+                                  className="w-8 h-8 rounded-md object-cover"
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              ) : (
+                                <Package className="w-5 h-5 text-indigo-600" />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
+                                <div className="text-[11px] text-gray-500 truncate">{product.category || '-'} • {product.barcode || '-'}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xs font-semibold text-green-600">R$ {product.price?.toFixed(2)}</div>
+                                <div className={`text-[11px] ${
+                                  (product.stock || 0) > 10 ? 'text-green-600' :
+                                  (product.stock || 0) > 0 ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`}>{product.stock || 0}</div>
+                              </div>
+                            </div>
+                          </button>
+                        </React.Fragment>
                       ))}
                     </div>
                   </div>

@@ -137,7 +137,7 @@ export default function Customers() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8 overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -169,7 +169,7 @@ export default function Customers() {
         </div>
 
         <div className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-[1.5fr_1.5fr_140px_120px_100px_140px] gap-6 px-6 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
+          <div className="hidden lg:grid grid-cols-[1.5fr_1.5fr_140px_120px_100px_140px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
             <div>CLIENTE</div>
             <div>CONTATO</div>
             <div className="text-right">CASHBACK</div>
@@ -179,43 +179,83 @@ export default function Customers() {
           </div>
           <div className="divide-y divide-gray-100">
             {sortedCustomers.map((customer) => (
-              <div key={customer.id} className="grid grid-cols-[1.5fr_1.5fr_140px_120px_100px_140px] gap-6 items-center px-6 sm:px-8 py-3 hover:bg-gray-50/70">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Users className="w-5 h-5 text-pink-600" />
-                  <p className="font-medium text-sm text-gray-900 truncate">{customer.name}</p>
-                </div>
-                <div className="leading-tight min-w-0">
-                  <p className="text-xs text-gray-500 truncate">
-                    {(customer.phone || '-')}{customer.email ? ` • ${customer.email}` : ''}{customer.cpf ? ` • CPF ${customer.cpf}` : ''}
-                  </p>
-                </div>
-                <div className="text-right tabular-nums">
-                  <Badge className="bg-blue-600 text-white rounded-lg">
+              <React.Fragment key={customer.id}>
+                {/* Desktop row */}
+                <div className="hidden lg:grid grid-cols-[1.5fr_1.5fr_140px_120px_100px_140px] gap-6 items-center px-3 sm:px-8 py-3 hover:bg-gray-50/70">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Users className="w-5 h-5 text-pink-600" />
+                    <p className="font-medium text-sm text-gray-900 truncate">{customer.name}</p>
+                  </div>
+                  <div className="leading-tight min-w-0">
+                    <p className="text-xs text-gray-500 truncate">
+                      {(customer.phone || '-')}{customer.email ? ` • ${customer.email}` : ''}{customer.cpf ? ` • CPF ${customer.cpf}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right tabular-nums">
+                  <Badge className="bg-[#3490c7] text-white rounded-lg">
                     <Wallet className="w-3 h-3 mr-1" />
                     <span className="tabular-nums">R$ {(customer.cashback_balance || 0).toFixed(2)}</span>
                   </Badge>
+                  </div>
+                  <div className="text-right tabular-nums">
+                    <p className="font-semibold text-green-600 text-sm">R$ {(customer.total_spent || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="text-right tabular-nums">
+                    <p className="font-semibold text-indigo-600 text-sm">{customer.total_purchases || 0}</p>
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenView(customer)} title="Ver cliente">
+                      <Eye className="w-4 h-4 text-sky-600" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenCashback(customer)} title="Cashback">
+                      <Wallet className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(customer)} title="Editar cliente">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteCustomerId(customer.id); setShowConfirmDeleteCustomer(true); }} title="Excluir cliente">
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="text-right tabular-nums">
-                  <p className="font-semibold text-green-600 text-sm">R$ {(customer.total_spent || 0).toFixed(2)}</p>
+                {/* Mobile card */}
+                <div className="lg:hidden px-3 py-2 hover:bg-gray-50/70">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Users className="w-5 h-5 text-pink-600" />
+                    <p className="font-medium text-sm text-gray-900 truncate flex-1">{customer.name}</p>
+                    <Badge className="bg-[#3490c7] text-white rounded-lg whitespace-nowrap">
+                      <Wallet className="w-3 h-3 mr-1" /> R$ {(customer.cashback_balance || 0).toFixed(2)}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 text-[11px] text-gray-500 truncate">
+                    {(customer.phone || '-')}{customer.email ? ` • ${customer.email}` : ''}{customer.cpf ? ` • CPF ${customer.cpf}` : ''}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="text-xs">
+                      <span className="text-gray-600">Gasto: </span>
+                      <span className="font-semibold text-green-600">R$ {(customer.total_spent || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="text-xs">
+                      <span className="text-gray-600">Compras: </span>
+                      <span className="font-semibold text-indigo-600">{customer.total_purchases || 0}</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-end gap-1">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenView(customer)} title="Ver cliente">
+                      <Eye className="w-4 h-4 text-sky-600" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenCashback(customer)} title="Cashback">
+                      <Wallet className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(customer)} title="Editar cliente">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteCustomerId(customer.id); setShowConfirmDeleteCustomer(true); }} title="Excluir cliente">
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="text-right tabular-nums">
-                  <p className="font-semibold text-indigo-600 text-sm">{customer.total_purchases || 0}</p>
-                </div>
-                <div className="flex items-center justify-end gap-1">
-                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenView(customer)} title="Ver cliente">
-                    <Eye className="w-4 h-4 text-sky-600" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenCashback(customer)} title="Cashback">
-                    <Wallet className="w-4 h-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(customer)} title="Editar cliente">
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteCustomerId(customer.id); setShowConfirmDeleteCustomer(true); }} title="Excluir cliente">
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
+              </React.Fragment>
             ))}
           </div>
         </div>

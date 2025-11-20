@@ -138,11 +138,11 @@ export default function Dashboard() {
               ref={imgRef}
               src={logoUrl}
               alt="Logo"
-              className={`h-[150px] w-auto object-contain transition-opacity duration-300 ${logoReady ? 'opacity-100' : 'opacity-0'}`}
+              className={`w-auto object-contain transition-opacity duration-300 ${logoReady ? 'opacity-100' : 'opacity-0'}`}
+              style={{ height: 'clamp(80px, 12vw, 150px)' }}
               loading="eager"
               decoding="async"
               fetchpriority="high"
-              height={150}
               onLoad={() => setLogoReady(true)}
               onError={() => { setLogoUrl('/logo-fallback.svg'); setLogoReady(true); }}
             />
@@ -159,14 +159,17 @@ export default function Dashboard() {
         </div>
 
         {/* Ações em linha - exatamente 4 ícones */}
-        <div className="flex items-center justify-center gap-10 py-2">
+        <div className="flex items-center justify-center gap-6 sm:gap-10 py-2">
           {actions.map((a) => (
             <Link key={a.label} to={a.link}>
               <div className="flex flex-col items-center">
-                <div className={`w-[85px] h-[85px] rounded-2xl bg-gradient-to-br ${a.from} ${a.to} shadow-sm flex items-center justify-center`}>
-                  <a.icon className={`w-10 h-10 ${a.iconColor}`} />
+                <div
+                  className={`rounded-2xl bg-gradient-to-br ${a.from} ${a.to} shadow-sm flex items-center justify-center`}
+                  style={{ width: 'clamp(56px, 8vw, 85px)', height: 'clamp(56px, 8vw, 85px)' }}
+                >
+                  <a.icon className={`${a.iconColor}`} style={{ width: 'clamp(24px, 3vw, 40px)', height: 'clamp(24px, 3vw, 40px)' }} />
                 </div>
-                <div className="mt-2 text-[12px] font-semibold text-gray-700 tracking-wide">{a.label}</div>
+                <div className="mt-2 text-[10px] sm:text-[12px] font-semibold text-gray-700 tracking-wide">{a.label}</div>
               </div>
             </Link>
           ))}
@@ -178,26 +181,32 @@ export default function Dashboard() {
             <Button
               variant="ghost"
               size="icon"
-              className="w-10 h-10 rounded-full bg-white hover:bg-gray-100 shadow border border-gray-200"
+              className="rounded-full bg-white hover:bg-gray-100 shadow border border-gray-200"
+              style={{ width: 'clamp(36px, 4vw, 40px)', height: 'clamp(36px, 4vw, 40px)' }}
             >
-              <SettingsIcon className="w-5 h-5 text-gray-600" />
+              <SettingsIcon className="text-gray-600" style={{ width: 'clamp(16px, 2vw, 20px)', height: 'clamp(16px, 2vw, 20px)' }} />
             </Button>
           </Link>
         </div>
       </div>
 
       <div className={`flex justify-center mt-3 mb-6 transform translate-y-[35px] transition-opacity duration-500 ${showNotif ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg shadow-sm px-4 py-2 text-[12px] text-gray-700 max-w-[560px] w-full">
+        <div
+          className="bg-gray-50 border border-gray-200 rounded-lg shadow-sm text-gray-700 w-full mx-auto sm:max-w-[560px] max-w-[320px]"
+          style={{ fontSize: 'clamp(10px, 1.2vw, 12px)', padding: 'clamp(8px, 1.2vw, 12px) clamp(12px, 2vw, 16px)' }}
+        >
           <div className="overflow-hidden">
             <div
               className="flex transition-transform duration-500 ease-out"
               style={{ transform: `translateX(-${snippetIndex * 100}%)` }}
             >
               {snippets.map((sn, idx) => (
-                <div key={idx} className="min-w-full flex items-center justify-center">
-                  <span className="font-medium text-gray-800">Cashback ativo {settings?.cashback_percentage ?? 0}%.</span>
-                  <span className="ml-1">{sn.text}</span>
-                  <a href={sn.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-[11px] text-gray-500 underline">{sn.source}</a>
+                <div key={idx} className="min-w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center sm:gap-2 text-center">
+                    <span className="font-medium text-gray-800">Cashback ativo {settings?.cashback_percentage ?? 0}%.</span>
+                    <span className="sm:ml-1">{sn.text}</span>
+                    <a href={sn.url} target="_blank" rel="noopener noreferrer" className="mt-1 sm:mt-0 sm:ml-2 text-[11px] text-gray-500 underline">{sn.source}</a>
+                  </div>
                 </div>
               ))}
             </div>

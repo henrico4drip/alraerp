@@ -1,206 +1,370 @@
-import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { 
-  Upload, 
-  FileText, 
-  DollarSign, 
-  Users, 
-  TrendingUp,
-  Settings as SettingsIcon,
-  Megaphone,
-  Sparkles,
-  Info
-} from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | AlraERP+</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-export default function Dashboard() {
-  const [settings, setSettings] = useState(null);
-
-  const { data: sales = [] } = useQuery({
-    queryKey: ['sales'],
-    queryFn: () => base44.entities.Sale.list('-created_date'),
-    initialData: [],
-  });
-
-  const { data: customers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
-    initialData: [],
-  });
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      const settingsList = await base44.entities.Settings.list();
-      if (settingsList.length > 0) {
-        setSettings(settingsList[0]);
-      }
-    };
-    fetchSettings();
-  }, []);
-
-  const handleLogoUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        
-        if (settings) {
-          await base44.entities.Settings.update(settings.id, { logo_url: file_url });
-        } else {
-          await base44.entities.Settings.create({ logo_url: file_url });
+    <style>
+        :root {
+            /* Paleta da Landing Page */
+            --primary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --accent-green: #76cc2e; /* Verde Vibrante */
+            --bg-neutral: #f8fafc;   /* Cinza muito claro (quase branco) */
+            --text-dark: #334155;
+            --text-light: #94a3b8;
         }
-        window.location.reload();
-      } catch (error) {
-        console.error("Erro ao fazer upload:", error);
-      }
-    }
-  };
 
-  const totalRevenue = sales.reduce((sum, sale) => sum + (sale.total_amount || 0), 0);
-  const totalCashback = sales.reduce((sum, sale) => sum + (sale.cashback_earned || 0), 0);
-  const totalSales = sales.length;
-  const totalCustomers = customers.length;
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
 
-  const dashboardCards = [
-    {
-      title: "Resumo",
-      value: `${totalSales} vendas`,
-      icon: FileText,
-      bgColor: "bg-indigo-600",
-      link: createPageUrl("Sales")
-    },
-    {
-      title: "Pagamentos",
-      value: `R$ ${totalRevenue.toFixed(2)}`,
-      icon: DollarSign,
-      bgColor: "bg-green-600",
-      link: createPageUrl("Sales")
-    },
-    {
-      title: "+ Cliente",
-      value: `${totalCustomers} clientes`,
-      icon: Users,
-      bgColor: "bg-pink-600",
-      link: createPageUrl("Customers")
-    },
-    {
-      title: "Faturamento",
-      value: `R$ ${totalCashback.toFixed(2)} cashback`,
-      icon: TrendingUp,
-      bgColor: "bg-orange-600",
-      link: createPageUrl("Reports")
-    },
-    {
-      title: "Marketing",
-      value: "",
-      icon: Megaphone,
-      bgColor: "bg-blue-600",
-      link: createPageUrl("Marketing"),
-      badge: "EM BREVE"
-    }
-  ];
+        body {
+            background-color: var(--bg-neutral);
+            color: var(--text-dark);
+            min-height: 100vh;
+            padding-bottom: 90px; /* Espaço para o menu */
+        }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4">
-      <div className="max-w-4xl mx-auto space-y-4">
-        {/* Logo Upload Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="flex flex-col items-center">
-            {settings?.logo_url ? (
-              <div className="relative group">
-                <img 
-                  src={settings.logo_url} 
-                  alt="Logo" 
-                  className="h-16 w-auto object-contain rounded-xl"
-                />
-                <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-xl flex items-center justify-center">
-                  <Upload className="w-6 h-6 text-white" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            ) : (
-              <label className="cursor-pointer border-2 border-dashed border-indigo-300 rounded-2xl p-8 hover:border-indigo-500 transition-all group">
-                <div className="flex flex-col items-center text-indigo-400 group-hover:text-indigo-600 transition-colors">
-                  <Upload className="w-8 h-8 mb-2" />
-                  <p className="text-xs font-medium">Clique para adicionar sua logo</p>
-                  <p className="text-xs mt-1 text-gray-400">PNG, JPG ou SVG</p>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  className="hidden"
-                />
-              </label>
-            )}
-          </div>
-        </div>
+        /* --- CABEÇALHO COM IDENTIDADE VISUAL (A marca aparece aqui) --- */
+        .top-banner {
+            background: var(--primary-gradient);
+            padding: 30px 24px 80px 24px; /* Padding bottom extra para o card sobrepor */
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+            color: white;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(79, 172, 254, 0.2);
+        }
 
-        {/* Cashback Promotion Alert */}
-        <Alert className="bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200 rounded-xl">
-          <Sparkles className="h-4 w-4 text-indigo-600" />
-          <AlertDescription className="ml-2">
-            <div className="space-y-1">
-              <h3 className="font-semibold text-indigo-900 text-sm">💰 Cashback Aumenta Faturamento!</h3>
-              <p className="text-xs text-indigo-800">
-                Lojas com cashback registraram aumento de <strong>20% no faturamento</strong> em 3 meses.
-              </p>
-              <div className="flex gap-1 mt-1">
-                <Info className="w-3 h-3 text-indigo-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-indigo-700">
-                  Fonte: SEBRAE 2024
-                </p>
-              </div>
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .user-info h1 { font-size: 1.2rem; font-weight: 600; }
+        .user-info p { font-size: 0.85rem; opacity: 0.9; font-weight: 300; }
+
+        .header-icons i {
+            font-size: 1.2rem;
+            margin-left: 20px;
+            cursor: pointer;
+            opacity: 0.9;
+            transition: opacity 0.2s;
+        }
+        .header-icons i:hover { opacity: 1; }
+
+        /* --- CARD DE RESUMO (GLASSMORPHISM) --- 
+           Este card fica "flutuando" entre o azul e o branco */
+        .summary-container {
+            padding: 0 24px;
+            margin-top: -60px; /* Puxa para cima */
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .money-info span { font-size: 0.85rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .money-info h2 { font-size: 2rem; font-weight: 700; color: var(--text-dark); margin-top: 5px; }
+        
+        .trend-badge {
+            background: rgba(118, 204, 46, 0.15);
+            color: #5ea124;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* --- GRID DE AÇÕES (DESIGN CLEAN) --- */
+        .content-section {
+            padding: 30px 24px 10px 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 15px;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 colunas no PC */
+            gap: 15px;
+        }
+
+        /* Card Branco Simples e Limpo */
+        .action-btn {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border: 1px solid #f1f5f9;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.05);
+        }
+
+        .icon-circle {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+        }
+
+        /* Cores dos ícones para diferenciar visualmente */
+        .bg-blue-light { background: #e0f2fe; color: #0ea5e9; }
+        .bg-green-light { background: #dcfce7; color: #22c55e; }
+        .bg-purple-light { background: #f3e8ff; color: #9333ea; }
+        .bg-orange-light { background: #ffedd5; color: #f97316; }
+
+        .action-label { font-size: 0.8rem; font-weight: 500; color: var(--text-dark); }
+
+        /* --- LISTA RECENTE (ESTILO TABELA CLEAN) --- */
+        .recent-list {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border: 1px solid #f1f5f9;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .list-item:last-child { border-bottom: none; }
+
+        .item-left { display: flex; align-items: center; gap: 12px; }
+        .item-icon { 
+            width: 36px; height: 36px; border-radius: 50%; background: #f1f5f9; 
+            display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 0.9rem;
+        }
+        .item-text h4 { font-size: 0.9rem; font-weight: 600; color: var(--text-dark); }
+        .item-text p { font-size: 0.75rem; color: var(--text-light); }
+        .item-value { font-weight: 600; color: var(--text-dark); font-size: 0.9rem; }
+
+        /* --- MENU FLUTUANTE (DOCK) --- */
+        .dock-container {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 10px 25px;
+            border-radius: 50px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 35px;
+            z-index: 100;
+        }
+
+        .dock-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.7rem;
+            gap: 4px;
+            transition: color 0.2s;
+        }
+        .dock-link.active { color: #0ea5e9; }
+        .dock-link i { font-size: 1.3rem; }
+
+        .btn-caixa {
+            background: var(--accent-green);
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.4rem;
+            margin-top: -40px; /* Efeito saindo do menu */
+            box-shadow: 0 8px 20px rgba(118, 204, 46, 0.4);
+            border: 4px solid var(--bg-neutral); /* Borda da cor do fundo para separar */
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .btn-caixa:hover { transform: scale(1.1); }
+
+        /* Responsividade Mobile */
+        @media (max-width: 768px) {
+            .actions-grid { grid-template-columns: 1fr 1fr; }
+            .summary-container { margin-top: -50px; }
+            .money-info h2 { font-size: 1.8rem; }
+            .dock-container { width: 90%; justify-content: space-around; gap: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Topo Azul (Identidade da Landing Page) -->
+    <header class="top-banner">
+        <div class="header-content">
+            <div class="user-info">
+                <h1>Olá, Alisson</h1>
+                <p>Segunda-feira, 19 de Nov</p>
             </div>
-          </AlertDescription>
-        </Alert>
+            <div class="header-icons">
+                <i class="fas fa-search"></i>
+                <i class="fas fa-bell"></i>
+            </div>
+        </div>
+    </header>
 
-        {/* Dashboard Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          {dashboardCards.map((card, index) => (
-            <Link key={index} to={card.link}>
-              <Card className="group hover:shadow-md transition-all duration-200 cursor-pointer border-0 overflow-hidden h-full bg-white rounded-xl">
-                <div className="p-4">
-                  <div className={`${card.bgColor} w-12 h-12 rounded-xl flex items-center justify-center mb-3 shadow-sm`}>
-                    <card.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-gray-900 text-sm font-semibold mb-1">{card.title}</h3>
-                  {card.badge ? (
-                    <div className="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full inline-block">
-                      {card.badge}
-                    </div>
-                  ) : (
-                    <p className="text-gray-600 text-xs">{card.value}</p>
-                  )}
+    <!-- Card Flutuante (Principal) -->
+    <section class="summary-container">
+        <div class="glass-card">
+            <div class="money-info">
+                <span>Faturamento Hoje</span>
+                <h2>R$ 1.245,00</h2>
+            </div>
+            <div class="trend-badge">
+                <i class="fas fa-arrow-up"></i> 12%
+            </div>
+        </div>
+    </section>
+
+    <!-- Grid de Atalhos (Clean White) -->
+    <section class="content-section">
+        <h3 class="section-title">Acesso Rápido</h3>
+        <div class="actions-grid">
+            <div class="action-btn">
+                <div class="icon-circle bg-blue-light">
+                    <i class="fas fa-receipt"></i>
                 </div>
-              </Card>
-            </Link>
-          ))}
+                <span class="action-label">Vender</span>
+            </div>
+
+            <div class="action-btn">
+                <div class="icon-circle bg-green-light">
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <span class="action-label">Pagar</span>
+            </div>
+
+            <div class="action-btn">
+                <div class="icon-circle bg-purple-light">
+                    <i class="fas fa-users"></i>
+                </div>
+                <span class="action-label">Clientes</span>
+            </div>
+
+            <div class="action-btn">
+                <div class="icon-circle bg-orange-light">
+                    <i class="fas fa-box-open"></i>
+                </div>
+                <span class="action-label">Estoque</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Lista Recente (Organização) -->
+    <section class="content-section">
+        <h3 class="section-title">Últimas Vendas</h3>
+        <div class="recent-list">
+            <!-- Item 1 -->
+            <div class="list-item">
+                <div class="item-left">
+                    <div class="item-icon"><i class="fas fa-shopping-bag"></i></div>
+                    <div class="item-text">
+                        <h4>Maria Silva</h4>
+                        <p>Há 5 minutos • Dinheiro</p>
+                    </div>
+                </div>
+                <span class="item-value text-green">+ R$ 150,00</span>
+            </div>
+            <!-- Item 2 -->
+            <div class="list-item">
+                <div class="item-left">
+                    <div class="item-icon"><i class="fas fa-credit-card"></i></div>
+                    <div class="item-text">
+                        <h4>João Souza</h4>
+                        <p>Há 20 minutos • Pix</p>
+                    </div>
+                </div>
+                <span class="item-value text-green">+ R$ 89,90</span>
+            </div>
+            <!-- Item 3 -->
+            <div class="list-item">
+                <div class="item-left">
+                    <div class="item-icon"><i class="fas fa-credit-card"></i></div>
+                    <div class="item-text">
+                        <h4>Padaria Central</h4>
+                        <p>Há 1 hora • Crédito</p>
+                    </div>
+                </div>
+                <span class="item-value text-green">+ R$ 320,00</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Menu Dock (Navegação) -->
+    <nav class="dock-container">
+        <a href="#" class="dock-link active">
+            <i class="fas fa-home"></i>
+            <span>Início</span>
+        </a>
+        <a href="#" class="dock-link">
+            <i class="fas fa-chart-pie"></i>
+            <span>Relatórios</span>
+        </a>
+        
+        <!-- Botão de Destaque -->
+        <div class="btn-caixa">
+            <i class="fas fa-cash-register"></i>
         </div>
 
-        {/* Settings Button */}
-        <div className="flex justify-center pt-2">
-          <Link to={createPageUrl("Settings")}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-12 h-12 rounded-full bg-white hover:bg-gray-100 shadow-sm border border-gray-200"
-            >
-              <SettingsIcon className="w-5 h-5 text-gray-600" />
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
+        <a href="#" class="dock-link">
+            <i class="fas fa-wallet"></i>
+            <span>Finanças</span>
+        </a>
+        <a href="#" class="dock-link">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </a>
+    </nav>
+
+</body>
+</html>

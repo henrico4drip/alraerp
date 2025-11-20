@@ -1,0 +1,104 @@
+<svg width="720" height="480" viewBox="0 0 720 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="deskGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F5A080"/>
+      <stop offset="1" stop-color="#E38868"/>
+    </linearGradient>
+    <linearGradient id="shelfGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5BB7F5"/>
+      <stop offset="1" stop-color="#3A8FD9"/>
+    </linearGradient>
+    <linearGradient id="coinGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#66BB6A"/>
+      <stop offset="1" stop-color="#2E7D32"/>
+    </linearGradient>
+    <linearGradient id="shadowGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Estante esquerda -->
+  <g transform="translate(460, 60) rotate(-10)">
+    <rect x="0" y="0" width="160" height="220" rx="8" fill="url(#shelfGrad)" opacity="0.9"/>
+    <rect x="18" y="24" width="124" height="20" rx="4" fill="#D9ECFF" opacity="0.85"/>
+    <rect x="18" y="70" width="124" height="20" rx="4" fill="#D9ECFF" opacity="0.85"/>
+    <rect x="18" y="116" width="124" height="20" rx="4" fill="#D9ECFF" opacity="0.85"/>
+    <rect x="18" y="162" width="124" height="20" rx="4" fill="#D9ECFF" opacity="0.85"/>
+    <!-- Caixas / produtos -->
+    <rect x="26" y="50" width="40" height="14" rx="3" fill="#5A8FD6"/>
+    <rect x="72" y="50" width="40" height="14" rx="3" fill="#7FB2F0"/>
+    <rect x="118" y="50" width="24" height="14" rx="3" fill="#5A8FD6"/>
+
+    <rect x="26" y="96" width="30" height="14" rx="3" fill="#7FB2F0"/>
+    <rect x="60" y="96" width="30" height="14" rx="3" fill="#5A8FD6"/>
+    <rect x="94" y="96" width="30" height="14" rx="3" fill="#7FB2F0"/>
+    <rect x="128" y="96" width="14" height="14" rx="3" fill="#5A8FD6"/>
+
+    <rect x="26" y="142" width="24" height="14" rx="3" fill="#5A8FD6"/>
+    <rect x="54" y="142" width="40" height="14" rx="3" fill="#7FB2F0"/>
+    <rect x="100" y="142" width="42" height="14" rx="3" fill="#5A8FD6"/>
+  </g>
+
+  <!-- Balcão (isométrico simples) -->
+  <g transform="translate(310, 250)">
+    <rect x="-160" y="-40" width="220" height="90" rx="10" fill="url(#deskGrad)"/>
+    <!-- Lateral sombra -->
+    <path d="M60 -40 L60 50 L100 70 L100 -18 Z" fill="#D37D60"/>
+    <!-- Topo brilho -->
+    <rect x="-150" y="-48" width="230" height="12" rx="6" fill="#FFD5C4" opacity="0.6"/>
+    <!-- Sombra do balcão -->
+    <ellipse cx="10" cy="94" rx="150" ry="16" fill="#000" opacity="0.12"/>
+  </g>
+
+  <!-- Máquina POS -->
+  <g transform="translate(260, 230)">
+    <rect x="0" y="0" width="70" height="42" rx="6" fill="#0B5C4B"/>
+    <rect x="8" y="8" width="54" height="20" rx="4" fill="#A4E3D2"/>
+    <rect x="10" y="32" width="12" height="6" rx="2" fill="#073C31"/>
+    <rect x="26" y="32" width="12" height="6" rx="2" fill="#073C31"/>
+    <rect x="42" y="32" width="12" height="6" rx="2" fill="#073C31"/>
+  </g>
+
+  <!-- Atendente -->
+  <g transform="translate(210, 140)">
+    <!-- Cabeça -->
+    <circle cx="50" cy="30" r="18" fill="#F7C6A3"/>
+    <!-- Cabelo coque -->
+    <circle cx="62" cy="16" r="10" fill="#6D4C41"/>
+    <path d="M34,28 C44,20 62,20 70,32 C60,24 46,25 34,28 Z" fill="#6D4C41"/>
+    <!-- Corpo -->
+    <path d="M30 54 C32 46 40 40 50 40 C60 40 66 46 68 54 L68 84 L30 84 Z" fill="#FFFFFF"/>
+    <!-- Braço direito -->
+    <path d="M68 60 C78 58 88 60 92 66 C88 70 78 70 72 66 Z" fill="#F7C6A3"/>
+    <!-- Saia / avental -->
+    <rect x="32" y="84" width="34" height="30" rx="6" fill="#EB9B7A"/>
+    <!-- Sombra -->
+    <ellipse cx="50" cy="120" rx="28" ry="8" fill="#000" opacity="0.10"/>
+  </g>
+
+  <!-- Cliente -->
+  <g transform="translate(420, 180)">
+    <!-- Cabeça -->
+    <circle cx="24" cy="24" r="16" fill="#F5C19E"/>
+    <!-- Corpo -->
+    <path d="M8 52 C12 40 20 34 32 34 C44 34 52 40 56 52 L56 86 L8 86 Z" fill="#E46349"/>
+    <!-- Pernas -->
+    <rect x="16" y="86" width="12" height="28" rx="4" fill="#2F3B4A"/>
+    <rect x="36" y="86" width="12" height="28" rx="4" fill="#2F3B4A"/>
+    <!-- Sombra -->
+    <ellipse cx="30" cy="118" rx="28" ry="8" fill="#000" opacity="0.10"/>
+  </g>
+
+  <!-- Moedas / cashback -->
+  <g transform="translate(380, 210)">
+    <circle cx="0" cy="0" r="18" fill="url(#coinGrad)"/>
+    <circle cx="36" cy="-18" r="12" fill="url(#coinGrad)" opacity="0.9"/>
+    <circle cx="22" cy="22" r="10" fill="url(#coinGrad)" opacity="0.85"/>
+    <!-- Símbolo de real estilizado -->
+    <path d="M-4 -4 L 6 -4 M 1 -12 L 1 10" stroke="#E8F5E9" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+
+  <!-- Sombra geral suave sob personagens -->
+  <rect x="160" y="260" width="430" height="24" fill="url(#shadowGrad)" opacity="0.6"/>
+</svg>

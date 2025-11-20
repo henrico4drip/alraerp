@@ -23,6 +23,7 @@ import CashierPayment from './pages/CashierPayment'
 import { CashierProvider } from './context/CashierContext'
 import Payments from './pages/Payments'
 import { base44 } from './api/base44Client'
+import LandingPage from './pages/Landing'
 
 const queryClient = new QueryClient()
 
@@ -72,7 +73,8 @@ function RequireSubscription({ children }) {
       const testEmails = String(import.meta.env.VITE_TEST_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
       if (adminEmails.includes(email) || testEmails.includes(email)) { setAllowed(true); return }
       try {
-        const res = await fetch(`http://localhost:4242/subscription-status?email=${encodeURIComponent(email)}`)
+        const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
+        const res = await fetch(`${API}/subscription-status?email=${encodeURIComponent(email)}`)
         const json = await res.json()
         if (!cancelled) setAllowed(Boolean(json?.active))
       } catch {
@@ -97,7 +99,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route
               path="/"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Dashboard"><Dashboard /></Layout></RequireSubscription></RequireAuth>}
+              element={<LandingPage />}
             />
             <Route
               path="/dashboard"
