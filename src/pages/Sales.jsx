@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { Search, Filter, Plus, FileText, Download, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { format } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function Sales() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -11,6 +13,16 @@ export default function Sales() {
     queryKey: ['sales'],
     queryFn: () => base44.entities.Sale.list('-created_date'),
     initialData: [],
+  });
+  const { data: settings = [] } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => base44.entities.Settings.list(),
+    initialData: [],
+  });
+  const queryClient = useQueryClient();
+  const updateSaleMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Sale.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries(['sales']); setShowEdit(false); setEditSale(null); }
   });
   const paymentMethodColors = {
     "Dinheiro": "bg-green-100 text-green-800 border-green-200",
@@ -24,6 +36,35 @@ export default function Sales() {
     if (!q) return true;
     const text = `${s?.sale_number ?? ''} ${s?.customer_name ?? ''}`.toLowerCase();
     return text.includes(q);
+  });
+
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [invoiceSale, setInvoiceSale] = useState(null);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editSale, setEditSale] = useState(null);
+  const [editForm, setEditForm] = useState({ customer_name: '', payment_method: '', total_amount: 0 });
+  const [showConfirmDeleteSale, setShowConfirmDeleteSale] = useState(false);
+  const [confirmDeleteSaleId, setConfirmDeleteSaleId] = useState(null);
+
+  const handleOpenInvoice = (sale) => { setInvoiceSale(sale); setShowInvoice(true); };
+  const handleOpenEdit = (sale) => {
+    setEditSale(sale);
+    setEditForm({
+      customer_name: sale.customer_name || '',
+      payment_method: sale.payment_method || '',
+      total_amount: Number(sale.total_amount || 0),
+    });
+    setShowEdit(true);
+  };
+  const handleSubmitEdit = (e) => {
+    e.preventDefault();
+    if (!editSale) return;
+    updateSaleMutation.mutate({ id: editSale.id, data: editForm });
+  };
+
+  const deleteSaleMutation = useMutation({
+    mutationFn: (id) => base44.entities.Sale.delete(id),
+    onSuccess: () => { queryClient.invalidateQueries(['sales']); setShowConfirmDeleteSale(false); setConfirmDeleteSaleId(null); }
   });
 
   return (
@@ -97,13 +138,13 @@ export default function Sales() {
                     <div className="text-[12px] font-semibold text-emerald-600">{(sale.gross_profit || sale.profit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
                   </div>
                   <div className="flex items-center justify-end gap-2">
-                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-amber-50 text-amber-600 border border-amber-200">
+                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-amber-50 text-amber-600 border border-amber-200" onClick={() => handleOpenInvoice(sale)}>
                       <FileText className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-blue-50 text-blue-600 border border-blue-200">
+                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenEdit(sale)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setShowConfirmDeleteSale(true); }}>
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>
@@ -125,13 +166,13 @@ export default function Sales() {
                     <div className="text-[12px] font-semibold text-emerald-600">{(sale.gross_profit || sale.profit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
                   </div>
                   <div className="mt-2 flex items-center justify-end gap-2">
-                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-amber-50 text-amber-600 border border-amber-200">
+                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-amber-50 text-amber-600 border border-amber-200" onClick={() => handleOpenInvoice(sale)}>
                       <FileText className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-blue-50 text-blue-600 border border-blue-200">
+                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenEdit(sale)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setShowConfirmDeleteSale(true); }}>
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>
@@ -140,6 +181,98 @@ export default function Sales() {
             ))}
           </div>
         </div>
+        {/* Dialog: Nota Fiscal */}
+        <Dialog open={showInvoice} onOpenChange={setShowInvoice}>
+          <DialogContent className="sm:max-w-lg rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Nota Fiscal</DialogTitle>
+            </DialogHeader>
+            {invoiceSale && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Número</p>
+                    <p className="text-sm font-semibold text-gray-900">{invoiceSale.sale_number || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Data</p>
+                    <p className="text-sm text-gray-800">{invoiceSale.sale_date ? format(new Date(invoiceSale.sale_date), 'dd/MM/yyyy HH:mm') : '-'}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Cliente</p>
+                  <p className="text-sm font-semibold text-gray-900">{invoiceSale.customer_name || 'AVULSO'}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Pagamento</p>
+                    <p className="text-sm text-gray-800">{invoiceSale.payment_method || '-'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Faturado</p>
+                    <p className="text-sm font-semibold text-gray-900">{(invoiceSale.total_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Cashback (%)</p>
+                    <p className="text-sm text-gray-800">{Number(settings?.[0]?.cashback_percentage || 0).toLocaleString('pt-BR')}%</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Cashback ganho</p>
+                    <p className="text-sm font-semibold text-emerald-600">{(((invoiceSale.total_amount || 0) * Number(settings?.[0]?.cashback_percentage || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+                <div className="pt-3 flex flex-wrap gap-2 justify-end">
+                  <Button variant="outline" className="rounded-xl" onClick={() => window.print()}>Imprimir</Button>
+                  <Button variant="outline" className="rounded-xl">Baixar PDF</Button>
+                  <Button variant="outline" className="rounded-xl">Enviar por e-mail</Button>
+                  <Button className="rounded-xl" onClick={() => setShowInvoice(false)}>Fechar</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog: Editar Venda */}
+        <Dialog open={showEdit} onOpenChange={setShowEdit}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Editar Venda</DialogTitle>
+            </DialogHeader>
+            {editSale && (
+              <form className="space-y-3" onSubmit={handleSubmitEdit}>
+                <div>
+                  <p className="text-xs text-gray-500">Cliente</p>
+                  <input className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editForm.customer_name} onChange={(e) => setEditForm({ ...editForm, customer_name: e.target.value })} />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Pagamento</p>
+                  <input className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editForm.payment_method} onChange={(e) => setEditForm({ ...editForm, payment_method: e.target.value })} />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Faturado</p>
+                  <input type="number" step="0.01" className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editForm.total_amount} onChange={(e) => setEditForm({ ...editForm, total_amount: Number(e.target.value) })} />
+                </div>
+                <div className="pt-2 flex gap-2 justify-end">
+                  <Button variant="outline" className="rounded-xl" type="button" onClick={() => { setShowEdit(false); setEditSale(null); }}>Cancelar</Button>
+                  <Button className="rounded-xl" type="submit">Salvar</Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <ConfirmDialog
+          open={showConfirmDeleteSale}
+          onOpenChange={setShowConfirmDeleteSale}
+          title="Excluir venda"
+          description="Tem certeza que deseja excluir esta venda?"
+          confirmText="Excluir"
+          cancelText="Cancelar"
+          destructive
+          onConfirm={() => { if (confirmDeleteSaleId != null) deleteSaleMutation.mutate(confirmDeleteSaleId) }}
+        />
       </div>
     </div>
   );
