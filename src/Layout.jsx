@@ -122,7 +122,7 @@ export default function Layout({ children, currentPageName }) {
   const itemPercent = 100 / bottomNavItems.length;
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="min-h-screen bg-white flex overflow-x-hidden">
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-50 bg-white shadow-lg transition-transform duration-300 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -183,7 +183,7 @@ export default function Layout({ children, currentPageName }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-[#3490c7] border-b border-[#3490c7] sticky top-0 z-30 shadow-sm w-[calc(100%-7px)] mx-auto">
+        <header className="bg-[#3490c7] border-b border-[#3490c7] sticky top-0 z-30 shadow-sm w-full">
           <div className="w-full px-1.5 sm:px-4 py-1 sm:py-1.5 flex items-center justify-between text-white">
             <div className="flex items-center gap-2 md:gap-3">
               <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline">
