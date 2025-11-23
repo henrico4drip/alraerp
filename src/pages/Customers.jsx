@@ -192,10 +192,10 @@ export default function Customers() {
                     </p>
                   </div>
                   <div className="text-right tabular-nums">
-                  <Badge className="bg-[#3490c7] text-white rounded-lg">
-                    <Wallet className="w-3 h-3 mr-1" />
-                    <span className="tabular-nums">R$ {(customer.cashback_balance || 0).toFixed(2)}</span>
-                  </Badge>
+                    <Badge className="rounded-lg" style={{ backgroundColor: '#3490c7', color: '#fff' }}>
+                      <Wallet className="w-3 h-3 mr-1" />
+                      <span className="tabular-nums">R$ {(customer.cashback_balance || 0).toFixed(2)}</span>
+                    </Badge>
                   </div>
                   <div className="text-right tabular-nums">
                     <p className="font-semibold text-green-600 text-sm">R$ {(customer.total_spent || 0).toFixed(2)}</p>
@@ -223,7 +223,7 @@ export default function Customers() {
                   <div className="flex items-center gap-2 min-w-0">
                     <Users className="w-5 h-5 text-pink-600" />
                     <p className="font-medium text-sm text-gray-900 truncate flex-1">{customer.name}</p>
-                    <Badge className="bg-[#3490c7] text-white rounded-lg">
+                    <Badge className="rounded-lg" style={{ backgroundColor: '#3490c7', color: '#fff' }}>
                       <Wallet className="w-3 h-3 mr-1" /> R$ {(customer.cashback_balance || 0).toFixed(2)}
                     </Badge>
                   </div>
