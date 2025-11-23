@@ -137,7 +137,7 @@ export default function Customers() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8 overflow-x-hidden">
+    <div className="min-h-screen max-w-[100vw] bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8 overflow-x-hidden">
       <div className="mx-auto max-w-full sm:max-w-7xl">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -168,7 +168,7 @@ export default function Customers() {
           </select>
         </div>
 
-        <div className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="w-full shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="hidden lg:grid grid-cols-[1.5fr_1.5fr_140px_120px_100px_140px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
             <div>CLIENTE</div>
             <div>CONTATO</div>
