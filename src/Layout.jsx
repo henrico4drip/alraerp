@@ -183,9 +183,9 @@ export default function Layout({ children, currentPageName }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-[#3490c7] border-b border-[#3490c7] sticky top-0 z-30 shadow-sm w-full">
+        <header className="bg-[#3490c7] border-b border-[#3490c7] sticky top-0 z-30 shadow-sm w-full overflow-visible">
           <div className="w-full px-1.5 sm:px-4 py-1 sm:py-1.5 flex items-center justify-between text-white">
-            <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
               <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline">
                 <span className="text-sm sm:text-base md:text-lg tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.6rem', fontWeight: 300 }}>erp+</span></span>
               </Link>
@@ -204,7 +204,7 @@ export default function Layout({ children, currentPageName }) {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-2 md:gap-3 shrink-0">
               <div className="hidden sm:flex items-center gap-2">
                 {(!isStandalone && installAvailable) && (
                   <Button
