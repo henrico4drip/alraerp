@@ -162,7 +162,7 @@ export default function Customers() {
           />
         </div>
         <div className="mb-4">
-          <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className="rounded-xl border-gray-300 p-2">
+          <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className="w-full sm:w-auto rounded-xl border-gray-300 p-2 text-sm">
             <option value="default">Ordenação padrão</option>
             <option value="cashback_expiry">Vencimento de cashback (mais próximo primeiro)</option>
           </select>
