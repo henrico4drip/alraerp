@@ -105,7 +105,7 @@ export default function Sales() {
             <div>NÚMERO</div>
             <div>CLIENTE <span className="ml-2 text-[10px] font-normal text-gray-400">VENDEDOR</span></div>
             <div>PAGAMENTO</div>
-            <div className="text-right">FATURADO <span className="ml-2 text-[10px] font-normal text-gray-400">LUCRO BRUTO</span></div>
+            <div className="text-right">FATURADO <span className="ml-2 text-[10px] font-normal text-gray-400">CASHBACK</span></div>
             <div className="flex items-center justify-end gap-2"></div>
           </div>
           <div className="divide-y divide-gray-100">
@@ -135,7 +135,7 @@ export default function Sales() {
                   </div>
                   <div className="text-right leading-tight tabular-nums">
                     <div className="text-[12px] font-semibold text-gray-600">{(sale.total_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                    <div className="text-[12px] font-semibold text-emerald-600">{(sale.gross_profit || sale.profit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                    <div className="text-[12px] font-semibold text-emerald-600">{(((sale.total_amount || 0) * Number(settings?.[0]?.cashback_percentage || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
                   </div>
                   <div className="flex items-center justify-end gap-2">
                     <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-amber-50 text-amber-600 border border-amber-200" onClick={() => handleOpenInvoice(sale)}>
@@ -163,7 +163,7 @@ export default function Sales() {
                   </div>
                   <div className="mt-1 flex items-center justify-between">
                     <div className="text-[12px] font-semibold text-gray-600">{(sale.total_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                    <div className="text-[12px] font-semibold text-emerald-600">{(sale.gross_profit || sale.profit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                    <div className="text-[12px] font-semibold text-emerald-600">{(((sale.total_amount || 0) * Number(settings?.[0]?.cashback_percentage || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
                   </div>
                   <div className="mt-2 flex items-center justify-end gap-2">
                     <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-amber-50 text-amber-600 border border-amber-200" onClick={() => handleOpenInvoice(sale)}>
