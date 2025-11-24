@@ -70,7 +70,9 @@ function RequireSubscription({ children }) {
     const run = async () => {
       if (!user?.email) { setAllowed(false); return }
       const email = String(user.email || '').toLowerCase()
-      const adminEmails = String(import.meta.env.VITE_ADMIN_EMAILS || 'admin@erp.local').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+      const builtinAdmins = ['admin@erp.local', 'henrico.pierdona@gmail.com']
+      const envAdmins = String(import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+      const adminEmails = Array.from(new Set([...builtinAdmins, ...envAdmins]))
       const testEmails = String(import.meta.env.VITE_TEST_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
       if (adminEmails.includes(email) || testEmails.includes(email)) { setAllowed(true); return }
       try {

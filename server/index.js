@@ -95,6 +95,34 @@ app.post('/create-portal-session', async (req, res) => {
   }
 })
 
+app.post('/create-portal-session-by-email', async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: { message: 'Stripe not configured' } })
+    const email = String((req.body || {}).email || '').trim().toLowerCase()
+    if (!email) return res.status(400).json({ error: { message: 'email required' } })
+
+    let customer = null
+    try {
+      const search = await stripe.customers.search({ query: `email:'${email}'` })
+      customer = search?.data?.[0] || null
+    } catch (_) {
+      const list = await stripe.customers.list({ limit: 50 })
+      customer = (list?.data || []).find(c => (c.email || '').toLowerCase() === email) || null
+    }
+    if (!customer) return res.status(404).json({ error: { message: 'customer not found' } })
+
+    const FRONTEND = getFrontendOrigin(req)
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customer.id,
+      return_url: `${FRONTEND}/settings`,
+    })
+    res.json({ url: session.url })
+  } catch (err) {
+    console.error('Portal by email error:', err)
+    res.status(400).json({ error: { message: err.message } })
+  }
+})
+
 // Create one-time Payment Checkout (Pix/Boleto/Card) for non-recurring access
 app.post('/create-payment-session', async (req, res) => {
   try {

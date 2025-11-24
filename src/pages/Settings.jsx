@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useAuth } from '@/auth/AuthContext'
 import { base44 } from '@/api/base44Client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
 export default function Settings() {
+  const { user } = useAuth()
   const [settings, setSettings] = useState(null)
   const [erpName, setErpName] = useState('')
   const [cashbackPercentage, setCashbackPercentage] = useState(5)
@@ -85,6 +87,44 @@ export default function Settings() {
     } catch (err) {
       console.error('Falha ao salvar configurações:', err)
       alert(`Não foi possível salvar: ${err?.message || 'erro desconhecido'}`)
+    }
+  }
+
+  const manageSubscription = async () => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
+      const res = await fetch(`${API}/create-portal-session-by-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email || contactEmail }),
+      })
+      const json = await res.json()
+      if (json?.url) {
+        window.location.href = json.url
+      } else {
+        alert('Não foi possível abrir o portal de assinatura')
+      }
+    } catch (err) {
+      alert('Erro ao abrir o portal de assinatura')
+    }
+  }
+
+  const upgradePlan = async () => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
+      const res = await fetch(`${API}/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: 'annual', user_id: user?.id || undefined }),
+      })
+      const json = await res.json()
+      if (json?.url) {
+        window.location.href = json.url
+      } else {
+        alert('Não foi possível iniciar o upgrade')
+      }
+    } catch (err) {
+      alert('Erro ao iniciar o upgrade')
     }
   }
 
@@ -235,6 +275,16 @@ export default function Settings() {
 
             <div className="flex justify-end">
               <Button onClick={save} className="rounded-xl">Salvar Configurações</Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div className="space-y-2">
+                <Label>Assinatura</Label>
+                <div className="flex gap-2">
+                  <Button onClick={manageSubscription} className="rounded-xl">Cancelar/Alterar Assinatura</Button>
+                  <Button onClick={upgradePlan} className="rounded-xl">Upgrade para Anual</Button>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
