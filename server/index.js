@@ -9,7 +9,21 @@ app.use(express.json())
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const PUBLISHABLE_KEY = process.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
-const APP_URL = process.env.APP_URL || 'http://localhost:5174'
+const APP_URL = process.env.APP_URL || ''
+
+function getFrontendOrigin(req) {
+  if (APP_URL) return APP_URL
+  const origin = req.headers.origin
+  if (origin) return origin
+  const referer = req.headers.referer || req.headers.referrer
+  if (referer) {
+    try {
+      const u = new URL(referer)
+      return `${u.protocol}//${u.host}`
+    } catch (_) {}
+  }
+  return 'http://localhost:5174'
+}
 
 // Health
 app.get('/health', (req, res) => {
@@ -35,6 +49,7 @@ app.post('/create-checkout-session', async (req, res) => {
     // Métodos suportados para assinaturas: cartão (inclui Apple Pay/Google Pay quando elegível)
     const payment_method_types = ['card']
 
+    const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types,
@@ -50,8 +65,8 @@ app.post('/create-checkout-session', async (req, res) => {
         },
       ],
       metadata: user_id ? { user_id } : undefined,
-      success_url: `${APP_URL}/billing?status=success`,
-      cancel_url: `${APP_URL}/billing?status=cancel`,
+      success_url: `${FRONTEND}/dashboard`,
+      cancel_url: `${FRONTEND}/billing?status=cancel`,
     })
 
     res.json({ id: session.id, url: session.url })
@@ -68,9 +83,10 @@ app.post('/create-portal-session', async (req, res) => {
     const { customerId } = req.body || {}
     if (!customerId) return res.status(400).json({ error: { message: 'customerId required' } })
 
+    const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${APP_URL}/settings`,
+      return_url: `${FRONTEND}/settings`,
     })
     res.json({ url: session.url })
   } catch (err) {
@@ -88,6 +104,7 @@ app.post('/create-payment-session', async (req, res) => {
     const amount = isAnnual ? 45984 : 4790 // centavos BRL
     const productName = isAnnual ? 'ERP Plano Anual (Pagamento Avulso)' : 'ERP Plano Mensal (Pagamento Avulso)'
 
+    const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card', 'boleto', 'pix'],
@@ -102,8 +119,8 @@ app.post('/create-payment-session', async (req, res) => {
         },
       ],
       metadata: user_id ? { user_id, plan } : { plan },
-      success_url: `${APP_URL}/billing?status=success`,
-      cancel_url: `${APP_URL}/billing?status=cancel`,
+      success_url: `${FRONTEND}/dashboard`,
+      cancel_url: `${FRONTEND}/billing?status=cancel`,
     })
 
     res.json({ id: session.id, url: session.url })
