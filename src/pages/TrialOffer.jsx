@@ -56,32 +56,32 @@ export default function TrialOffer() {
       <div className={`w-full max-w-5xl ${styles.glassContainer}`}>
         <div className="flex flex-col md:flex-row">
           <div className="p-8 md:p-12 md:w-3/5 flex flex-col justify-center">
-            <div className="inline-block bg-[#76cc2e]/20 border border-[#76cc2e]/50 rounded-full px-4 py-1 text-sm font-bold text-white mb-6 w-max">🚀 Acesso Total Liberado</div>
+            <div className="inline-block bg-[#3490c7]/20 border border-[#3490c7]/50 rounded-full px-4 py-1 text-sm font-bold text-white mb-6 w-max">🚀 Acesso Total Liberado</div>
             <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">Experimente tudo.<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-100">Pague zero agora.</span></h1>
             <p className="text-white/90 text-lg mb-10 font-light leading-relaxed">Você tem <strong>7 dias de teste grátis</strong> para usar o sistema completo. Emita notas, gerencie estoque e fidelize clientes. Sem compromisso.</p>
             <div className="grid grid-cols-1 gap-6 mb-10">
               <div className="flex items-start gap-4">
-                <div className="min-w-[50px] h-[50px] bg-white rounded-xl flex items-center justify-center text-[#76cc2e] text-xl shadow-md"><i className="fas fa-chart-line"></i></div>
+                <div className="min-w-[50px] h-[50px] bg-white rounded-xl flex items-center justify-center text-[#3490c7] text-xl shadow-md"><i className="fas fa-chart-line"></i></div>
                 <div><h3 className="font-bold text-lg">Controle Financeiro Total</h3><p className="text-white/70 text-sm">Visualize seu lucro real e fluxo de caixa em tempo real.</p></div>
               </div>
               <div className="flex items-start gap-4">
-                <div className="min-w-[50px] h-[50px] bg-white rounded-xl flex items-center justify-center text-[#76cc2e] text-xl shadow-md"><i className="fas fa-qrcode"></i></div>
+                <div className="min-w-[50px] h-[50px] bg-white rounded-xl flex items-center justify-center text-[#3490c7] text-xl shadow-md"><i className="fas fa-qrcode"></i></div>
                 <div><h3 className="font-bold text-lg">Emissão Fiscal Ilimitada</h3><p className="text-white/70 text-sm">NFC-e e NF-e emitidas em segundos, sem burocracia.</p></div>
               </div>
               <div className="flex items-start gap-4">
-                <div className="min-w-[50px] h-[50px] bg-white rounded-xl flex items-center justify-center text-[#76cc2e] text-xl shadow-md"><i className="fas fa-gift"></i></div>
+                <div className="min-w-[50px] h-[50px] bg-white rounded-xl flex items-center justify-center text-[#3490c7] text-xl shadow-md"><i className="fas fa-gift"></i></div>
                 <div><h3 className="font-bold text-lg">Cashback Integrado</h3><p className="text-white/70 text-sm">A ferramenta nº 1 para fazer o cliente voltar à sua loja.</p></div>
               </div>
             </div>
           </div>
           <div className="bg-white/10 backdrop-blur-md md:w-2/5 p-8 md:p-12 flex flex-col justify-center items-center text-center border-l border-white/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#76cc2e] rounded-full filter blur-[100px] opacity-20 pointer-events-none"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#3490c7] rounded-full filter blur-[100px] opacity-20 pointer-events-none"></div>
             <h2 className="text-2xl font-bold mb-2 relative z-10">Comece seus 7 dias grátis</h2>
             <p className="text-white/70 text-sm mb-8 relative z-10">Nenhuma cobrança será feita hoje.</p>
             <div className="w-full bg-white/5 rounded-2xl p-6 mb-8 border border-white/10 relative z-10">
               <div className="flex justify-between text-sm mb-3 border-b border-white/10 pb-3"><span className="opacity-70">Hoje</span><span className="font-bold">R$ 0,00</span></div>
               <div className="flex justify-between text-sm"><span className="opacity-70">Após 7 dias</span><span className="font-bold">R$ 47,90/mês</span></div>
-              <div className="mt-4 text-xs text-center text-[#76cc2e] bg-[#76cc2e]/10 py-1 rounded"><i className="fas fa-bell mr-1"></i> Enviaremos um lembrete antes de cobrar.</div>
+              <div className="mt-4 text-xs text-center text-[#3490c7] bg-[#3490c7]/10 py-1 rounded"><i className="fas fa-bell mr-1"></i> Enviaremos um lembrete antes de cobrar.</div>
             </div>
             <button onClick={handleStartTrial} className={`${styles.btnPrimary} relative z-10`}>Liberar Meu Acesso <i className="fas fa-arrow-right ml-2"></i></button>
             <p className="mt-6 text-xs text-white/50 relative z-10"><i className="fas fa-lock mr-1"></i> Ambiente seguro. Cancele a qualquer momento nas configurações.</p>
