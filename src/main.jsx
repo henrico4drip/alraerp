@@ -87,7 +87,7 @@ function RequireSubscription({ children }) {
   }, [user])
 
   if (allowed === null) return null
-  if (!allowed) return <Navigate to="/billing" replace />
+  if (!allowed) return <Navigate to="/trial" replace />
   return children
 }
 
