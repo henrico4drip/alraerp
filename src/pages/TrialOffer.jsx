@@ -81,7 +81,7 @@ export default function TrialOffer() {
             <div className="w-full bg-white/5 rounded-2xl p-6 mb-8 border border-white/10 relative z-10">
               <div className="flex justify-between text-sm mb-3 border-b border-white/10 pb-3"><span className="opacity-70">Hoje</span><span className="font-bold">R$ 0,00</span></div>
               <div className="flex justify-between text-sm"><span className="opacity-70">Após 7 dias</span><span className="font-bold">R$ 47,90/mês</span></div>
-              <div className="mt-4 text-xs text-center text-[#3490c7] bg-[#3490c7]/10 py-1 rounded"><i className="fas fa-bell mr-1"></i> Enviaremos um lembrete antes de cobrar.</div>
+              <div className="mt-4 text-xs text-center text-white bg-[#3490c7]/10 py-1 rounded"><i className="fas fa-bell mr-1"></i> Enviaremos um lembrete antes de cobrar.</div>
             </div>
             <button onClick={handleStartTrial} className={`${styles.btnPrimary} relative z-10`}>Liberar Meu Acesso <i className="fas fa-arrow-right ml-2"></i></button>
             <p className="mt-6 text-xs text-white/50 relative z-10"><i className="fas fa-lock mr-1"></i> Ambiente seguro. Cancele a qualquer momento nas configurações.</p>
