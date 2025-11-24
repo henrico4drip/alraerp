@@ -41,11 +41,7 @@ export default function Login() {
     setLoading(true)
     try {
       const res = await signUp(email.trim(), password)
-      if (res?.session) {
-        navigate('/billing', { replace: true })
-      } else {
-        setInfo('Conta criada. Verifique seu e-mail para confirmar e depois faça login.')
-      }
+      navigate('/trial', { replace: true })
     } catch (err) {
       setError(err?.message || 'Erro ao criar conta')
     } finally {

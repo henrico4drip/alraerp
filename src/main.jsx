@@ -17,6 +17,7 @@ import Marketing from './pages/stubs/Marketing'
 import Settings from './pages/Settings'
 import Billing from './pages/Billing'
 import Login from './pages/Login'
+import TrialOffer from './pages/TrialOffer'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import CashierProducts from './pages/CashierProducts'
 import CashierPayment from './pages/CashierPayment'
@@ -144,6 +145,10 @@ function App() {
             <Route
               path="/billing"
               element={<RequireAuth><Billing /></RequireAuth>}
+            />
+            <Route
+              path="/trial"
+              element={<RequireAuth><TrialOffer /></RequireAuth>}
             />
             <Route
               path="/payments"

@@ -130,6 +130,44 @@ app.post('/create-payment-session', async (req, res) => {
   }
 })
 
+// Create Checkout Session for subscription with free trial
+app.post('/create-trial-session', async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: { message: 'Stripe not configured' } })
+    const { plan = 'monthly', user_id } = req.body || {}
+    const isAnnual = plan === 'annual'
+    const amount = isAnnual ? 45984 : 4790
+    const productName = isAnnual ? 'ERP Plano Anual (Trial 7 dias)' : 'ERP Plano Mensal (Trial 7 dias)'
+    const interval = isAnnual ? 'year' : 'month'
+
+    const FRONTEND = getFrontendOrigin(req)
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'brl',
+            unit_amount: amount,
+            product_data: { name: productName },
+            recurring: { interval },
+          },
+          quantity: 1,
+        },
+      ],
+      subscription_data: { trial_period_days: 7 },
+      metadata: user_id ? { user_id, trial: '7d' } : { trial: '7d' },
+      success_url: `${FRONTEND}/dashboard`,
+      cancel_url: `${FRONTEND}/billing?status=cancel`,
+    })
+
+    res.json({ id: session.id, url: session.url })
+  } catch (err) {
+    console.error('Stripe trial error:', err)
+    res.status(400).json({ error: { message: err.message } })
+  }
+})
+
 // Check subscription status by email (active subscription exists)
 app.get('/subscription-status', async (req, res) => {
   try {
@@ -149,9 +187,9 @@ app.get('/subscription-status', async (req, res) => {
 
     if (!customer) return res.json({ active: false, customerFound: false })
 
-    const subs = await stripe.subscriptions.list({ customer: customer.id, status: 'active', limit: 3 })
-    const active = Array.isArray(subs?.data) && subs.data.length > 0
-    res.json({ active, customerFound: true })
+    const subsAll = await stripe.subscriptions.list({ customer: customer.id, status: 'all', limit: 5 })
+    const hasAllowed = Array.isArray(subsAll?.data) && subsAll.data.some(s => ['active', 'trialing'].includes(String(s.status)))
+    res.json({ active: hasAllowed, customerFound: true })
   } catch (err) {
     console.error('Subscription status error:', err)
     res.status(400).json({ error: { message: err.message } })
