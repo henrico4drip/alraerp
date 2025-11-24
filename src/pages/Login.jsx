@@ -1,12 +1,20 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/auth/AuthContext'
+import { supabase } from '@/api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 
 export default function Login() {
-  const { login, signUp } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('admin@erp.local')
-  const [password, setPassword] = useState('123456')
+  const { user, login, signUp } = useAuth()
+
+  useEffect(() => {
+    if (user) navigate('/dashboard')
+  }, [user, navigate])
+
+  
+  
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -43,6 +51,12 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
+  }
+  const oauthLogin = async (provider) => {
+    if (!supabase) return
+    const redirectTo = `${window.location.origin}/dashboard`
+    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } })
+    if (error) setError(error.message || 'Falha no login social')
   }
 
   return (
@@ -81,14 +95,14 @@ export default function Login() {
         <div className="login-card">
           <div className="logo">alra <span>erp+</span></div>
           <p className="subtitle">Bem-vindo de volta!</p>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} autoComplete="off">
             <div className="input-group">
               <i className="fas fa-envelope"></i>
-              <input type="email" className="input-field" placeholder="Seu e-mail" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <input type="email" className="input-field" placeholder="Seu e-mail" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
             </div>
             <div className="input-group">
               <i className="fas fa-lock"></i>
-              <input type="password" className="input-field" placeholder="Sua senha" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <input type="password" className="input-field" placeholder="Sua senha" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
             </div>
             <div className="form-options">
               <label className="remember-me"><input type="checkbox" /> Lembrar de mim</label>
@@ -100,9 +114,9 @@ export default function Login() {
           {info && <div style={{ color: '#ddffdd', marginTop: 10, fontSize: '0.9rem' }}>{info}</div>}
           <div className="divider">ou continue com</div>
           <div className="social-icons">
-            <div className="social-btn" title="Google"><i className="fab fa-google"></i></div>
-            <div className="social-btn" title="Facebook"><i className="fab fa-facebook-f"></i></div>
-            <div className="social-btn" title="Apple"><i className="fab fa-apple"></i></div>
+            <div className="social-btn" title="Google" onClick={() => oauthLogin('google')}><i className="fab fa-google"></i></div>
+            <div className="social-btn" title="Facebook" onClick={() => oauthLogin('facebook')}><i className="fab fa-facebook-f"></i></div>
+            <div className="social-btn" title="Apple" onClick={() => oauthLogin('apple')}><i className="fab fa-apple"></i></div>
           </div>
           <div className="card-footer">Não tem uma conta? <a href="#" onClick={handleSignUp}>Cadastre-se agora</a></div>
         </div>
