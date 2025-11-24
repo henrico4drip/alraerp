@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Plus, Edit, Trash2 } from "lucide-react";
+import { Package, Plus, Edit, Trash2, Printer } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import PrintLabelsModal from "@/components/PrintLabelsModal";
 
 export default function Inventory() {
   const [showDialog, setShowDialog] = useState(false);
@@ -28,6 +29,7 @@ export default function Inventory() {
   });
   const [showConfirmDeleteProduct, setShowConfirmDeleteProduct] = useState(false);
   const [confirmDeleteProductId, setConfirmDeleteProductId] = useState(null);
+  const [showPrintLabelsModal, setShowPrintLabelsModal] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -139,13 +141,23 @@ export default function Inventory() {
             <h1 className="text-3xl font-bold text-gray-900">Estoque</h1>
             <p className="text-gray-500 mt-1">Gerencie seus produtos</p>
           </div>
-          <Button
-            onClick={() => handleOpenDialog()}
-            className="bg-blue-600 hover:bg-blue-700 rounded-xl"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Produto
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowPrintLabelsModal(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+              disabled={products.length === 0}
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Imprimir Etiquetas
+            </Button>
+            <Button
+              onClick={() => handleOpenDialog()}
+              className="bg-blue-600 hover:bg-blue-700 rounded-xl"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Produto
+            </Button>
+          </div>
         </div>
 
         <div className="mb-4 md:mb-6">
@@ -327,6 +339,12 @@ export default function Inventory() {
               deleteMutation.mutate(confirmDeleteProductId);
             }
           }}
+        />
+
+        <PrintLabelsModal
+          products={products}
+          open={showPrintLabelsModal}
+          onOpenChange={setShowPrintLabelsModal}
         />
       </div>
     </div>
