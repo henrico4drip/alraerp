@@ -65,7 +65,7 @@ app.post('/create-checkout-session', async (req, res) => {
         },
       ],
       metadata: user_id ? { user_id } : undefined,
-      success_url: `${FRONTEND}/dashboard`,
+      success_url: `${FRONTEND}/dashboard?status=success`,
       cancel_url: `${FRONTEND}/billing?status=cancel`,
     })
 
@@ -147,7 +147,7 @@ app.post('/create-payment-session', async (req, res) => {
         },
       ],
       metadata: user_id ? { user_id, plan } : { plan },
-      success_url: `${FRONTEND}/dashboard`,
+      success_url: `${FRONTEND}/dashboard?status=success`,
       cancel_url: `${FRONTEND}/billing?status=cancel`,
     })
 
@@ -185,7 +185,7 @@ app.post('/create-trial-session', async (req, res) => {
       ],
       subscription_data: { trial_period_days: 7 },
       metadata: user_id ? { user_id, trial: '7d' } : { trial: '7d' },
-      success_url: `${FRONTEND}/dashboard`,
+      success_url: `${FRONTEND}/dashboard?status=success`,
       cancel_url: `${FRONTEND}/billing?status=cancel`,
     })
 
