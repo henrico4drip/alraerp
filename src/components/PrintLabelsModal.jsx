@@ -190,7 +190,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
 
             {/* Área de Pré-visualização (escondida na tela, mas usada para impressão) */}
             <div className="border p-2 rounded-xl bg-gray-100 max-h-96 overflow-y-auto">
-              <div className="flex flex-wrap gap-2 justify-center" style={{ display: 'flex' }}>
+              <div className="flex flex-wrap justify-center" style={{ display: 'flex', gap: `${Math.max(1, margins.left/5)}mm` }}>
                 {labelsToPrint.slice(0, 10).map((product, index) => {
                   const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
                   return (
@@ -207,7 +207,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
 
             {/* Componente de Impressão Real (escondido na tela) */}
             <div style={{ display: 'none' }}>
-              <div ref={printRef} className="flex flex-wrap gap-2">
+              <div ref={printRef} className="flex flex-wrap" style={{ gap: `${Math.max(1, margins.left/5)}mm` }}>
                 {labelsToPrint.map((product, index) => {
                   const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
                   return (

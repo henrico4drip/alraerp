@@ -13,10 +13,11 @@ const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30
   return (
     <div
       ref={ref}
-      className="p-2 border border-gray-300 bg-white"
+      className="border border-gray-300 bg-white"
       style={{
         width,
         height,
+        padding: '3mm',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -30,18 +31,18 @@ const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30
       {/* Cabeçalho: nome e preço */}
       <div style={{ width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ textAlign: 'left', fontWeight: 'bold', fontSize: '10px', lineHeight: '1.1', maxWidth: '60%', overflow: 'hidden' }}>
+          <div style={{ textAlign: 'left', fontWeight: 'bold', fontSize: '11px', lineHeight: '1.1', maxWidth: '60%', overflow: 'hidden' }}>
             {(product.name || 'PRODUTO SEM NOME').toUpperCase()}
           </div>
           {showPrice && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{formattedPrice}</div>
+              <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{formattedPrice}</div>
               {parcelas > 1 && (() => {
                 const perInstallment = (product.price || 0) / parcelas
                 const formattedInstallment = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(perInstallment)
-                return <div style={{ fontSize: '9px' }}>{parcelas}x {formattedInstallment}</div>
+                return <div style={{ fontSize: '10px' }}>{parcelas}x {formattedInstallment}</div>
               })()}
-              <div style={{ fontSize: '8px', color: '#444' }}>{typeLabel}</div>
+              <div style={{ fontSize: '9px', color: '#444' }}>{typeLabel}</div>
             </div>
           )}
         </div>
@@ -61,7 +62,7 @@ const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30
             value={product.barcode}
             format="CODE128"
             width={1}
-            height={20}
+            height={22}
             displayValue={showNumbers}
             fontSize={8}
             textMargin={0}
