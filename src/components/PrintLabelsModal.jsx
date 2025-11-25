@@ -205,8 +205,8 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
               </div>
             </div>
 
-            {/* Componente de Impressão Real (escondido na tela) */}
-            <div style={{ display: 'none' }}>
+            {/* Componente de Impressão Real (fora de vista, mas com layout calculado) */}
+            <div style={{ position: 'absolute', left: '-10000px', top: '-10000px' }}>
               <div ref={printRef} className="flex flex-wrap" style={{ gap: `${Math.max(1, margins.left/5)}mm` }}>
                 {labelsToPrint.map((product, index) => {
                   const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
