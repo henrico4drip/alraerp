@@ -58,7 +58,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
     .filter(p => selectedProducts.includes(p.id))
     .flatMap(product => {
       const count = quantities[product.id] || 1;
-      return Array(count).fill(product);
+      return Array.from({ length: count }, (_, i) => ({ ...product, __labelCopy: i }));
     });
 
   const handlePrint = useReactToPrint({
