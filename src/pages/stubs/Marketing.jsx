@@ -68,15 +68,15 @@ export default function Marketing(){
               <Link to={createPageUrl('Reports')} className="text-white/90 underline text-[12px]">Ver Relatório</Link>
             </div>
 
-            {/* Liquid Glass overlay directly over the content */}
-            <div className="absolute inset-0 z-30 rounded-2xl border border-white/25 bg-white/12 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] p-8 sm:p-12 text-white flex items-center justify-center text-center">
+            {/* Liquid Glass overlay directly over the content (translucent, full height) */}
+            <div className="absolute inset-0 z-30 rounded-2xl border border-black/10 bg-white/35 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] p-8 sm:p-12 text-black flex items-center justify-center text-center">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-white/90">
+                <div className="w-12 h-12 bg-white/50 rounded-xl flex items-center justify-center text-black/80">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M13 3l-2 2 6 6 2-2-6-6zm-9 9l-1 6 6-1 9-9-5-5-9 9z"/></svg>
                 </div>
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-semibold">Estamos construindo esta página</h2>
-                  <p className="text-white/80 text-sm sm:text-base mt-1">Em breve, recursos de Marketing e fidelização ficarão disponíveis aqui.</p>
+                  <p className="text-black/70 text-sm sm:text-base mt-1">Em breve, recursos de Marketing e fidelização ficarão disponíveis aqui.</p>
                 </div>
               </div>
             </div>
