@@ -22,6 +22,10 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
   const [margins, setMargins] = useState({ top: 5, right: 5, bottom: 5, left: 5 }); // mm
   const [parcelas, setParcelas] = useState(0);
   const [typeLabel, setTypeLabel] = useState('UNIDADE');
+  const [showPrice, setShowPrice] = useState(true)
+  const [showBarcode, setShowBarcode] = useState(true)
+  const [showNumbers, setShowNumbers] = useState(true)
+  const [labelSize, setLabelSize] = useState({ w: 70, h: 42.42 })
 
   // Resetar estados ao abrir/fechar
   React.useEffect(() => {
@@ -127,6 +131,11 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
               <Input type="text" value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)} className="rounded-xl h-9" />
             </div>
             <div className="grid grid-cols-4 gap-2">
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} /> Preço</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showBarcode} onChange={(e) => setShowBarcode(e.target.checked)} /> Código de barras</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showNumbers} onChange={(e) => setShowNumbers(e.target.checked)} /> Números</label>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
               <div>
                 <Label className="text-xs">Margem superior (mm)</Label>
                 <Input type="number" value={margins.top} onChange={(e) => setMargins({ ...margins, top: parseFloat(e.target.value || 0) })} className="rounded-xl h-9" />
@@ -142,6 +151,16 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
               <div>
                 <Label className="text-xs">Margem esquerda (mm)</Label>
                 <Input type="number" value={margins.left} onChange={(e) => setMargins({ ...margins, left: parseFloat(e.target.value || 0) })} className="rounded-xl h-9" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Largura etiqueta (mm)</Label>
+                <Input type="number" value={labelSize.w} onChange={(e) => setLabelSize({ ...labelSize, w: parseFloat(e.target.value || 0) })} className="rounded-xl h-9" />
+              </div>
+              <div>
+                <Label className="text-sm">Altura etiqueta (mm)</Label>
+                <Input type="number" value={labelSize.h} onChange={(e) => setLabelSize({ ...labelSize, h: parseFloat(e.target.value || 0) })} className="rounded-xl h-9" />
               </div>
             </div>
             <div className="flex justify-between items-center">
@@ -160,9 +179,9 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
             <div className="border p-2 rounded-xl bg-gray-100 max-h-96 overflow-y-auto">
               <div className="flex flex-wrap gap-2 justify-center" style={{ display: 'flex' }}>
                 {labelsToPrint.slice(0, 10).map((product, index) => {
-                  const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: '70mm', h: '35mm' };
+                  const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
                   return (
-                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} />
+                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} showPrice={showPrice} showBarcode={showBarcode} showNumbers={showNumbers} />
                   )
                 })}
                 {labelsToPrint.length > 10 && (
@@ -177,9 +196,9 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
             <div style={{ display: 'none' }}>
               <div ref={printRef} className="flex flex-wrap gap-2">
                 {labelsToPrint.map((product, index) => {
-                  const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: '70mm', h: '35mm' };
+                  const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
                   return (
-                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} />
+                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} showPrice={showPrice} showBarcode={showBarcode} showNumbers={showNumbers} />
                   )
                 })}
               </div>
