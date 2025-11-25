@@ -85,15 +85,18 @@ export default function Layout({ children, currentPageName }) {
   fetchSettings();
 
   useEffect(() => {
+    const media = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(display-mode: standalone)') : null;
     const updateStandalone = () => {
-      const standalone = (typeof window !== 'undefined' && (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)) || (typeof navigator !== 'undefined' && navigator.standalone === true);
+      const standalone = (media && media.matches) || (typeof navigator !== 'undefined' && navigator.standalone === true);
       setIsStandalone(Boolean(standalone));
+      if (standalone) { setInstallAvailable(false); setInstallPrompt(null); }
     };
     updateStandalone();
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setInstallAvailable(true); };
     window.addEventListener('beforeinstallprompt', handler);
     const onAppInstalled = () => { setInstallAvailable(false); setInstallPrompt(null); setIsStandalone(true); };
     window.addEventListener('appinstalled', onAppInstalled);
+    if (media && media.addEventListener) media.addEventListener('change', updateStandalone);
     return () => { window.removeEventListener('beforeinstallprompt', handler); window.removeEventListener('appinstalled', onAppInstalled); };
   }, []);
 
@@ -220,7 +223,7 @@ export default function Layout({ children, currentPageName }) {
                 {(!isStandalone && (installAvailable || swActive)) && (
                   <Button
                     variant="secondary"
-                    className="px-2 sm:px-3 py-1.5 h-7 rounded-lg bg白/20 hover:bg白/30 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
+                    className="px-2 sm:px-3 py-1.5 h-7 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
                     onClick={async () => {
                       if (installPrompt) {
                         await installPrompt.prompt();
