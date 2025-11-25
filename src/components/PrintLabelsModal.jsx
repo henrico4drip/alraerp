@@ -26,6 +26,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
   const [showBarcode, setShowBarcode] = useState(true)
   const [showNumbers, setShowNumbers] = useState(true)
   const [labelSize, setLabelSize] = useState({ w: 70, h: 42.42 })
+  const [query, setQuery] = useState('')
 
   // Resetar estados ao abrir/fechar
   React.useEffect(() => {
@@ -82,8 +83,20 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Coluna de Seleção de Produtos */}
           <div className="space-y-3 max-h-96 overflow-y-auto p-2 border rounded-xl">
-            <h3 className="font-semibold text-sm sticky top-0 bg-white p-1 border-b">Produtos ({products.length})</h3>
-            {products.map((product) => (
+            <h3 className="font-semibold text-sm sticky top-0 bg-white p-1 border-b">Produtos</h3>
+            <div className="sticky top-8 bg-white pb-2">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar por nome, código ou categoria"
+                className="rounded-xl h-8"
+              />
+            </div>
+            {(products.filter(p =>
+              (p.name || '').toLowerCase().includes(query.toLowerCase()) ||
+              (p.barcode || '').toLowerCase().includes(query.toLowerCase()) ||
+              (p.category || '').toLowerCase().includes(query.toLowerCase())
+            )).map((product) => (
               <div key={product.id} className="flex items-center justify-between p-2 border rounded-lg hover:bg-gray-50">
                 <div className="flex items-center gap-2">
                   <input
