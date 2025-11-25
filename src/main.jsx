@@ -79,7 +79,11 @@ function RequireSubscription({ children }) {
         const params = new URLSearchParams(window.location.search)
         const status = params.get('status')
         const localSub = window.localStorage.getItem('subscribed')
-        if (status === 'success' || localSub === 'true') { setAllowed(true); return }
+        if (status === 'success') {
+          try { window.localStorage.setItem('subscribed', 'true') } catch {}
+          setAllowed(true); return
+        }
+        if (localSub === 'true') { setAllowed(true); return }
       } catch {}
       try {
         const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
