@@ -87,9 +87,21 @@ function RequireSubscription({ children }) {
       } catch {}
       try {
         const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
-        const res = await fetch(`${API}/subscription-status?email=${encodeURIComponent(email)}`)
-        const json = await res.json()
-        if (!cancelled) setAllowed(Boolean(json?.active))
+        let ok = false
+        try {
+          const res = await fetch(`${API}/subscription-status?email=${encodeURIComponent(email)}`)
+          const json = await res.json()
+          ok = Boolean(json?.active)
+        } catch {}
+        if (!ok) {
+          try {
+            const alt = `${window.location.origin}/subscription-status?email=${encodeURIComponent(email)}`
+            const res2 = await fetch(alt)
+            const json2 = await res2.json()
+            ok = Boolean(json2?.active)
+          } catch {}
+        }
+        if (!cancelled) setAllowed(ok)
       } catch {
         if (!cancelled) setAllowed(false)
       }
