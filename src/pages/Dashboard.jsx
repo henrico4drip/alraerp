@@ -9,6 +9,7 @@ import {
   DollarSign, 
   Users, 
   TrendingUp,
+  Zap,
   Settings as SettingsIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -127,6 +128,17 @@ export default function Dashboard() {
   ];
 
   const currentSnippet = snippets[snippetIndex] || snippets[0];
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const monthSales = (sales || []).filter(s => s?.sale_date && new Date(s.sale_date) >= startOfMonth);
+  const monthlyTotal = monthSales.reduce((acc, s) => acc + Number(s.total_amount || 0), 0);
+  const monthCustomerCounts = monthSales.reduce((m, s) => {
+    const key = (s.customer_name || 'AVULSO');
+    m[key] = (m[key] || 0) + 1;
+    return m;
+  }, {});
+  const monthUniqueCustomers = Object.keys(monthCustomerCounts).length;
+  const monthRepeatCustomers = Object.values(monthCustomerCounts).filter(c => c > 1).length;
+  const retentionPercent = monthUniqueCustomers > 0 ? Math.round((monthRepeatCustomers / monthUniqueCustomers) * 100) : 0;
 
   return (
     <div className="bg-white p-4 w-full">
@@ -190,29 +202,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className={`flex justify-center mt-3 mb-6 transform translate-y-[35px] transition-opacity duration-500 ${showNotif ? 'opacity-100' : 'opacity-0'}`}>
-        <div
-          className="bg-gray-50 border border-gray-200 rounded-lg shadow-sm text-gray-700 w-full mx-auto sm:max-w-[560px] max-w-[320px]"
-          style={{ fontSize: 'clamp(10px, 1.2vw, 12px)', padding: 'clamp(8px, 1.2vw, 12px) clamp(12px, 2vw, 16px)' }}
-        >
-          <div className="overflow-hidden">
-            <div
-              className="flex transition-transform duration-500 ease-out"
-              style={{ transform: `translateX(-${snippetIndex * 100}%)` }}
-            >
-              {snippets.map((sn, idx) => (
-                <div key={idx} className="min-w-full">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center sm:gap-2 text-center">
-                    <span className="font-medium text-gray-800">Cashback ativo {settings?.cashback_percentage ?? 0}%.</span>
-                    <span className="sm:ml-1">{sn.text}</span>
-                    <a href={sn.url} target="_blank" rel="noopener noreferrer" className="mt-1 sm:mt-0 sm:ml-2 text-[11px] text-gray-500 underline">{sn.source}</a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Card de marketing movido para a página Marketing */}
 
     </div>
   );
