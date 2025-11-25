@@ -43,6 +43,8 @@ export default function Layout({ children, currentPageName }) {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installAvailable, setInstallAvailable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [swActive, setSwActive] = useState(false);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
   // Campos adicionais do formulário de tarefas
   const [taskDesc, setTaskDesc] = useState("");
   const [taskTime, setTaskTime] = useState("");
@@ -93,6 +95,15 @@ export default function Layout({ children, currentPageName }) {
     const onAppInstalled = () => { setInstallAvailable(false); setInstallPrompt(null); setIsStandalone(true); };
     window.addEventListener('appinstalled', onAppInstalled);
     return () => { window.removeEventListener('beforeinstallprompt', handler); window.removeEventListener('appinstalled', onAppInstalled); };
+  }, []);
+
+  useEffect(() => {
+    const updateSw = () => {
+      try { setSwActive(Boolean(navigator.serviceWorker && navigator.serviceWorker.controller)); } catch { setSwActive(false); }
+    };
+    updateSw();
+    if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', updateSw);
+    return () => { if (navigator.serviceWorker) navigator.serviceWorker.removeEventListener('controllerchange', updateSw); };
   }, []);
 
   const allNavItems = [
@@ -206,11 +217,19 @@ export default function Layout({ children, currentPageName }) {
 
             <div className="flex items-center gap-2 md:gap-3 shrink-0">
               <div className="hidden sm:flex items-center gap-2">
-                {(!isStandalone && installAvailable) && (
+                {(!isStandalone && (installAvailable || swActive)) && (
                   <Button
                     variant="secondary"
-                    className="px-2 sm:px-3 py-1.5 h-7 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
-                    onClick={async () => { if (installPrompt) { await installPrompt.prompt(); try { await installPrompt.userChoice; } catch {} setInstallPrompt(null); setInstallAvailable(false); } }}
+                    className="px-2 sm:px-3 py-1.5 h-7 rounded-lg bg白/20 hover:bg白/30 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
+                    onClick={async () => {
+                      if (installPrompt) {
+                        await installPrompt.prompt();
+                        try { await installPrompt.userChoice; } catch {}
+                        setInstallPrompt(null); setInstallAvailable(false);
+                      } else {
+                        setShowInstallHelp(true);
+                      }
+                    }}
                   >
                     <Download className="w-5 h-5" /> <span className="hidden sm:inline">INSTALAR</span>
                   </Button>
@@ -264,6 +283,25 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </div>
         </header>
+        {showInstallHelp && (
+          <Dialog open={showInstallHelp} onOpenChange={setShowInstallHelp}>
+            <DialogContent className="sm:max-w-[420px] rounded-xl">
+              <DialogHeader>
+                <DialogTitle>Instalar como App</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-gray-700">
+                Para instalar, use o navegador:
+              </p>
+              <ul className="mt-2 text-sm text-gray-600 list-disc pl-4 space-y-1">
+                <li>Chrome/Edge (Desktop/Mobile): clique no ícone de instalar na barra de endereço ou use o menu ⋮ → Adicionar à tela inicial.</li>
+                <li>Safari (iPhone/iPad): toque em Compartilhar → Adicionar à Tela de Início.</li>
+              </ul>
+              <div className="flex justify-end pt-4">
+                <Button variant="outline" className="rounded-xl" onClick={() => setShowInstallHelp(false)}>Fechar</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Main Content */}
         <main className={isDashboard ? 'flex-1 flex items-center justify-center min-h-[calc(100vh-112px-64px)] pb-20' : 'flex-1 pb-20'}>
