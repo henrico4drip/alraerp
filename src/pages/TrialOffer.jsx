@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/auth/AuthContext'
 
 export default function TrialOffer() {
   const navigate = useNavigate()
+  const { logout } = useAuth()
 
   useEffect(() => {
     const linkFont = document.createElement('link')
@@ -50,7 +52,7 @@ export default function TrialOffer() {
     <div className="flex flex-col items-center justify-center p-4 md:p-8" style={styles.gradientBg}>
       <div className="w-full max-w-6xl flex justify-between items-center mb-10 px-4">
         <div className="text-2xl font-bold">alra<span className="text-sm font-light align-top ml-0.5">erp+</span></div>
-        <button onClick={() => navigate('/login')} className="text-white/80 hover:text-white font-medium">Sair</button>
+        <button onClick={async () => { await logout(); navigate('/login', { replace: true }) }} className="text-white/80 hover:text-white font-medium">Sair</button>
       </div>
 
       <div className={`w-full max-w-5xl ${styles.glassContainer}`}>
