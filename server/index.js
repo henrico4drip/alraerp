@@ -4,12 +4,12 @@ import Stripe from 'stripe'
 
 const app = express()
 app.use(cors())
-app.use(express.json())
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const PUBLISHABLE_KEY = process.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
 const APP_URL = process.env.APP_URL || ''
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 
 function getFrontendOrigin(req) {
   if (APP_URL) return APP_URL
@@ -228,3 +228,41 @@ const PORT = process.env.PORT || 4242
 app.listen(PORT, () => {
   console.log(`Stripe server listening on http://localhost:${PORT}`)
 })
+// Stripe Webhook (must read raw body)
+app.post('/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  try {
+    if (!stripe) return res.status(500).send('Stripe not configured')
+    if (!STRIPE_WEBHOOK_SECRET) return res.status(500).send('Webhook secret not configured')
+    const signature = req.headers['stripe-signature']
+    let event
+    try {
+      event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET)
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err?.message)
+      return res.status(400).send(`Webhook Error: ${err?.message}`)
+    }
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+        case 'invoice.payment_succeeded':
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+          // No state to update locally; frontend queries Stripe live.
+          break
+        default:
+          break
+      }
+      res.json({ received: true })
+    } catch (err) {
+      console.error('Webhook handler error:', err?.message)
+      res.status(500).send('Webhook handler failed')
+    }
+  } catch (err) {
+    res.status(500).send('Server error')
+  }
+})
+
+// Enable JSON body parsing for other routes
+app.use(express.json())
