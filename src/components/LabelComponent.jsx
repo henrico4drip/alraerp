@@ -3,7 +3,7 @@ import Barcode from 'react-barcode';
 
 // Componente para renderizar uma única etiqueta
 // O layout é simples: Nome, Preço e Código de Barras
-const LabelComponent = React.forwardRef(({ product }, ref) => {
+const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30mm', parcelas = 0 }, ref) => {
   // Formatação de preço para Real Brasileiro
   const formattedPrice = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -15,8 +15,8 @@ const LabelComponent = React.forwardRef(({ product }, ref) => {
       ref={ref}
       className="p-2 border border-gray-300 bg-white"
       style={{
-        width: '50mm', // Largura típica de etiqueta térmica (50mm)
-        height: '30mm', // Altura típica de etiqueta térmica (30mm)
+        width,
+        height,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -36,12 +36,15 @@ const LabelComponent = React.forwardRef(({ product }, ref) => {
       <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000' }}>
         {formattedPrice}
       </div>
+      {parcelas > 1 && (
+        <div style={{ fontSize: '9px', color: '#333' }}>em {parcelas}x</div>
+      )}
 
       {/* Código de Barras */}
       {product.barcode ? (
         <Barcode
           value={product.barcode}
-          format="CODE128" // Formato comum para códigos de barras
+          format="CODE128"
           width={1}
           height={20}
           displayValue={false} // Não exibe o número abaixo do código, economizando espaço

@@ -18,6 +18,9 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
   const printRef = useRef();
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [quantities, setQuantities] = useState({});
+  const [sheetType, setSheetType] = useState('58mm'); // '58mm' | '88mm' | 'A4'
+  const [margins, setMargins] = useState({ top: 5, right: 5, bottom: 5, left: 5 }); // mm
+  const [parcelas, setParcelas] = useState(0);
 
   // Resetar estados ao abrir/fechar
   React.useEffect(() => {
@@ -55,7 +58,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
     documentTitle: 'Etiquetas de Produtos',
-    pageStyle: '@page { size: auto; margin: 0mm; } @media print { body { margin: 0mm; } }',
+    pageStyle: `@page { size: auto; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }`
   });
 
   return (
@@ -104,6 +107,38 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
 
           {/* Coluna de Pré-visualização e Ação */}
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Tipo de folha</Label>
+                <select className="w-full border rounded-xl h-9" value={sheetType} onChange={(e) => setSheetType(e.target.value)}>
+                  <option value="58mm">58mm térmica</option>
+                  <option value="88mm">88mm térmica</option>
+                  <option value="A4">A4 (laser/jato)</option>
+                </select>
+              </div>
+              <div>
+                <Label className="text-sm">Parcelas na etiqueta</Label>
+                <Input type="number" min="0" value={parcelas} onChange={(e) => setParcelas(parseInt(e.target.value || 0))} className="rounded-xl h-9" />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <Label className="text-xs">Margem superior (mm)</Label>
+                <Input type="number" value={margins.top} onChange={(e) => setMargins({ ...margins, top: parseFloat(e.target.value || 0) })} className="rounded-xl h-9" />
+              </div>
+              <div>
+                <Label className="text-xs">Margem direita (mm)</Label>
+                <Input type="number" value={margins.right} onChange={(e) => setMargins({ ...margins, right: parseFloat(e.target.value || 0) })} className="rounded-xl h-9" />
+              </div>
+              <div>
+                <Label className="text-xs">Margem inferior (mm)</Label>
+                <Input type="number" value={margins.bottom} onChange={(e) => setMargins({ ...margins, bottom: parseFloat(e.target.value || 0) })} className="rounded-xl h-9" />
+              </div>
+              <div>
+                <Label className="text-xs">Margem esquerda (mm)</Label>
+                <Input type="number" value={margins.left} onChange={(e) => setMargins({ ...margins, left: parseFloat(e.target.value || 0) })} className="rounded-xl h-9" />
+              </div>
+            </div>
             <div className="flex justify-between items-center">
               <h3 className="font-semibold text-sm">Pré-visualização ({labelsToPrint.length} etiquetas)</h3>
               <Button
@@ -119,9 +154,11 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
             {/* Área de Pré-visualização (escondida na tela, mas usada para impressão) */}
             <div className="border p-2 rounded-xl bg-gray-100 max-h-96 overflow-y-auto">
               <div className="flex flex-wrap gap-2 justify-center" style={{ display: 'flex' }}>
-                {labelsToPrint.slice(0, 10).map((product, index) => (
-                  <LabelComponent key={index} product={product} />
-                ))}
+                {labelsToPrint.slice(0, 10).map((product, index) => {
+                  const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: '70mm', h: '35mm' };
+                return (
+                  <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} />
+                )})}
                 {labelsToPrint.length > 10 && (
                     <div className="text-center text-gray-500 text-sm p-4 w-full">
                         ... e mais {labelsToPrint.length - 10} etiquetas.
@@ -133,9 +170,12 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
             {/* Componente de Impressão Real (escondido na tela) */}
             <div style={{ display: 'none' }}>
               <div ref={printRef} className="flex flex-wrap gap-2">
-                {labelsToPrint.map((product, index) => (
-                  <LabelComponent key={index} product={product} />
-                ))}
+                {labelsToPrint.map((product, index) => {
+                  const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: '70mm', h: '35mm' };
+                  return (
+                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} />
+                  )
+                })}
               </div>
             </div>
           </div>

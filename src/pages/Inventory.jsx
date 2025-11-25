@@ -113,6 +113,16 @@ export default function Inventory() {
       stock: parseInt(formData.stock || 0),
     };
 
+    const generateEAN13 = () => {
+      const digits = Array.from({ length: 12 }, () => Math.floor(Math.random() * 10));
+      const sum = digits.reduce((acc, d, i) => acc + d * (i % 2 === 0 ? 1 : 3), 0);
+      const check = (10 - (sum % 10)) % 10;
+      return [...digits, check].join('');
+    };
+    if (!data.barcode || String(data.barcode).trim().length < 8) {
+      data.barcode = generateEAN13();
+    }
+
     try {
       if (editingProduct) {
         await updateMutation.mutateAsync({ id: editingProduct.id, data });
