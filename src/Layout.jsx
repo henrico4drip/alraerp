@@ -197,7 +197,7 @@ export default function Layout({ children, currentPageName }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-[#3490c7] border-b border-[#3490c7] sticky top-0 z-30 shadow-sm w-full overflow-visible">
+        <header className="bg-[#3490c7] border-b border-[#3490c7] fixed top-0 left-0 right-0 z-30 shadow-sm w-full overflow-visible">
           <div className="w-full px-1.5 sm:px-4 py-1 sm:py-1.5 flex items-center justify-between text-white">
             <div className="flex flex-wrap items-center gap-2 md:gap-3">
               <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline">
@@ -286,6 +286,8 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </div>
         </header>
+        {/* Spacer to avoid content being hidden under fixed header */}
+        <div className="h-12 sm:h-14"></div>
         {showInstallHelp && (
           <Dialog open={showInstallHelp} onOpenChange={setShowInstallHelp}>
             <DialogContent className="sm:max-w-[420px] rounded-xl">
