@@ -63,6 +63,8 @@ const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30
             width={1}
             height={20}
             displayValue={showNumbers}
+            fontSize={8}
+            textMargin={0}
             margin={0}
             marginTop={2}
             renderer="svg"
