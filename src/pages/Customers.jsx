@@ -37,6 +37,8 @@ export default function Customers() {
   const [cashbackCustomer, setCashbackCustomer] = useState(null);
   const [showConfirmDeleteCustomer, setShowConfirmDeleteCustomer] = useState(false);
   const [confirmDeleteCustomerId, setConfirmDeleteCustomerId] = useState(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -136,6 +138,51 @@ export default function Customers() {
     setShowCashbackDialog(true);
   };
 
+  const downloadTemplateCSV = () => {
+    const headers = ['name','phone','email','cpf']
+    const content = headers.join(',') + '\n'
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'clientes_template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  const exportCSV = () => {
+    const headers = ['name','phone','email','cpf']
+    const rows = customers.map(c => [c.name||'', c.phone||'', c.email||'', c.cpf||''])
+    const content = [headers, ...rows].map(r => r.map(v => String(v).replace(/"/g,'""')).join(',')).join('\n')
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'clientes_export.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  const importCSV = async (file) => {
+    if (!file) return
+    const text = await file.text()
+    const lines = text.split(/\r?\n/).filter(Boolean)
+    if (lines.length === 0) return
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+    const idx = (name) => headers.indexOf(name)
+    for (let i=1;i<lines.length;i++) {
+      const cols = lines[i].split(',')
+      const payload = {
+        name: cols[idx('name')] || '',
+        phone: cols[idx('phone')] || '',
+        email: cols[idx('email')] || '',
+        cpf: cols[idx('cpf')] || '',
+      }
+      if (payload.name) {
+        try { await createMutation.mutateAsync(payload) } catch {}
+      }
+    }
+    setShowImportDialog(false)
+  }
+
   return (
     <div className="min-h-screen max-w-[100vw] bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8 overflow-x-hidden">
       <div className="mx-auto max-w-full sm:max-w-7xl">
@@ -144,13 +191,17 @@ export default function Customers() {
             <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
             <p className="text-gray-500 mt-1">Gerencie seu programa de cashback</p>
           </div>
-          <Button
-            onClick={() => handleOpenDialog()}
-            className="bg-pink-600 hover:bg-pink-700 rounded-xl"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Cliente
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowImportDialog(true)} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">Importar</Button>
+            <Button onClick={() => setShowExportDialog(true)} className="rounded-xl bg-slate-600 hover:bg-slate-700">Exportar</Button>
+            <Button
+              onClick={() => handleOpenDialog()}
+              className="bg-pink-600 hover:bg-pink-700 rounded-xl"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Cliente
+            </Button>
+          </div>
         </div>
 
         <div className="mb-6">
@@ -364,6 +415,39 @@ export default function Customers() {
             }
           }}
         />
+
+        {/* Import/Export Dialogs */}
+        <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+          <DialogContent className="sm:max-w-lg rounded-2xl">
+            <DialogHeader><DialogTitle>Importar clientes</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Card className="rounded-xl border border-gray-200">
+                <CardHeader><CardTitle className="text-sm">Arquivo CSV</CardTitle></CardHeader>
+                <CardContent>
+                  <input type="file" accept="text/csv,.csv" onChange={(e) => importCSV(e.target.files?.[0])} />
+                  <p className="text-[11px] text-gray-500 mt-2">Campos: name, phone, email, cpf</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-xl border border-gray-200">
+                <CardHeader><CardTitle className="text-sm">Modelo</CardTitle></CardHeader>
+                <CardContent>
+                  <Button className="rounded-xl" onClick={downloadTemplateCSV}>Baixar modelo CSV</Button>
+                </CardContent>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader><DialogTitle>Exportar clientes</DialogTitle></DialogHeader>
+            <Card className="rounded-xl border border-gray-200">
+              <CardContent>
+                <Button className="rounded-xl" onClick={exportCSV}>Exportar CSV</Button>
+              </CardContent>
+            </Card>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

@@ -30,6 +30,8 @@ export default function Inventory() {
   const [showConfirmDeleteProduct, setShowConfirmDeleteProduct] = useState(false);
   const [confirmDeleteProductId, setConfirmDeleteProductId] = useState(null);
   const [showPrintLabelsModal, setShowPrintLabelsModal] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -152,6 +154,8 @@ export default function Inventory() {
             <p className="text-gray-500 mt-1">Gerencie seus produtos</p>
           </div>
           <div className="flex gap-2">
+            <Button onClick={() => setShowImportDialog(true)} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">Importar</Button>
+            <Button onClick={() => setShowExportDialog(true)} className="rounded-xl bg-slate-600 hover:bg-slate-700">Exportar</Button>
             <Button
               onClick={() => setShowPrintLabelsModal(true)}
               className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
@@ -356,6 +360,83 @@ export default function Inventory() {
           open={showPrintLabelsModal}
           onOpenChange={setShowPrintLabelsModal}
         />
+
+        {/* Import/Export Dialogs */}
+        <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+          <DialogContent className="sm:max-w-lg rounded-2xl">
+            <DialogHeader><DialogTitle>Importar produtos</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Card className="rounded-xl border border-gray-200">
+                <CardHeader><CardTitle className="text-sm">Arquivo CSV</CardTitle></CardHeader>
+                <CardContent>
+                  <input type="file" accept="text/csv,.csv" onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    const text = await file.text()
+                    const lines = text.split(/\r?\n/).filter(Boolean)
+                    if (lines.length === 0) return
+                    const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+                    const idx = (name) => headers.indexOf(name)
+                    for (let i=1;i<lines.length;i++) {
+                      const cols = lines[i].split(',')
+                      const payload = {
+                        name: cols[idx('name')] || '',
+                        barcode: cols[idx('barcode')] || '',
+                        price: parseFloat(cols[idx('price')] || 0),
+                        cost: parseFloat(cols[idx('cost')] || 0),
+                        stock: parseInt(cols[idx('stock')] || 0, 10),
+                        category: cols[idx('category')] || '',
+                      }
+                      if (payload.name) {
+                        try { await createMutation.mutateAsync(payload) } catch {}
+                      }
+                    }
+                    setShowImportDialog(false)
+                  }} />
+                  <p className="text-[11px] text-gray-500 mt-2">Campos: name, barcode, price, cost, stock, category</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-xl border border-gray-200">
+                <CardHeader><CardTitle className="text-sm">Modelo</CardTitle></CardHeader>
+                <CardContent>
+                  <Button className="rounded-xl" onClick={() => {
+                    const headers = ['name','barcode','price','cost','stock','category']
+                    const content = headers.join(',') + '\n'
+                    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'produtos_template.csv'
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  }}>Baixar modelo CSV</Button>
+                </CardContent>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader><DialogTitle>Exportar produtos</DialogTitle></DialogHeader>
+            <Card className="rounded-xl border border-gray-200">
+              <CardContent>
+                <Button className="rounded-xl" onClick={() => {
+                  const headers = ['name','barcode','price','cost','stock','category']
+                  const rows = products.map(p => [p.name||'', p.barcode||'', p.price??'', p.cost??'', p.stock??'', p.category||''])
+                  const content = [headers, ...rows].map(r => r.map(v => String(v).replace(/"/g,'""')).join(',')).join('\n')
+                  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'produtos_export.csv'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}>Exportar CSV</Button>
+              </CardContent>
+            </Card>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
