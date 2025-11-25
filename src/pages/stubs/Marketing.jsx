@@ -32,7 +32,18 @@ export default function Marketing(){
 
   return (
     <div className="p-4 w-full">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="rounded-2xl border border-white/30 bg-white/10 backdrop-blur-xl shadow-2xl p-6 text-white" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06))' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/25 rounded-xl flex items-center justify-center text-white/90">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M13 3l-2 2 6 6 2-2-6-6zm-9 9l-1 6 6-1 9-9-5-5-9 9z"/></svg>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Estamos construindo esta página</h2>
+              <p className="text-white/80 text-sm">Em breve, recursos de Marketing e fidelização ficarão disponíveis aqui.</p>
+            </div>
+          </div>
+        </div>
         <div
           className="relative w-full rounded-2xl shadow-md"
           style={{
