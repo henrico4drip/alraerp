@@ -21,6 +21,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
   const [sheetType, setSheetType] = useState('58mm'); // '58mm' | '88mm' | 'A4'
   const [margins, setMargins] = useState({ top: 5, right: 5, bottom: 5, left: 5 }); // mm
   const [parcelas, setParcelas] = useState(0);
+  const [typeLabel, setTypeLabel] = useState('UNIDADE');
 
   // Resetar estados ao abrir/fechar
   React.useEffect(() => {
@@ -121,6 +122,10 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
                 <Input type="number" min="0" value={parcelas} onChange={(e) => setParcelas(parseInt(e.target.value || 0))} className="rounded-xl h-9" />
               </div>
             </div>
+            <div>
+              <Label className="text-sm">Tipo na etiqueta (ex.: UNIDADE)</Label>
+              <Input type="text" value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)} className="rounded-xl h-9" />
+            </div>
             <div className="grid grid-cols-4 gap-2">
               <div>
                 <Label className="text-xs">Margem superior (mm)</Label>
@@ -156,9 +161,10 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
               <div className="flex flex-wrap gap-2 justify-center" style={{ display: 'flex' }}>
                 {labelsToPrint.slice(0, 10).map((product, index) => {
                   const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: '70mm', h: '35mm' };
-                return (
-                  <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} />
-                )})}
+                  return (
+                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} />
+                  )
+                })}
                 {labelsToPrint.length > 10 && (
                     <div className="text-center text-gray-500 text-sm p-4 w-full">
                         ... e mais {labelsToPrint.length - 10} etiquetas.
@@ -173,7 +179,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
                 {labelsToPrint.map((product, index) => {
                   const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: '70mm', h: '35mm' };
                   return (
-                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} />
+                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} />
                   )
                 })}
               </div>
