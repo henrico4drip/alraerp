@@ -4,7 +4,7 @@ import { useAuth } from '@/auth/AuthContext'
 
 export default function Billing() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
@@ -32,7 +32,7 @@ export default function Billing() {
       const res = await fetch(`${API}/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, user_id: user?.id, user_email: user?.email }),
       })
       const data = await res.json()
       if (data.url) { window.location.href = data.url } else { throw new Error(data?.error?.message || 'Falha ao criar sessão de assinatura') }
@@ -51,7 +51,7 @@ export default function Billing() {
       const res = await fetch(`${API}/create-payment-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, user_id: user?.id, user_email: user?.email }),
       })
       const data = await res.json()
       if (data.url) { window.location.href = data.url } else { throw new Error(data?.error?.message || 'Falha ao criar sessão de pagamento') }

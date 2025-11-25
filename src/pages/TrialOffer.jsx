@@ -4,7 +4,7 @@ import { useAuth } from '@/auth/AuthContext'
 
 export default function TrialOffer() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
 
   useEffect(() => {
     const linkFont = document.createElement('link')
@@ -24,7 +24,7 @@ export default function TrialOffer() {
       const res = await fetch(`${API}/create-trial-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'monthly' }),
+        body: JSON.stringify({ plan: 'monthly', user_id: user?.id, user_email: user?.email }),
       })
       const json = await res.json()
       if (json?.url) {
