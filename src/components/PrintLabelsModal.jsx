@@ -64,10 +64,13 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
     documentTitle: 'Etiquetas de Produtos',
-    pageStyle: `@page { size: auto; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }`
+    pageStyle: `@page { size: auto; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }`,
+    removeAfterPrint: false,
+    copyStyles: true,
   });
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl rounded-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -205,17 +208,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
               </div>
             </div>
 
-            {/* Componente de Impressão Real (fora de vista, mas com layout calculado) */}
-            <div style={{ position: 'absolute', left: '-10000px', top: '-10000px' }}>
-              <div ref={printRef} className="flex flex-wrap" style={{ gap: `${Math.max(1, margins.left/5)}mm` }}>
-                {labelsToPrint.map((product, index) => {
-                  const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
-                  return (
-                    <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} showPrice={showPrice} showBarcode={showBarcode} showNumbers={showNumbers} />
-                  )
-                })}
-              </div>
-            </div>
+            {/* Área de impressão rendida fora do Dialog */}
           </div>
         </div>
 
@@ -227,5 +220,17 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
         </div>
       </DialogContent>
     </Dialog>
+    {/* Offscreen print container to ensure react-to-print captures content */}
+    <div style={{ position: 'absolute', left: '-10000px', top: '-10000px' }}>
+      <div ref={printRef} className="flex flex-wrap" style={{ gap: `${Math.max(1, margins.left/5)}mm` }}>
+        {labelsToPrint.map((product, index) => {
+          const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
+          return (
+            <LabelComponent key={index} product={product} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} showPrice={showPrice} showBarcode={showBarcode} showNumbers={showNumbers} />
+          )
+        })}
+      </div>
+    </div>
+    </>
   );
 }
