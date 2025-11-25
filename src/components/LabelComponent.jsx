@@ -53,16 +53,6 @@ const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30
         )}
       </div>
 
-      {/* Preço */}
-      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000' }}>
-        {formattedPrice}
-      </div>
-      {parcelas > 1 && (() => {
-        const perInstallment = (product.price || 0) / parcelas
-        const formattedInstallment = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(perInstallment)
-        return <div style={{ fontSize: '9px', color: '#333' }}>{parcelas}x {formattedInstallment}</div>
-      })()}
-      <div style={{ fontSize: '8px', color: '#444' }}>{typeLabel}</div>
 
       {/* Código de Barras */}
       {showBarcode && (
