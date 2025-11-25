@@ -203,14 +203,16 @@ app.get('/subscription-status', async (req, res) => {
     const email = String(req.query.email || '').trim().toLowerCase()
     if (!email) return res.status(400).json({ error: { message: 'email required' } })
 
-    // Try search API first (more accurate); fallback to list
     let customer = null
     try {
-      const search = await stripe.customers.search({ query: `email:'${email}'` })
-      customer = search?.data?.[0] || null
-    } catch (_) {
-      const list = await stripe.customers.list({ limit: 50 })
-      customer = (list?.data || []).find(c => (c.email || '').toLowerCase() === email) || null
+      const list = await stripe.customers.list({ email, limit: 1 })
+      customer = list?.data?.[0] || null
+    } catch (e) {}
+    if (!customer) {
+      try {
+        const search = await stripe.customers.search({ query: `email:'${email}'` })
+        customer = search?.data?.[0] || null
+      } catch (_) {}
     }
 
     if (!customer) return res.json({ active: false, customerFound: false })
