@@ -38,3 +38,7 @@ export function DialogHeader({ className = "", children }) {
 export function DialogTitle({ className = "", children }) {
   return <h2 className={`text-lg font-semibold ${className}`}>{children}</h2>;
 }
+
+export function DialogDescription({ className = "", children }) {
+  return <p className={`text-sm text-gray-600 ${className}`}>{children}</p>;
+}
