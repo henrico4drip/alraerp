@@ -69,6 +69,25 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
     copyStyles: true,
   });
 
+  const printNow = () => {
+    try {
+      const win = window.open('', '_blank')
+      if (!win || !printRef.current) {
+        handlePrint()
+        return
+      }
+      const doc = win.document
+      const html = printRef.current.outerHTML
+      doc.open()
+      doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas de Produtos</title><style>@page{size:auto;margin:${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;}body{margin:0;padding:0}*{box-sizing:border-box}</style></head><body>${html}</body></html>`)
+      doc.close()
+      win.focus()
+      setTimeout(() => { try { win.print() } finally { win.close() } }, 300)
+    } catch {
+      handlePrint()
+    }
+  }
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,7 +201,7 @@ export default function PrintLabelsModal({ products, open, onOpenChange }) {
             <div className="flex justify-between items-center">
               <h3 className="font-semibold text-sm">Pré-visualização ({labelsToPrint.length} etiquetas)</h3>
               <Button
-                onClick={handlePrint}
+                onClick={printNow}
                 disabled={labelsToPrint.length === 0}
                 className="bg-green-600 hover:bg-green-700 rounded-xl"
               >
