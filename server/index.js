@@ -39,7 +39,7 @@ app.get('/config', (req, res) => {
 app.post('/create-checkout-session', async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: { message: 'Stripe not configured' } })
-    const { plan = 'monthly', user_id } = req.body || {}
+    const { plan = 'monthly', user_id, user_email } = req.body || {}
 
     const isAnnual = plan === 'annual'
     const amount = isAnnual ? 45984 : 4790 // em centavos BRL
@@ -53,6 +53,7 @@ app.post('/create-checkout-session', async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types,
+      customer_email: user_email || undefined,
       line_items: [
         {
           price_data: {
@@ -64,7 +65,8 @@ app.post('/create-checkout-session', async (req, res) => {
           quantity: 1,
         },
       ],
-      metadata: user_id ? { user_id } : undefined,
+      client_reference_id: user_id || undefined,
+      metadata: user_id ? { user_id, plan } : { plan },
       success_url: `${FRONTEND}/dashboard?status=success`,
       cancel_url: `${FRONTEND}/billing?status=cancel`,
     })
@@ -127,7 +129,7 @@ app.post('/create-portal-session-by-email', async (req, res) => {
 app.post('/create-payment-session', async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: { message: 'Stripe not configured' } })
-    const { plan = 'monthly', user_id } = req.body || {}
+    const { plan = 'monthly', user_id, user_email } = req.body || {}
     const isAnnual = plan === 'annual'
     const amount = isAnnual ? 45984 : 4790 // centavos BRL
     const productName = isAnnual ? 'ERP Plano Anual (Pagamento Avulso)' : 'ERP Plano Mensal (Pagamento Avulso)'
@@ -136,6 +138,7 @@ app.post('/create-payment-session', async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card', 'boleto', 'pix'],
+      customer_email: user_email || undefined,
       line_items: [
         {
           price_data: {
@@ -146,6 +149,7 @@ app.post('/create-payment-session', async (req, res) => {
           quantity: 1,
         },
       ],
+      client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan } : { plan },
       success_url: `${FRONTEND}/dashboard?status=success`,
       cancel_url: `${FRONTEND}/billing?status=cancel`,
@@ -162,7 +166,7 @@ app.post('/create-payment-session', async (req, res) => {
 app.post('/create-trial-session', async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: { message: 'Stripe not configured' } })
-    const { plan = 'monthly', user_id } = req.body || {}
+    const { plan = 'monthly', user_id, user_email } = req.body || {}
     const isAnnual = plan === 'annual'
     const amount = isAnnual ? 45984 : 4790
     const productName = isAnnual ? 'ERP Plano Anual (Trial 7 dias)' : 'ERP Plano Mensal (Trial 7 dias)'
@@ -172,6 +176,7 @@ app.post('/create-trial-session', async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
+      customer_email: user_email || undefined,
       line_items: [
         {
           price_data: {
@@ -184,7 +189,8 @@ app.post('/create-trial-session', async (req, res) => {
         },
       ],
       subscription_data: { trial_period_days: 7 },
-      metadata: user_id ? { user_id, trial: '7d' } : { trial: '7d' },
+      client_reference_id: user_id || undefined,
+      metadata: user_id ? { user_id, plan, trial: '7d' } : { plan, trial: '7d' },
       success_url: `${FRONTEND}/dashboard?status=success`,
       cancel_url: `${FRONTEND}/billing?status=cancel`,
     })
