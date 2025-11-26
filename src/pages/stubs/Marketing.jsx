@@ -40,7 +40,7 @@ export default function Marketing(){
           >
             <div
               className="rounded-3xl backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] px-8 py-10 sm:px-12 sm:py-12 bg-transparent"
-              style={{ background: 'linear-gradient(to left, rgba(52,144,199,0.85) 0%, rgba(52,144,199,0.65) 50%, rgba(52,144,199,0.25) 80%, rgba(255,255,255,0.00) 100%)' }}
+              style={{ background: 'linear-gradient(to left, rgba(52,144,199,0.95) 0%, rgba(52,144,199,0.90) 85%, rgba(255,255,255,0.00) 100%)' }}
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white/70 rounded-xl flex items-center justify-center text-white/90">
