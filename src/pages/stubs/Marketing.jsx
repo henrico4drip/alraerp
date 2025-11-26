@@ -39,14 +39,14 @@ export default function Marketing(){
             className="relative rounded-3xl p-[2px]"
             style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #3490c7 100%)' }}
           >
-            <div className="rounded-3xl bg-white/60 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] px-8 py-10 sm:px-12 sm:py-12 text-black">
+            <div className="rounded-3xl bg-white/60 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] px-8 py-10 sm:px-12 sm:py-12">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/70 rounded-xl flex items-center justify-center text-black/80">
+                <div className="w-12 h-12 bg-white/70 rounded-xl flex items-center justify-center text-white/90">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M13 3l-2 2 6 6 2-2-6-6zm-9 9l-1 6 6-1 9-9-5-5-9 9z"/></svg>
                 </div>
                 <div>
-                  <h2 className="text-2xl sm:text-3xl font-semibold">Marketing em construção</h2>
-                  <p className="text-black/70 text-sm sm:text-base mt-1">Estamos preparando recursos de fidelização, campanhas e relatórios.</p>
+                  <h2 className="text-2xl sm:text-3xl font-semibold text-white">Marketing em construção</h2>
+                  <p className="text-white/80 text-sm sm:text-base mt-1">Estamos preparando recursos de fidelização, campanhas e relatórios.</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-black/70">
