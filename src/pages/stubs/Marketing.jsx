@@ -39,7 +39,10 @@ export default function Marketing(){
             className="relative rounded-3xl p-[2px]"
             style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #3490c7 100%)' }}
           >
-            <div className="rounded-3xl bg-[#3490c7]/30 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] px-8 py-10 sm:px-12 sm:py-12">
+            <div
+              className="rounded-3xl backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] px-8 py-10 sm:px-12 sm:py-12"
+              style={{ background: 'linear-gradient(135deg, rgba(52,144,199,0.85) 0%, rgba(52,144,199,0) 100%)' }}
+            >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white/70 rounded-xl flex items-center justify-center text-white/90">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M13 3l-2 2 6 6 2-2-6-6zm-9 9l-1 6 6-1 9-9-5-5-9 9z"/></svg>
