@@ -49,10 +49,10 @@ export default function Marketing(){
                   <p className="text-white/80 text-sm sm:text-base mt-1">Estamos preparando recursos de fidelização, campanhas e relatórios.</p>
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-black/70">
-                <div className="rounded-xl bg-white/50 px-4 py-3">• Cashback e pontos</div>
-                <div className="rounded-xl bg-white/50 px-4 py-3">• Campanhas e cupons</div>
-                <div className="rounded-xl bg-white/50 px-4 py-3">• Relatórios de engajamento</div>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-white">
+                <div className="rounded-xl bg-white/20 px-4 py-3 text-white">• Cashback e pontos</div>
+                <div className="rounded-xl bg-white/20 px-4 py-3 text-white">• Campanhas e cupons</div>
+                <div className="rounded-xl bg-white/20 px-4 py-3 text-white">• Relatórios de engajamento</div>
               </div>
             </div>
           </div>
