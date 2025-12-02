@@ -40,7 +40,7 @@ export default function Support() {
                 </div>
                 <div className="support-card">
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 8 }}>Canais de Suporte</h3>
-                  <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ display: 'grid', gap: 10, fontSize: '0.8rem' }}>
                     <a href="https://instagram.com/alraerp.app" target="_blank" rel="noopener noreferrer" style={{ color: '#fff', textDecoration: 'none' }}>
                       Instagram: @alraerp.app
                     </a>
