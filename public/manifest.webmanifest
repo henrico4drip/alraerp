@@ -7,12 +7,12 @@
   "theme_color": "#3490c7",
   "icons": [
     {
-      "src": "/hero-vendedor-cliente.png",
+      "src": "/favicon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/hero-vendedor-cliente.png",
+      "src": "/favicon.png",
       "sizes": "512x512",
       "type": "image/png"
     }
