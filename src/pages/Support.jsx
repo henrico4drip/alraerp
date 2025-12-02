@@ -12,7 +12,7 @@ export default function Support() {
         .logo span { font-weight: 300; font-size: 0.6rem; vertical-align: super; }
       `}</style>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 5%' }}>
-        <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(12px, 2vw, 20px) 5%', maxWidth: 1200, margin: '0 auto', background: 'linear-gradient(180deg, rgba(79,166,221,0.85) 0%, rgba(110,184,249,0.45) 100%)', backdropFilter: 'blur(6px)', borderBottom: '1px solid rgba(255,255,255,0.25)' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="logo">alra <span>erp+</span></div>
           <nav style={{ display: 'flex', gap: 18 }}>
             <Link to="/" style={{ color: '#fff', textDecoration: 'none' }}>Início</Link>
@@ -20,7 +20,6 @@ export default function Support() {
             <Link to="/login" style={{ color: '#fff', textDecoration: 'none' }}>Login</Link>
           </nav>
         </header>
-        <div style={{ height: 'clamp(56px, 8vh, 80px)' }}></div>
 
         <section style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, marginTop: 32 }}>
           <div className="support-card">
