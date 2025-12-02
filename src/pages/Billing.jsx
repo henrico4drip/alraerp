@@ -63,7 +63,7 @@ export default function Billing() {
   }
 
   const styles = {
-    gradientBg: { background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', fontFamily: "'Poppins', sans-serif" },
+    gradientBg: { background: 'linear-gradient(180deg, #4fa6dd 0%, #5eaef5 40%, #6db8f9 100%)', fontFamily: "'Poppins', sans-serif" },
     glassCard: 'bg-white/15 backdrop-blur-xl border border-white/30 shadow-2xl text-white',
     glassInner: 'bg-black/20 border border-white/10',
     btnPrimary: 'bg-[#76cc2e] hover:bg-[#65b025] text-white shadow-lg transform transition hover:-translate-y-1 font-bold uppercase tracking-wide',
@@ -92,13 +92,15 @@ export default function Billing() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8" style={styles.gradientBg}>
-      <div className="w-full max-w-5xl flex justify-between items-center mb-8">
-        <div className="text-2xl font-bold text-white">alra<span className="text-sm font-light align-top ml-0.5">erp+</span></div>
-        {user ? (
-          <button onClick={handleLogout} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Sair da conta</button>
-        ) : (
-          <button onClick={() => navigate('/')} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Voltar</button>
-        )}
+      <div className="w-full max-w-5xl flex justify-between items-center mb-8 px-2">
+        <div className="logo text-2xl font-bold text-white">alra<span className="text-sm font-light align-top ml-0.5">erp+</span></div>
+        <div className="flex items-center gap-4">
+          {user ? (
+            <button onClick={handleLogout} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Sair da conta</button>
+          ) : (
+            <button onClick={() => navigate('/')} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Voltar</button>
+          )}
+        </div>
       </div>
       <div className="w-full max-w-5xl">
         <div className="text-center mb-10">
@@ -121,7 +123,6 @@ export default function Billing() {
             </div>
             <div className="space-y-3">
               <button disabled={loading} className={`w-full py-3.5 rounded-xl ${styles.btnPrimary} disabled:opacity-50`} onClick={() => startSubscriptionCheckout('monthly')}>{loading ? 'Processando...' : 'Assinar (Recorrente)'}</button>
-              <button disabled={loading} className={`w-full py-3 rounded-xl ${styles.btnBlue} text-sm font-medium disabled:opacity-50`} onClick={() => startOneTimePayment('monthly')}>Pagar Pix/Boleto (1 mês)</button>
             </div>
           </div>
           <div className={`rounded-3xl p-8 flex flex-col border-2 border-[#76cc2e]/50 relative ${styles.glassCard} hover:bg-white/20 transition duration-300`}>
@@ -141,7 +142,6 @@ export default function Billing() {
             </div>
             <div className="space-y-3">
               <button disabled={loading} className={`w-full py-3.5 rounded-xl ${styles.btnPrimary} disabled:opacity-50`} onClick={() => startSubscriptionCheckout('annual')}>{loading ? 'Processando...' : 'Assinar (Recorrente)'}</button>
-              <button disabled={loading} className={`w-full py-3 rounded-xl ${styles.btnBlue} text-sm font-medium disabled:opacity-50`} onClick={() => startOneTimePayment('annual')}>Pagar Pix/Boleto (1 ano)</button>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/auth/AuthContext'
 import { supabase } from '@/api/supabaseClient'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -74,8 +74,10 @@ export default function Login() {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        .login-bg { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .login-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 20px; padding: 40px 30px; width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1); color: white; text-align: center; position: relative; overflow: hidden; }
+        .login-bg { background: linear-gradient(180deg, #4fa6dd 0%, #5eaef5 40%, #6db8f9 100%); min-height: 100vh; padding: 20px 0; }
+        header.login-header { display: flex; justify-content: space-between; align-items: center; padding: clamp(12px, 2vw, 20px) 5%; max-width: 1200px; margin: 0 auto; color: white; }
+        header.login-header .nav-links a { color: white; text-decoration: none; margin-left: clamp(12px, 2vw, 25px); font-weight: 500; font-size: clamp(0.85rem, 1.2vw, 1rem); }
+        .login-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 20px; padding: 40px 30px; width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1); color: white; text-align: center; position: relative; overflow: hidden; margin: 0 auto; }
         .login-card::before { content: ''; position: absolute; top: 0; left: -50%; width: 100%; height: 100%; background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent); transform: skewX(-25deg); pointer-events: none; }
         .logo { font-size: 2rem; font-weight: 700; margin-bottom: 10px; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .logo span { font-size: 1rem; font-weight: 300; vertical-align: super; }
@@ -103,10 +105,15 @@ export default function Login() {
         .card-footer a:hover { text-decoration: underline; }
       `}</style>
       <div className="login-bg">
+        <header className="login-header">
+          <div className="logo">alra <span>erp+</span></div>
+          <nav className="nav-links">
+            <Link to="/support">Suporte</Link>
+            <Link to="/billing">Planos</Link>
+            <Link to="/">Voltar</Link>
+          </nav>
+        </header>
         <div className="login-card">
-          <div style={{ position: 'absolute', top: 12, right: 16 }}>
-            <button onClick={() => navigate('/')} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', color:'#fff', padding:'6px 12px', borderRadius: 999, fontSize:'0.8rem' }}>Voltar</button>
-          </div>
           <div className="logo">alra <span>erp+</span></div>
           <p className="subtitle">Bem-vindo de volta!</p>
           <form onSubmit={(e) => showSignupForm ? handleSignUp(e) : handleSubmit(e)} autoComplete="off">
