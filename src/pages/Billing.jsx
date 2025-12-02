@@ -129,6 +129,10 @@ export default function Billing() {
             <div className="absolute -top-4 right-8 bg-[#76cc2e] text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">MAIS POPULAR</div>
             <div className="mb-4">
               <h3 className="text-xl font-semibold opacity-90">Plano Anual</h3>
+              <div className="flex items-baseline mt-1">
+                <span className="text-white/60 line-through text-sm">R$ 574,80</span>
+                <span className="text-sm opacity-70 ml-2">/ano</span>
+              </div>
               <div className="flex items-baseline mt-2"><span className="text-4xl font-bold">R$ 459,84</span><span className="text-sm opacity-70 ml-2">/ano</span></div>
               <div className="text-white/70 text-sm font-bold mt-1">Economize 20%</div>
             </div>

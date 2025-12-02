@@ -119,16 +119,19 @@ export default function LandingPage() {
               <div className="card-icon">★ ★ ★ ★ ★</div>
               <h4>“Volta de clientes aumentou”</h4>
               <p>Com cashback ativo, os clientes voltam e o ticket médio subiu. O painel mostra tudo em tempo real.</p>
+              <p style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8, fontStyle: 'italic' }}>— Maria S., Loja de Moda</p>
             </div>
             <div className="card">
               <div className="card-icon">📈</div>
               <h4>“Sem furo de estoque”</h4>
               <p>Alertas simples resolveram perdas. Emissão fiscal integrada agilizou o balcão.</p>
+              <p style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8, fontStyle: 'italic' }}>— João R., Eletrônicos Express</p>
             </div>
             <div className="card">
               <div className="card-icon">⚡</div>
               <h4>“Etiquetas e PDV rápidos”</h4>
               <p>Imprimimos etiquetas com parcelas e código de barras. PDV ficou ágil e sem erros.</p>
+              <p style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8, fontStyle: 'italic' }}>— Ana P., Boutique Central</p>
             </div>
           </div>
         </section>
