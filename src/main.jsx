@@ -112,6 +112,14 @@ function RequireSubscription({ children }) {
   }, [user])
 
   if (allowed === null) return null
+  // Show a lightweight loading state instead of a blank screen while validating subscription
+  if (allowed === null) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
+        <div style={{ color: '#334155', fontSize: 14 }}>Validando acesso...</div>
+      </div>
+    )
+  }
   if (!allowed) return <Navigate to="/trial" replace />
   return children
 }
@@ -197,6 +205,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 )
 
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   navigator.serviceWorker.register('/sw.js').catch(() => {})
 }
