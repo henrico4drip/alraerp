@@ -80,11 +80,15 @@ function RequireSubscription({ children }) {
         const params = new URLSearchParams(window.location.search)
         const status = params.get('status')
         const localSub = window.localStorage.getItem('subscribed')
+        const trialUntilRaw = window.localStorage.getItem('trial_until')
+        const trialUntil = trialUntilRaw ? new Date(trialUntilRaw).getTime() : 0
+        const now = Date.now()
         if (status === 'success') {
           try { window.localStorage.setItem('subscribed', 'true') } catch {}
           setAllowed(true); return
         }
         if (localSub === 'true') { setAllowed(true); return }
+        if (trialUntil > now) { setAllowed(true); return }
       } catch {}
       try {
         const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'

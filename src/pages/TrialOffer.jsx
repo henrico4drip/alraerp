@@ -20,21 +20,10 @@ export default function TrialOffer() {
 
   const handleStartTrial = async () => {
     try {
-      const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
-      const res = await fetch(`${API}/create-trial-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'monthly', user_id: user?.id, user_email: user?.email }),
-      })
-      const json = await res.json()
-      if (json?.url) {
-        window.location.href = json.url
-        return
-      }
-      navigate('/dashboard')
-    } catch {
-      navigate('/dashboard')
-    }
+      const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      window.localStorage.setItem('trial_until', until.toISOString())
+    } catch {}
+    navigate('/dashboard', { replace: true })
   }
 
   const styles = {
