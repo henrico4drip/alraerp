@@ -122,7 +122,7 @@ export default function Billing() {
               </ul>
             </div>
             <div className="space-y-3">
-              <button disabled={loading} className={`w-full py-3.5 rounded-xl ${styles.btnPrimary} disabled:opacity-50`} onClick={() => startSubscriptionCheckout('monthly')}>{loading ? 'Processando...' : 'Assinar (Recorrente)'}</button>
+              <button disabled={loading} className={`w-full py-3.5 rounded-xl ${styles.btnPrimary} disabled:opacity-50`} onClick={() => startSubscriptionCheckout('monthly')}>{loading ? 'Processando...' : 'Assinar'}</button>
             </div>
           </div>
           <div className={`rounded-3xl p-8 flex flex-col border-2 border-[#76cc2e]/50 relative ${styles.glassCard} hover:bg-white/20 transition duration-300`}>
@@ -130,7 +130,7 @@ export default function Billing() {
             <div className="mb-4">
               <h3 className="text-xl font-semibold opacity-90">Plano Anual</h3>
               <div className="flex items-baseline mt-2"><span className="text-4xl font-bold">R$ 459,84</span><span className="text-sm opacity-70 ml-2">/ano</span></div>
-              <div className="text-[#76cc2e] text-sm font-bold mt-1">Economize 20%</div>
+              <div className="text-white/70 text-sm font-bold mt-1">Economize 20%</div>
             </div>
             <div className={`p-5 rounded-xl mb-6 flex-grow ${styles.glassInner}`}>
               <ul className="space-y-3 text-sm text-white/90">
@@ -141,7 +141,7 @@ export default function Billing() {
               </ul>
             </div>
             <div className="space-y-3">
-              <button disabled={loading} className={`w-full py-3.5 rounded-xl ${styles.btnPrimary} disabled:opacity-50`} onClick={() => startSubscriptionCheckout('annual')}>{loading ? 'Processando...' : 'Assinar (Recorrente)'}</button>
+              <button disabled={loading} className={`w-full py-3.5 rounded-xl ${styles.btnPrimary} disabled:opacity-50`} onClick={() => startSubscriptionCheckout('annual')}>{loading ? 'Processando...' : 'Assinar'}</button>
             </div>
           </div>
         </div>
