@@ -25,6 +25,7 @@ import { CashierProvider } from './context/CashierContext'
 import Payments from './pages/Payments'
 import { base44 } from './api/base44Client'
 import LandingPage from './pages/Landing'
+import Support from './pages/Support'
 
 const queryClient = new QueryClient()
 
@@ -125,6 +126,10 @@ function App() {
             <Route
               path="/"
               element={<LandingPage />}
+            />
+            <Route
+              path="/support"
+              element={<Support />}
             />
             <Route
               path="/dashboard"

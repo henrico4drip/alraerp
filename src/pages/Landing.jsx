@@ -44,6 +44,8 @@ export default function LandingPage() {
           <div className="logo">alra <span style={{ verticalAlign: 'super', fontSize: '0.6rem' }}>erp+</span></div>
           <nav className="nav-links">
             <Link to="/login">Login</Link>
+            <Link to="/support">Suporte</Link>
+            <Link to="/billing">Planos</Link>
             <Link to="/login" className="btn-link">Cadastre-se</Link>
           </nav>
         </header>
