@@ -3,35 +3,43 @@ import { Link } from 'react-router-dom'
 
 export default function Support() {
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #4fa6dd 0%, #5eaef5 40%, #6db8f9 100%)', color: '#fff' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #4fa6dd 0%, #5eaef5 40%, #6db8f9 100%)', color: '#fff', fontFamily: "'Poppins', sans-serif" }}>
+      <style>{`
+        .support-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 15px; padding: 30px; }
+        .support-card h3 { font-size: clamp(1rem, 1.6vw, 1.2rem); font-weight: 600; margin-bottom: clamp(8px, 1.2vw, 10px); }
+        .support-card p { font-size: clamp(0.85rem, 1.2vw, 0.9rem); line-height: 1.5; opacity: 0.9; }
+        .logo { font-size: clamp(1rem, 2vw + 0.5rem, 2rem); font-weight: 800; }
+        .logo span { font-weight: 300; font-size: 0.6rem; vertical-align: super; }
+      `}</style>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 5%' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>alra <span style={{ fontWeight: 300, fontSize: '0.8rem', verticalAlign: 'super' }}>erp+</span></div>
+        <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(12px, 2vw, 20px) 5%', maxWidth: 1200, margin: '0 auto', background: 'linear-gradient(180deg, rgba(79,166,221,0.85) 0%, rgba(110,184,249,0.45) 100%)', backdropFilter: 'blur(6px)', borderBottom: '1px solid rgba(255,255,255,0.25)' }}>
+          <div className="logo">alra <span>erp+</span></div>
           <nav style={{ display: 'flex', gap: 18 }}>
             <Link to="/" style={{ color: '#fff', textDecoration: 'none' }}>Início</Link>
             <Link to="/billing" style={{ color: '#fff', textDecoration: 'none' }}>Planos</Link>
             <Link to="/login" style={{ color: '#fff', textDecoration: 'none' }}>Login</Link>
           </nav>
         </header>
+        <div style={{ height: 'clamp(56px, 8vh, 80px)' }}></div>
 
         <section style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, marginTop: 32 }}>
-          <div style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 16, padding: 24 }}>
+          <div className="support-card">
             <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: 8 }}>Suporte</h1>
             <p style={{ opacity: 0.9, marginBottom: 16 }}>Estamos aqui para ajudar. Em breve você encontrará FAQs, tutoriais e canais de atendimento nesta página.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                <div style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 12, padding: 16 }}>
+                <div className="support-card">
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 8 }}>FAQ</h3>
                   <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>Perguntas frequentes sobre recursos, planos e uso do sistema.</p>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 12, padding: 16 }}>
+                <div className="support-card">
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 8 }}>Tutoriais</h3>
                   <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>Guias passo a passo para configurar e operar cada módulo.</p>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 12, padding: 16 }}>
+                <div className="support-card">
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 8 }}>Atendimento</h3>
                   <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>Canais de contato e horários de suporte.</p>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 12, padding: 16 }}>
+                <div className="support-card">
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 8 }}>Canais de Suporte</h3>
                   <div style={{ display: 'grid', gap: 10 }}>
                     <a href="https://instagram.com/alraerp.app" target="_blank" rel="noopener noreferrer" style={{ color: '#fff', textDecoration: 'none' }}>

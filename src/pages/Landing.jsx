@@ -8,7 +8,8 @@ export default function LandingPage() {
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
         body { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); background-color: #4ba3e3; color: white; overflow-x: hidden; }
         .main-wrapper { background: linear-gradient(180deg, #4fa6dd 0%, #5eaef5 40%, #6db8f9 100%); min-height: 100vh; position: relative; padding-bottom: 50px; }
-        header { display: flex; justify-content: space-between; align-items: center; padding: clamp(12px, 2vw, 20px) 5%; max-width: 1200px; margin: 0 auto; }
+        header { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: clamp(12px, 2vw, 20px) 5%; max-width: 1200px; margin: 0 auto; background: linear-gradient(180deg, rgba(79,166,221,0.85) 0%, rgba(110,184,249,0.45) 100%); backdrop-filter: blur(6px); border-bottom: 1px solid rgba(255,255,255,0.25); }
+        .header-spacer { height: clamp(56px, 8vh, 80px); }
         .logo { font-size: clamp(1rem, 2vw + 0.5rem, 2rem); font-weight: 800; }
         .logo span { font-weight: 300; font-size: clamp(0.5rem, 1.2vw, 0.9rem); }
         .nav-links a { color: white; text-decoration: none; margin-left: clamp(12px, 2vw, 25px); font-weight: 500; font-size: clamp(0.85rem, 1.2vw, 1rem); }
@@ -49,6 +50,7 @@ export default function LandingPage() {
             <Link to="/login" className="btn-link">Cadastre-se</Link>
           </nav>
         </header>
+        <div className="header-spacer"></div>
         <section className="hero">
           <div className="hero-text">
             <h1>MEI, impulsione suas vendas e fidelize clientes!</h1>
