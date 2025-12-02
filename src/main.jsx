@@ -26,6 +26,7 @@ import Payments from './pages/Payments'
 import { base44 } from './api/base44Client'
 import LandingPage from './pages/Landing'
 import Support from './pages/Support'
+import { base44 } from './api/base44Client'
 
 const queryClient = new QueryClient()
 
@@ -109,6 +110,15 @@ function RequireSubscription({ children }) {
         if (!cancelled) setAllowed(ok)
       } catch {
         if (!cancelled) setAllowed(false)
+      }
+      if (allowed === null && window.localStorage.getItem('subscribed') !== 'true') {
+        try {
+          const settings = await base44.entities.Settings.list()
+          const trialUntil = settings?.[0]?.trial_until ? new Date(settings[0].trial_until).getTime() : 0
+          if (trialUntil && trialUntil > Date.now()) {
+            if (!cancelled) setAllowed(true)
+          }
+        } catch {}
       }
     }
     run()

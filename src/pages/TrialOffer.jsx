@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
+import { supabase } from '@/api/supabaseClient'
 
 export default function TrialOffer() {
   const navigate = useNavigate()
@@ -22,6 +23,16 @@ export default function TrialOffer() {
     try {
       const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       window.localStorage.setItem('trial_until', until.toISOString())
+      if (supabase && user?.id) {
+        try {
+          const { data } = await supabase.from('settings').select('id').eq('user_id', user.id).limit(1).maybeSingle()
+          if (data?.id) {
+            await supabase.from('settings').update({ trial_until: until.toISOString() }).eq('id', data.id)
+          } else {
+            await supabase.from('settings').insert({ user_id: user.id, trial_until: until.toISOString(), created_date: new Date().toISOString() })
+          }
+        } catch {}
+      }
     } catch {}
     navigate('/dashboard', { replace: true })
   }
