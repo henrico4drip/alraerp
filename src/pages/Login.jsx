@@ -18,6 +18,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
+  const [showSignupForm, setShowSignupForm] = useState(false)
+  const [companyName, setCompanyName] = useState('')
+  const [companyPhone, setCompanyPhone] = useState('')
+  const [companyEmail, setCompanyEmail] = useState('')
+  const [companySegment, setCompanySegment] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -41,6 +46,16 @@ export default function Login() {
     setLoading(true)
     try {
       const res = await signUp(email.trim(), password)
+      try {
+        const profile = {
+          companyName: companyName.trim(),
+          companyPhone: companyPhone.trim(),
+          companyEmail: (companyEmail || email).trim(),
+          companySegment: companySegment.trim(),
+          createdAt: new Date().toISOString(),
+        }
+        window.localStorage.setItem('signup_profile', JSON.stringify(profile))
+      } catch {}
       navigate('/trial', { replace: true })
     } catch (err) {
       setError(err?.message || 'Erro ao criar conta')
@@ -89,9 +104,12 @@ export default function Login() {
       `}</style>
       <div className="login-bg">
         <div className="login-card">
+          <div style={{ position: 'absolute', top: 12, right: 16 }}>
+            <button onClick={() => navigate('/')} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', color:'#fff', padding:'6px 12px', borderRadius: 999, fontSize:'0.8rem' }}>Voltar</button>
+          </div>
           <div className="logo">alra <span>erp+</span></div>
           <p className="subtitle">Bem-vindo de volta!</p>
-          <form onSubmit={handleSubmit} autoComplete="off">
+          <form onSubmit={(e) => showSignupForm ? handleSignUp(e) : handleSubmit(e)} autoComplete="off">
             <div className="input-group">
               <i className="fas fa-envelope"></i>
               <input type="email" className="input-field" placeholder="Seu e-mail" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
@@ -100,11 +118,37 @@ export default function Login() {
               <i className="fas fa-lock"></i>
               <input type="password" className="input-field" placeholder="Sua senha" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
             </div>
+            {showSignupForm && (
+              <div style={{ marginTop: 10, textAlign: 'left' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 10 }}>Informações da empresa</h3>
+                <div className="input-group">
+                  <i className="fas fa-building"></i>
+                  <input type="text" className="input-field" placeholder="Nome da empresa" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <i className="fas fa-phone"></i>
+                  <input type="text" className="input-field" placeholder="Telefone" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <i className="fas fa-envelope-open"></i>
+                  <input type="email" className="input-field" placeholder="E-mail da empresa (opcional)" value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <i className="fas fa-tags"></i>
+                  <input type="text" className="input-field" placeholder="Segmento (ex.: Moda, Eletrônicos)" value={companySegment} onChange={(e) => setCompanySegment(e.target.value)} />
+                </div>
+              </div>
+            )}
             <div className="form-options">
               <label className="remember-me"><input type="checkbox" /> Lembrar de mim</label>
               <a href="#" className="forgot-link">Esqueceu a senha?</a>
             </div>
-            <button type="submit" className="btn-login" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="submit" className="btn-login" disabled={loading}>{loading ? (showSignupForm ? 'Criando...' : 'Entrando...') : (showSignupForm ? 'Criar conta' : 'Entrar')}</button>
+              {showSignupForm && (
+                <button type="button" className="btn-login" style={{ background:'#ffffff22' }} onClick={() => setShowSignupForm(false)}>Login</button>
+              )}
+            </div>
           </form>
           {error && <div style={{ color: '#ffdddd', marginTop: 10, fontSize: '0.9rem' }}>{error}</div>}
           {info && <div style={{ color: '#ddffdd', marginTop: 10, fontSize: '0.9rem' }}>{info}</div>}
@@ -114,7 +158,9 @@ export default function Login() {
             <div className="social-btn" title="Facebook" onClick={() => oauthLogin('facebook')}><i className="fab fa-facebook-f"></i></div>
             <div className="social-btn" title="Apple" onClick={() => oauthLogin('apple')}><i className="fab fa-apple"></i></div>
           </div>
-          <div className="card-footer">Não tem uma conta? <a href="#" onClick={handleSignUp}>Cadastre-se agora</a></div>
+          {!showSignupForm && (
+            <div className="card-footer">Não tem uma conta? <a href="#" onClick={(e) => { e.preventDefault(); setShowSignupForm(true) }}>Cadastre-se agora</a></div>
+          )}
         </div>
       </div>
     </>

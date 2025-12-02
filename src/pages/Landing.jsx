@@ -45,8 +45,8 @@ export default function LandingPage() {
           <nav className="nav-links">
             <Link to="/support">Suporte</Link>
             <Link to="/billing">Planos</Link>
-            <Link to="/login" className="btn-link">Cadastre-se</Link>
             <Link to="/login">Login</Link>
+            <Link to="/login" className="btn-link">Cadastre-se</Link>
           </nav>
         </header>
         <section className="hero">
@@ -103,6 +103,99 @@ export default function LandingPage() {
               <h4>Emissão Fiscal</h4>
               <p>Emita notas fiscais (NFC-e e NF-e) de forma descomplicada e automática.</p>
             </div>
+          </div>
+        </section>
+        {/* Prova social */}
+        <section className="features-section">
+          <div className="section-header">
+            <div>
+              <h3>Quem usa, recomenda</h3>
+              <p>Resultados práticos com fidelização e controle de estoque.</p>
+            </div>
+            <div className="badge-tag">+75% retenção média</div>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px,1fr))', gap:25 }}>
+            <div className="card">
+              <div className="card-icon">★ ★ ★ ★ ★</div>
+              <h4>“Volta de clientes aumentou”</h4>
+              <p>Com cashback ativo, os clientes voltam e o ticket médio subiu. O painel mostra tudo em tempo real.</p>
+            </div>
+            <div className="card">
+              <div className="card-icon">📈</div>
+              <h4>“Sem furo de estoque”</h4>
+              <p>Alertas simples resolveram perdas. Emissão fiscal integrada agilizou o balcão.</p>
+            </div>
+            <div className="card">
+              <div className="card-icon">⚡</div>
+              <h4>“Etiquetas e PDV rápidos”</h4>
+              <p>Imprimimos etiquetas com parcelas e código de barras. PDV ficou ágil e sem erros.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Diferenças e confiança */}
+        <section className="features-section">
+          <div className="section-header">
+            <div>
+              <h3>Por que escolher o alra erp+</h3>
+              <p>Comparado a planilhas e sistemas genéricos.</p>
+            </div>
+            <div className="badge-tag">Foco no varejo</div>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px,1fr))', gap:25 }}>
+            <div className="card"><h4>Cashback integrado</h4><p>Retenção e recorrência com campanhas simples.</p></div>
+            <div className="card"><h4>Etiquetas inteligentes</h4><p>Parcelas, código de barras e tamanho. A4/58/88mm.</p></div>
+            <div className="card"><h4>Emissão fiscal</h4><p>NFC-e e NF-e sem burocracia.</p></div>
+            <div className="card"><h4>Pagamentos modernos</h4><p>Stripe: Cartão, Pix, Boleto, Apple/Google Pay.</p></div>
+          </div>
+          <div style={{ textAlign:'center', marginTop:24 }}>
+            <div className="badge-tag" style={{ display:'inline-block' }}>Pagamentos seguros via Stripe</div>
+          </div>
+        </section>
+
+        {/* CTA de conversão */}
+        <section className="features-section">
+          <div className="section-header" style={{ alignItems:'center' }}>
+            <div>
+              <h3>Comece agora em poucos minutos</h3>
+              <p>Teste grátis de 7 dias com cartão. Cancele a qualquer momento.</p>
+            </div>
+            <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+              <Link to="/login?redirect=/trial" className="btn-cta">EXPERIMENTE GRÁTIS</Link>
+              <Link to="/billing" className="btn-cta" style={{ background:'#fff', color:'#3490c7', boxShadow:'0 5px 15px rgba(255,255,255,0.4)' }}>VER PLANOS</Link>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ essencial */}
+        <section className="features-section">
+          <div className="section-header">
+            <div>
+              <h3>Perguntas frequentes</h3>
+              <p>O básico para decidir com segurança.</p>
+            </div>
+            <div className="badge-tag">Suporte dedicado</div>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px,1fr))', gap:20 }}>
+            <div className="card"><h4>Como funciona o teste?</h4><p>Você inicia um teste de 7 dias com cartão. Sem cobrança hoje. Antes do fim do período, avisamos por e‑mail.</p></div>
+            <div className="card"><h4>Posso cancelar?</h4><p>Sim, a qualquer momento nas configurações. Sem multa ou taxa.</p></div>
+            <div className="card"><h4>Quais pagamentos?</h4><p>Cartão, Pix, Boleto, Apple/Google Pay via Stripe.</p></div>
+            <div className="card"><h4>Em quanto tempo configuro?</h4><p>Em minutos: cadastro, etiquetas, PDV e emissão fiscal.</p></div>
+          </div>
+        </section>
+
+        {/* Contato rápido */}
+        <section className="features-section" style={{ textAlign:'center' }}>
+          <div className="section-header" style={{ justifyContent:'center' }}>
+            <div>
+              <h3>Fale com a gente</h3>
+              <p>Precisa tirar dúvidas? Responderemos rápido.</p>
+            </div>
+          </div>
+          <div style={{ display:'flex', justifyContent:'center', gap:16, flexWrap:'wrap' }}>
+            <a href="https://instagram.com/alraerp.app" target="_blank" rel="noopener noreferrer" className="badge-tag">Instagram: @alraerp.app</a>
+            <a href="https://wa.me/5551997618951" target="_blank" rel="noopener noreferrer" className="badge-tag">WhatsApp: (51) 9 9761-8951</a>
+            <a href="mailto:suportealraerp@gmail.com" className="badge-tag">E-mail: suportealraerp@gmail.com</a>
           </div>
         </section>
         <footer>© {new Date().getFullYear()} AlraERP+. Todos os direitos reservados.</footer>

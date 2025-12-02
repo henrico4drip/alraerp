@@ -94,7 +94,11 @@ export default function Billing() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8" style={styles.gradientBg}>
       <div className="w-full max-w-5xl flex justify-between items-center mb-8">
         <div className="text-2xl font-bold text-white">alra<span className="text-sm font-light align-top ml-0.5">erp+</span></div>
-        <button onClick={handleLogout} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Sair da conta</button>
+        {user ? (
+          <button onClick={handleLogout} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Sair da conta</button>
+        ) : (
+          <button onClick={() => navigate('/')} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Voltar</button>
+        )}
       </div>
       <div className="w-full max-w-5xl">
         <div className="text-center mb-10">
