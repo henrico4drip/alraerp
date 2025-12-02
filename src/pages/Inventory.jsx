@@ -160,6 +160,7 @@ export default function Inventory() {
               onClick={() => setShowPrintLabelsModal(true)}
               className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
               disabled={products.length === 0}
+              data-nav="print-labels"
             >
               <Printer className="w-4 h-4 mr-2" />
               Imprimir Etiquetas
@@ -167,6 +168,7 @@ export default function Inventory() {
             <Button
               onClick={() => handleOpenDialog()}
               className="bg-blue-600 hover:bg-blue-700 rounded-xl"
+              data-nav="new-product"
             >
               <Plus className="w-4 h-4 mr-2" />
               Novo Produto
