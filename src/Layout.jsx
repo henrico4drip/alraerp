@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import Onboarding from '@/components/Onboarding'
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
@@ -307,6 +308,7 @@ export default function Layout({ children, currentPageName }) {
             </DialogContent>
           </Dialog>
         )}
+        <Onboarding settings={settings} />
 
         {/* Main Content */}
         <main className={isDashboard ? 'flex-1 flex items-center justify-center min-h-[calc(100vh-112px-64px)] pb-20' : 'flex-1 pb-20'}>
