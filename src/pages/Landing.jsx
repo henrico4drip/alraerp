@@ -37,7 +37,7 @@ export default function LandingPage() {
         .card h4 { font-size: clamp(1rem, 1.6vw, 1.2rem); margin-bottom: clamp(8px, 1.2vw, 10px); font-weight: 600; }
         .card p { font-size: clamp(0.85rem, 1.2vw, 0.9rem); line-height: 1.5; opacity: 0.8; font-weight: 300; }
         footer { text-align: center; padding: 40px 20px; font-size: 0.8rem; opacity: 0.7; margin-top: 40px; }
-        @media (max-width: 768px) { .hero-text h1 { font-size: 2.5rem; } .hero { flex-direction: column-reverse; text-align: center; gap: 40px; } .section-header { flex-direction: column; align-items: center; text-align: center; } .nav-links { display: flex; gap: 15px; } .nav-links a { margin-left: 0; font-size: 0.9rem; } }
+        @media (max-width: 768px) { .hero-text h1 { font-size: 2.5rem; } .hero { flex-direction: column; text-align: center; gap: 24px; padding-top: 16px; } .hero-text { order: 1; } .hero-image { order: 2; } .section-header { flex-direction: column; align-items: center; text-align: center; } .nav-links { display: flex; gap: 15px; } .nav-links a { margin-left: 0; font-size: 0.9rem; } }
       `}</style>
       <div className="main-wrapper">
         <header>
