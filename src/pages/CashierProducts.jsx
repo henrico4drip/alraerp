@@ -90,6 +90,9 @@ export default function CashierProducts() {
     }
   };
 
+  const [searchFocused, setSearchFocused] = useState(false);
+  const isSearching = (searchFocused || (searchTerm && searchTerm.trim().length > 0));
+
   const filteredProducts = products.filter((p) =>
     p.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -98,8 +101,8 @@ export default function CashierProducts() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 pb-32 lg:pb-4 overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-3 gap-4 min-h-[calc(100vh-112px-64px)]">
-          <div className="lg:col-span-2 flex flex-col">
-            <Card className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] border-0 rounded-2xl bg-white flex-1 flex flex-col">
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] border-0 rounded-2xl bg-white">
               <CardHeader className="bg-gray-100 border-b border-gray-200 rounded-t-2xl p-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-gray-900 text-base">
@@ -111,7 +114,7 @@ export default function CashierProducts() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 flex-1 flex flex-col">
+              <CardContent className="p-4">
                 <div className="mb-4">
                   <Input
                     ref={searchRef}
@@ -129,7 +132,7 @@ export default function CashierProducts() {
 
                 {/* Removido toolbar com botão Novo Produto abaixo da barra de pesquisa */}
 
-                <div className="flex-1 overflow-y-auto divide-y divide-gray-200">
+                <div className="max-h-80 overflow-y-auto divide-y divide-gray-200">
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-semibold text-gray-500 tracking-wide border-b border-gray-200">
                       <div>PRODUTO</div>
