@@ -53,7 +53,7 @@ export default function LandingPage() {
           <div className="hero-text">
             <h1>MEI, impulsione suas vendas e fidelize clientes!</h1>
             <p>Com alra erp+ você oferece cashback e vê seu negócio crescer.</p>
-            <Link to="/login" className="btn-cta">EXPERIMENTE GRÁTIS</Link>
+            <Link to="/login?signup=1" className="btn-cta">EXPERIMENTE GRÁTIS</Link>
           </div>
           <div className="hero-image">
             <img src="https://cdni.iconscout.com/illustration/premium/thumb/online-shopping-store-2974945-2477378.png" alt="Lojista vendendo" />
@@ -164,7 +164,7 @@ export default function LandingPage() {
               <p>Teste grátis de 7 dias, sem cartão. Cancele a qualquer momento.</p>
             </div>
             <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-              <Link to="/login?signup=1&redirect=/trial" className="btn-cta">EXPERIMENTE GRÁTIS</Link>
+              <Link to="/login?signup=1" className="btn-cta">EXPERIMENTE GRÁTIS</Link>
               <Link to="/billing" className="btn-cta" style={{ background:'#fff', color:'#3490c7', boxShadow:'0 5px 15px rgba(255,255,255,0.4)' }}>VER PLANOS</Link>
             </div>
           </div>
