@@ -58,6 +58,7 @@ export default function Login() {
         window.localStorage.setItem('signup_profile', JSON.stringify(profile))
         const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         window.localStorage.setItem('trial_until', until.toISOString())
+        window.sessionStorage.setItem('justSignedUp', 'true')
       } catch {}
       navigate('/dashboard', { replace: true })
     } catch (err) {

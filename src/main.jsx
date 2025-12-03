@@ -215,3 +215,9 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 } else if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {})
 }
+      const justSignedUp = window.sessionStorage.getItem('justSignedUp') === 'true'
+      if (justSignedUp) {
+        window.sessionStorage.removeItem('justSignedUp')
+        setAllowed(true)
+        return
+      }
