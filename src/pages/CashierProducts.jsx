@@ -93,9 +93,9 @@ export default function CashierProducts() {
   const [searchFocused, setSearchFocused] = useState(false);
   const isSearching = (searchFocused || (searchTerm && searchTerm.trim().length > 0));
 
-  const filteredProducts = products.filter((p) =>
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products
+    .filter((p) => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 pb-32 lg:pb-4 overflow-x-hidden">
