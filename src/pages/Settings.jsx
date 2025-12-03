@@ -148,7 +148,7 @@ export default function Settings() {
 
   return (
     <div className="p-4">
-      <Card>
+      <Card data-nav="settings">
         <CardHeader>
           <CardTitle>Configurações</CardTitle>
         </CardHeader>
@@ -281,8 +281,8 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>Assinatura</Label>
                 <div className="flex gap-2">
-                  <Button onClick={manageSubscription} className="rounded-xl">Cancelar/Alterar Assinatura</Button>
-                  <Button onClick={upgradePlan} className="rounded-xl">Upgrade para Anual</Button>
+                  <Button onClick={manageSubscription} className="rounded-xl" data-testid="nfe-setup">Cancelar/Alterar Assinatura</Button>
+                  <Button onClick={upgradePlan} className="rounded-xl" data-testid="nfe-test">Upgrade para Anual</Button>
                 </div>
               </div>
             </div>

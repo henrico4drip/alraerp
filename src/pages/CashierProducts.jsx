@@ -123,6 +123,7 @@ export default function CashierProducts() {
                     }}
                     placeholder="Buscar por nome ou código de barras..."
                     className="w-full rounded-xl border-gray-200"
+                    data-testid="cashier-search"
                   />
                 </div>
 
@@ -256,7 +257,7 @@ export default function CashierProducts() {
 
             {/* Desktop-only bottom action under cart card */}
             <div className="hidden lg:block">
-              <Button onClick={() => navigate('/cashier/payment')} className="w-full rounded-xl bg-blue-600 hover:bg-blue-700" aria-label="Prosseguir para pagamento">
+              <Button onClick={() => navigate('/cashier/payment')} className="w-full rounded-xl bg-blue-600 hover:bg-blue-700" aria-label="Prosseguir para pagamento" data-testid="cashier-checkout">
                 Prosseguir para pagamento
               </Button>
             </div>
