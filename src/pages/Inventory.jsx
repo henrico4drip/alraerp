@@ -138,12 +138,42 @@ export default function Inventory() {
   };
 
   const [search, setSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState('name_asc');
 
   const filteredProducts = products.filter(p =>
     (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (p.barcode || '').toLowerCase().includes(search.toLowerCase()) ||
     (p.category || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const num = (v) => typeof v === 'number' ? v : parseFloat(v || 0)
+    const txt = (v) => (v || '').toString()
+    switch (sortOrder) {
+      case 'name_asc':
+        return txt(a.name).localeCompare(txt(b.name), 'pt-BR', { sensitivity: 'base' })
+      case 'name_desc':
+        return txt(b.name).localeCompare(txt(a.name), 'pt-BR', { sensitivity: 'base' })
+      case 'category_asc':
+        return txt(a.category).localeCompare(txt(b.category), 'pt-BR', { sensitivity: 'base' })
+      case 'category_desc':
+        return txt(b.category).localeCompare(txt(a.category), 'pt-BR', { sensitivity: 'base' })
+      case 'price_asc':
+        return num(a.price) - num(b.price)
+      case 'price_desc':
+        return num(b.price) - num(a.price)
+      case 'stock_asc':
+        return num(a.stock) - num(b.stock)
+      case 'stock_desc':
+        return num(b.stock) - num(a.stock)
+      case 'created_desc':
+        return new Date(b.created_date || 0) - new Date(a.created_date || 0)
+      case 'created_asc':
+        return new Date(a.created_date || 0) - new Date(b.created_date || 0)
+      default:
+        return 0
+    }
+  })
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8 overflow-x-hidden">
@@ -160,7 +190,6 @@ export default function Inventory() {
               onClick={() => setShowPrintLabelsModal(true)}
               className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
               disabled={products.length === 0}
-              data-nav="print-labels"
             >
               <Printer className="w-4 h-4 mr-2" />
               Imprimir Etiquetas
@@ -168,7 +197,6 @@ export default function Inventory() {
             <Button
               onClick={() => handleOpenDialog()}
               className="bg-blue-600 hover:bg-blue-700 rounded-xl"
-              data-nav="new-product"
             >
               <Plus className="w-4 h-4 mr-2" />
               Novo Produto
@@ -176,13 +204,32 @@ export default function Inventory() {
           </div>
         </div>
 
-        <div className="mb-4 md:mb-6">
+        <div className="mb-4 md:mb-6 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Pesquisar por nome, código de barras ou categoria"
             className="rounded-xl border-gray-300"
           />
+          <div className="flex items-center">
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm"
+              aria-label="Ordenar produtos"
+            >
+              <option value="name_asc">Nome (A–Z)</option>
+              <option value="name_desc">Nome (Z–A)</option>
+              <option value="category_asc">Categoria (A–Z)</option>
+              <option value="category_desc">Categoria (Z–A)</option>
+              <option value="price_asc">Preço (menor→maior)</option>
+              <option value="price_desc">Preço (maior→menor)</option>
+              <option value="stock_asc">Estoque (menor→maior)</option>
+              <option value="stock_desc">Estoque (maior→menor)</option>
+              <option value="created_desc">Mais recentes</option>
+              <option value="created_asc">Mais antigos</option>
+            </select>
+          </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)]">
           <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
@@ -194,7 +241,7 @@ export default function Inventory() {
             <div className="flex items-center justify-end">AÇÕES</div>
           </div>
           <div className="divide-y divide-gray-100">
-            {filteredProducts.map((product) => (
+            {sortedProducts.map((product) => (
               <React.Fragment key={product.id}>
                 {/* Desktop row */}
                 <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 items-center px-3 sm:px-8 py-3 hover:bg-gray-50/70">
