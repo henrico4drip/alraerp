@@ -56,8 +56,10 @@ export default function Login() {
           createdAt: new Date().toISOString(),
         }
         window.localStorage.setItem('signup_profile', JSON.stringify(profile))
+        const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        window.localStorage.setItem('trial_until', until.toISOString())
       } catch {}
-      navigate('/trial', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(err?.message || 'Erro ao criar conta')
     } finally {
