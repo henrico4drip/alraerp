@@ -46,7 +46,7 @@ export default function LandingPage() {
             <Link to="/support">Suporte</Link>
             <Link to="/billing">Planos</Link>
             <Link to="/login">Login</Link>
-            <Link to="/login" className="btn-link">Cadastre-se</Link>
+            <Link to="/login?signup=1" className="btn-link">Cadastre-se</Link>
           </nav>
         </header>
         <section className="hero">
@@ -164,7 +164,7 @@ export default function LandingPage() {
               <p>Teste grátis de 7 dias, sem cartão. Cancele a qualquer momento.</p>
             </div>
             <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-              <Link to="/login?redirect=/trial" className="btn-cta">EXPERIMENTE GRÁTIS</Link>
+              <Link to="/login?signup=1&redirect=/trial" className="btn-cta">EXPERIMENTE GRÁTIS</Link>
               <Link to="/billing" className="btn-cta" style={{ background:'#fff', color:'#3490c7', boxShadow:'0 5px 15px rgba(255,255,255,0.4)' }}>VER PLANOS</Link>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/auth/AuthContext'
 import { supabase } from '@/api/supabaseClient'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -23,6 +23,7 @@ export default function Login() {
   const [companyPhone, setCompanyPhone] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const [companySegment, setCompanySegment] = useState('')
+  const location = useLocation()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -63,6 +64,15 @@ export default function Login() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search)
+      const mode = params.get('mode')
+      const signup = params.get('signup')
+      if (mode === 'signup' || signup === '1') setShowSignupForm(true)
+    } catch {}
+  }, [location.search])
   const oauthLogin = async (provider) => {
     if (!supabase) return
     const redirectTo = `${window.location.origin}/dashboard`
