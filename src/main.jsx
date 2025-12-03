@@ -23,7 +23,6 @@ import CashierProducts from './pages/CashierProducts'
 import CashierPayment from './pages/CashierPayment'
 import { CashierProvider } from './context/CashierContext'
 import Payments from './pages/Payments'
-import { base44 } from './api/base44Client'
 import LandingPage from './pages/Landing'
 import Support from './pages/Support'
 import { base44 } from './api/base44Client'
@@ -213,4 +212,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {})
+} else if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {})
 }
