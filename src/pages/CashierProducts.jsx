@@ -168,7 +168,14 @@ export default function CashierProducts() {
                             <div className="text-xs text-gray-500 truncate">{product.category || '-'}</div>
                             <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
                             <div className="text-right tabular-nums">
-                              <p className="font-semibold text-green-600 text-sm">R$ {product.price?.toFixed(2)}</p>
+                              {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
+                                <div className="flex flex-col items-end">
+                                  <p className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</p>
+                                  <p className="font-semibold text-green-600 text-sm">R$ {Number(product.promo_price).toFixed(2)}</p>
+                                </div>
+                              ) : (
+                                <p className="font-semibold text-green-600 text-sm">R$ {Number(product.price).toFixed(2)}</p>
+                              )}
                             </div>
                             <div className="text-right">
                               <p className={`font-semibold text-sm ${
@@ -199,12 +206,15 @@ export default function CashierProducts() {
                                 <div className="text-[11px] text-gray-500 truncate">{product.category || '-'} • {product.barcode || '-'}</div>
                               </div>
                               <div className="text-right">
-                                <div className="text-xs font-semibold text-green-600">R$ {product.price?.toFixed(2)}</div>
-                                <div className={`text-[11px] ${
-                                  (product.stock || 0) > 10 ? 'text-green-600' :
-                                  (product.stock || 0) > 0 ? 'text-yellow-600' :
-                                  'text-red-600'
-                                }`}>{product.stock || 0}</div>
+                                {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
+                                  <div className="text-right">
+                                    <div className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</div>
+                                    <div className="text-xs font-semibold text-green-600">R$ {Number(product.promo_price).toFixed(2)}</div>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
+                                )}
+                                <div className={`text-[11px] ${(product.stock || 0) > 10 ? 'text-green-600' : (product.stock || 0) > 0 ? 'text-yellow-600' : 'text-red-600'}`}>{product.stock || 0}</div>
                               </div>
                             </div>
                           </button>
@@ -233,7 +243,20 @@ export default function CashierProducts() {
                       <div key={item.product_id} className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-gray-900 truncate">{item.product_name}</p>
-                          <p className="text-xs text-gray-500">R$ {item.unit_price?.toFixed(2)}</p>
+                          {(() => {
+                            const base = products.find(p => p.id === item.product_id)
+                            const orig = base?.price
+                            const cur = item.unit_price
+                            if (orig && cur < orig) {
+                              return (
+                                <div className="text-right">
+                                  <span className="text-[11px] line-through text-gray-500 mr-1">R$ {Number(orig).toFixed(2)}</span>
+                                  <span className="text-xs font-semibold text-green-600">R$ {Number(cur).toFixed(2)}</span>
+                                </div>
+                              )
+                            }
+                            return <p className="text-xs text-gray-500">R$ {Number(cur).toFixed(2)}</p>
+                          })()}
                         </div>
                         <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => updateQuantity(item.product_id, -1)}>

@@ -252,7 +252,14 @@ export default function Inventory() {
                   <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
                   <div className="text-xs text-gray-500 truncate">{product.category || '-'}</div>
                   <div className="text-right tabular-nums">
-                    <p className="font-semibold text-green-600 text-sm">R$ {product.price?.toFixed(2)}</p>
+                    {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
+                      <div className="flex flex-col items-end">
+                        <p className="text-xs line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</p>
+                        <p className="font-semibold text-green-600 text-sm">R$ {Number(product.promo_price).toFixed(2)}</p>
+                      </div>
+                    ) : (
+                      <p className="font-semibold text-green-600 text-sm">R$ {Number(product.price).toFixed(2)}</p>
+                    )}
                   </div>
                   <div className="text-right tabular-nums">
                     <p className={`font-semibold text-sm ${
@@ -281,7 +288,14 @@ export default function Inventory() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs font-semibold text-green-600">R$ {product.price?.toFixed(2)}</div>
+                      {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
+                        <div className="text-right">
+                          <div className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</div>
+                          <div className="text-xs font-semibold text-green-600">R$ {Number(product.promo_price).toFixed(2)}</div>
+                        </div>
+                      ) : (
+                        <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
+                      )}
                       <div className={`text-[11px] ${
                         (product.stock || 0) > 10 ? 'text-green-600' :
                         (product.stock || 0) > 0 ? 'text-yellow-600' :
