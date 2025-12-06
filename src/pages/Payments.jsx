@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { base44 } from '@/api/base44Client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -69,6 +69,7 @@ const buildPixEmvPayload = ({ key, amount, name, city, txid, description }) => {
 }
 
 export default function Payments() {
+  const queryClient = useQueryClient()
   const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list('-created_date'), initialData: [] })
   const { data: customers = [] } = useQuery({ queryKey: ['customers'], queryFn: () => base44.entities.Customer.list('-created_date'), initialData: [] })
   const { data: settings = null } = useQuery({
@@ -330,6 +331,8 @@ body { margin: 0; }
                   <div className="flex gap-2">
                     <Button className="rounded-xl" onClick={() => handleGenerateBoletoPix(i)} disabled={!hasPixConfigured}>Gerar QR Code</Button>
                     <Button className="rounded-xl" onClick={() => handleOpenWhatsapp(i)}>WhatsApp</Button>
+                    <Button variant="outline" className="rounded-xl" onClick={() => openEdit(i)}>Editar</Button>
+                    <Button variant="ghost" className="rounded-xl" onClick={() => deleteInstallment(i)}>Excluir</Button>
                   </div>
                 </div>
               ))}
@@ -352,6 +355,8 @@ body { margin: 0; }
                 <div className="flex gap-2">
                   <Button className="rounded-xl" onClick={() => handleGenerateBoletoPix(i)} disabled={!hasPixConfigured}>Gerar QR Code</Button>
                   <Button className="rounded-xl" onClick={() => handleOpenWhatsapp(i)}>WhatsApp</Button>
+                  <Button variant="outline" className="rounded-xl" onClick={() => openEdit(i)}>Editar</Button>
+                  <Button variant="ghost" className="rounded-xl" onClick={() => deleteInstallment(i)}>Excluir</Button>
                 </div>
               </div>
             ))}
@@ -375,6 +380,71 @@ body { margin: 0; }
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Diálogo: Editar Parcela */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar parcela</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-gray-500">Valor da parcela (R$)</p>
+              <input type="number" step="0.01" className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Vencimento</p>
+              <input type="date" className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+            </div>
+            <div className="pt-2 flex gap-2 justify-end">
+              <Button variant="outline" className="rounded-xl" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+              <Button className="rounded-xl" onClick={saveEdit} disabled={updateSaleMutation.isLoading}>Salvar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+  // Editar/Excluir parcela
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editInstallment, setEditInstallment] = useState(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [editDate, setEditDate] = useState('')
+
+  const updateSaleMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Sale.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries(['sales']); setEditDialogOpen(false); setEditInstallment(null) }
+  })
+
+  const openEdit = (inst) => {
+    setEditInstallment(inst)
+    setEditAmount(String(inst.installment_amount || 0))
+    const d = new Date(inst.due_date)
+    const iso = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0,10)
+    setEditDate(iso)
+    setEditDialogOpen(true)
+  }
+
+  const saveEdit = () => {
+    if (!editInstallment) return
+    const sale = sales.find(s => s.id === editInstallment.sale_id)
+    if (!sale) { setEditDialogOpen(false); return }
+    const payments = Array.isArray(sale.payments) ? sale.payments.map(p => {
+      if (p.method !== 'Carnê' || !Array.isArray(p.schedule)) return p
+      const schedule = p.schedule.map(it => it.index === editInstallment.installment_index ? { ...it, amount: Number(editAmount || 0), due_date: new Date(editDate).toISOString() } : it)
+      return { ...p, schedule }
+    }) : sale.payments
+    updateSaleMutation.mutate({ id: sale.id, data: { payments } })
+  }
+
+  const deleteInstallment = (inst) => {
+    const sale = sales.find(s => s.id === inst.sale_id)
+    if (!sale) return
+    const payments = Array.isArray(sale.payments) ? sale.payments.map(p => {
+      if (p.method !== 'Carnê' || !Array.isArray(p.schedule)) return p
+      const schedule = p.schedule.filter(it => it.index !== inst.installment_index)
+      return { ...p, schedule }
+    }) : sale.payments
+    updateSaleMutation.mutate({ id: sale.id, data: { payments } })
+  }
