@@ -23,6 +23,7 @@ export default function Inventory() {
     name: "",
     barcode: "",
     price: "",
+    promo_price: "",
     cost: "",
     stock: "",
     category: "",
@@ -83,6 +84,7 @@ export default function Inventory() {
         name: product.name || "",
         barcode: product.barcode || "",
         price: product.price || "",
+        promo_price: product.promo_price || "",
         cost: product.cost || "",
         stock: product.stock || "",
         category: product.category || "",
@@ -93,6 +95,7 @@ export default function Inventory() {
         name: "",
         barcode: "",
         price: "",
+        promo_price: "",
         cost: "",
         stock: "",
         category: "",
@@ -111,6 +114,7 @@ export default function Inventory() {
     const data = {
       ...formData,
       price: parseFloat(formData.price),
+      promo_price: formData.promo_price ? parseFloat(formData.promo_price) : undefined,
       cost: parseFloat(formData.cost || 0),
       stock: parseInt(formData.stock || 0),
     };
@@ -359,13 +363,14 @@ export default function Inventory() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cost" className="text-sm text-gray-700">Custo</Label>
+                  <Label htmlFor="promo_price" className="text-sm text-gray-700">Preço Promocional</Label>
                   <Input
-                    id="cost"
+                    id="promo_price"
                     type="number"
                     step="0.01"
-                    value={formData.cost}
-                    onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                    value={formData.promo_price}
+                    onChange={(e) => setFormData({ ...formData, promo_price: e.target.value })}
+                    placeholder="Opcional"
                     className="rounded-xl border-gray-200"
                   />
                 </div>
@@ -446,6 +451,7 @@ export default function Inventory() {
                         name: cols[idx('name')] || '',
                         barcode: cols[idx('barcode')] || '',
                         price: parseFloat(cols[idx('price')] || 0),
+                        promo_price: idx('promo_price') >= 0 && cols[idx('promo_price')] ? parseFloat(cols[idx('promo_price')]) : undefined,
                         cost: parseFloat(cols[idx('cost')] || 0),
                         stock: parseInt(cols[idx('stock')] || 0, 10),
                         category: cols[idx('category')] || '',
@@ -456,14 +462,14 @@ export default function Inventory() {
                     }
                     setShowImportDialog(false)
                   }} />
-                  <p className="text-[11px] text-gray-500 mt-2">Campos: name, barcode, price, cost, stock, category</p>
+                  <p className="text-[11px] text-gray-500 mt-2">Campos: name, barcode, price, promo_price, cost, stock, category</p>
                 </CardContent>
               </Card>
               <Card className="rounded-xl border border-gray-200">
                 <CardHeader><CardTitle className="text-sm">Modelo</CardTitle></CardHeader>
                 <CardContent>
                   <Button className="rounded-xl" onClick={() => {
-                    const headers = ['name','barcode','price','cost','stock','category']
+                    const headers = ['name','barcode','price','promo_price','cost','stock','category']
                     const content = headers.join(',') + '\n'
                     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
                     const url = URL.createObjectURL(blob)
@@ -485,8 +491,8 @@ export default function Inventory() {
             <Card className="rounded-xl border border-gray-200">
               <CardContent>
                 <Button className="rounded-xl" onClick={() => {
-                  const headers = ['name','barcode','price','cost','stock','category']
-                  const rows = products.map(p => [p.name||'', p.barcode||'', p.price??'', p.cost??'', p.stock??'', p.category||''])
+                  const headers = ['name','barcode','price','promo_price','cost','stock','category']
+                  const rows = products.map(p => [p.name||'', p.barcode||'', p.price??'', p.promo_price??'', p.cost??'', p.stock??'', p.category||''])
                   const content = [headers, ...rows].map(r => r.map(v => String(v).replace(/"/g,'""')).join(',')).join('\n')
                   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
                   const url = URL.createObjectURL(blob)
