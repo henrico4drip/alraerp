@@ -76,7 +76,7 @@ export default function Sales() {
             <p className="text-gray-500 mt-1">Histórico de movimentações</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" className="gap-2 border-gray-200 text-gray-700 hover:bg-gray-50" data-nav="reports">
+            <Button variant="outline" className="gap-2 border-gray-200 text-gray-700 hover:bg-gray-50">
               <FileText className="w-4 h-4" />
               Relatórios
             </Button>

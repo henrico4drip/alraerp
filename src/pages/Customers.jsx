@@ -258,7 +258,7 @@ export default function Customers() {
                     <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenView(customer)} title="Ver cliente">
                       <Eye className="w-4 h-4 text-sky-600" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenCashback(customer)} title="Cashback" data-testid="cashback-activate">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenCashback(customer)} title="Cashback">
                       <Wallet className="w-4 h-4" />
                     </Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(customer)} title="Editar cliente">

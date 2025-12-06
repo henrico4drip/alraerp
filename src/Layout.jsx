@@ -207,7 +207,6 @@ export default function Layout({ children, currentPageName }) {
               <Link
                 to={createPageUrl("Dashboard")}
                 className="px-2 sm:px-3 py-1.5 rounded-lg bg-white/20 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
-                data-nav="dashboard"
               >
                 <Store className="w-5 h-5" /> <span>{settings?.erp_name?.toUpperCase() || "MINHA LOJA"}</span>
               </Link>
@@ -241,8 +240,7 @@ export default function Layout({ children, currentPageName }) {
                 )}
                 <Link
                   to={createPageUrl("Settings")}
-                  className={`px-2 sm:px-3 py-1.5 rounded-lg ${isSettings ? 'bg-white/30' : 'bg白/20 hover:bg白/30'} text-white text-sm uppercase font-normal inline-flex items-center gap-2`}
-                  data-nav="settings"
+                  className={`px-2 sm:px-3 py-1.5 rounded-lg ${isSettings ? 'bg-white/30' : 'bg-white/20 hover:bg-white/30'} text-white text-sm uppercase font-normal inline-flex items-center gap-2`}
                 >
                   <SettingsIcon className="w-5 h-5" /> <span className="hidden sm:inline">OPÇÕES</span>
                 </Link>
@@ -657,7 +655,6 @@ export default function Layout({ children, currentPageName }) {
                       className={`relative flex flex-col items-center justify-center h-[64px] sm:h-[56px] px-1 sm:px-2 transition-colors duration-300 ${
                         isActive ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                       }`}
-                      data-nav={item.name.toLowerCase()}
                     >
                       {item.name === 'MARKETING' && (
                         <span className="absolute -top-1 left-1/2 -translate-x-1/2 bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 text-[10px] rounded-full shadow-sm">em breve</span>
