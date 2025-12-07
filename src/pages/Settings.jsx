@@ -23,6 +23,8 @@ export default function Settings() {
   const [companyState, setCompanyState] = useState('')
   const [companyZip, setCompanyZip] = useState('')
   const [contactEmail, setContactEmail] = useState('')
+  const [portalBusy, setPortalBusy] = useState(false)
+  const [upgradeBusy, setUpgradeBusy] = useState(false)
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
   const [confirmRemovePaymentMethod, setConfirmRemovePaymentMethod] = useState('')
 
@@ -92,11 +94,17 @@ export default function Settings() {
 
   const manageSubscription = async () => {
     try {
+      setPortalBusy(true)
+      const effectiveEmail = (user?.email || contactEmail || '').trim()
+      if (!effectiveEmail) {
+        alert('Informe o e‑mail de contato ou faça login para abrir o portal.')
+        return
+      }
       const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
       const res = await fetch(`${API}/create-portal-session-by-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user?.email || contactEmail }),
+        body: JSON.stringify({ email: effectiveEmail }),
       })
       const json = await res.json()
       if (json?.url) {
@@ -106,11 +114,14 @@ export default function Settings() {
       }
     } catch (err) {
       alert('Erro ao abrir o portal de assinatura')
+    } finally {
+      setPortalBusy(false)
     }
   }
 
   const upgradePlan = async () => {
     try {
+      setUpgradeBusy(true)
       const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
       const res = await fetch(`${API}/create-checkout-session`, {
         method: 'POST',
@@ -125,6 +136,8 @@ export default function Settings() {
       }
     } catch (err) {
       alert('Erro ao iniciar o upgrade')
+    } finally {
+      setUpgradeBusy(false)
     }
   }
 
@@ -277,12 +290,28 @@ export default function Settings() {
               <Button onClick={save} className="rounded-xl">Salvar Configurações</Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div className="space-y-2">
-                <Label>Assinatura</Label>
-                <div className="flex gap-2">
-                  <Button onClick={manageSubscription} className="rounded-xl">Cancelar/Alterar Assinatura</Button>
-                  <Button onClick={upgradePlan} className="rounded-xl">Upgrade para Anual</Button>
+            <div className="mt-8">
+              <Label className="block mb-2">Assinatura</Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="border rounded-xl p-4 bg-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">Plano atual</p>
+                      <p className="text-base font-semibold text-gray-900">{settings?.plan_name || 'Indisponível'}</p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[11px] bg-gray-100 text-gray-700 border border-gray-200">{settings?.subscription_status || (localStorage.getItem('subscribed') === 'true' ? 'active' : (new Date(localStorage.getItem('trial_until') || 0).getTime() > Date.now() ? 'trialing' : 'inactive'))}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">Renovação: {settings?.subscription_end_date ? new Date(settings.subscription_end_date).toLocaleDateString('pt-BR') : '-'}</div>
+                </div>
+                <div className="border rounded-xl p-4 bg-white">
+                  <p className="text-sm text-gray-500">Gerenciar</p>
+                  <p className="text-xs text-gray-600 mb-3">Abrir portal para cancelar, trocar forma de pagamento ou alterar plano</p>
+                  <Button onClick={manageSubscription} disabled={portalBusy} className="rounded-xl w-full bg-blue-600 text-white hover:bg-blue-700">{portalBusy ? 'Abrindo...' : 'Abrir Portal de Assinatura'}</Button>
+                </div>
+                <div className="border rounded-xl p-4 bg-white">
+                  <p className="text-sm text-gray-500">Upgrade</p>
+                  <p className="text-xs text-gray-600 mb-3">Migre para anual com desconto e cobrança imediata no Stripe</p>
+                  <Button onClick={upgradePlan} disabled={upgradeBusy} className="rounded-xl w-full bg-blue-600 hover:bg-blue-700 text-white">{upgradeBusy ? 'Processando...' : 'Ir para plano anual'}</Button>
                 </div>
               </div>
             </div>
