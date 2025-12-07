@@ -70,17 +70,18 @@ export default function Sales() {
   return (
     <div className="flex flex-col min-h-full">
       <div className="p-4 md:p-8 animate-in fade-in duration-500">
-        <div className="flex justify-between items-center mb-6">
+        <div className="max-w-[1200px] mx-auto px-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Vendas</h1>
             <p className="text-gray-500 mt-1">Histórico de movimentações</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap md:flex-nowrap justify-end">
             <Button variant="outline" className="gap-2 border-gray-200 text-gray-700 hover:bg-gray-50">
               <FileText className="w-4 h-4" />
               Relatórios
             </Button>
-            <Button className="bg-[#3b9cdb] hover:bg-[#2c8ac2] text-white gap-2 px-6 rounded-xl">
+            <Button className="bg-[#3b9cdb] hover:bg-[#2c8ac2] text-white gap-2 px-5 rounded-xl">
               <Plus className="w-4 h-4" />
               Nova Venda
             </Button>
@@ -99,57 +100,58 @@ export default function Sales() {
           </div>
         </div>
         <h2 className="mb-3 text-lg font-semibold text-gray-800">Histório de vendas</h2>
-        <div className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="hidden lg:grid grid-cols-[160px_180px_1fr_220px_260px_160px] gap-6 px-6 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
-            <div>DATA</div>
-            <div>NÚMERO</div>
-            <div>CLIENTE <span className="ml-2 text-[10px] font-normal text-gray-400">VENDEDOR</span></div>
-            <div>PAGAMENTO</div>
-            <div className="text-right">FATURADO <span className="ml-2 text-[10px] font-normal text-gray-400">CASHBACK</span></div>
-            <div className="flex items-center justify-end gap-2"></div>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {filteredSales.map((sale) => (
-              <React.Fragment key={sale.id}>
-                <div className="hidden lg:grid grid-cols-[160px_120px_1fr_220px_260px_160px] gap-6 items-center px-6 sm:px-8 py-3 hover:bg-gray-50/70">
-                  <div className="flex items-center">
-                    {sale.sale_date ? (
-                      <span className="text-sm text-gray-700 font-medium">{format(new Date(sale.sale_date), 'dd/MM HH:mm')}</span>
-                    ) : (
-                      <span className="text-xs text-gray-400">-</span>
-                    )}
+        <div className="overflow-x-auto w-full px-3">
+          <div className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] bg-white rounded-xl border border-gray-200 min-w-[960px]">
+            <div className="hidden lg:grid grid-cols-[minmax(110px,1fr)_minmax(80px,auto)_minmax(220px,2fr)_minmax(150px,auto)_minmax(180px,auto)_auto] gap-3 px-3 sm:px-5 py-2.5 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
+              <div>DATA</div>
+              <div>NÚMERO</div>
+              <div>CLIENTE <span className="ml-2 text-[10px] font-normal text-gray-400">VENDEDOR</span></div>
+              <div>PAGAMENTO</div>
+              <div className="text-right">FATURADO <span className="ml-2 text-[10px] font-normal text-gray-400">CASHBACK</span></div>
+              <div className="flex items-center justify-end gap-2"></div>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {filteredSales.map((sale) => (
+                <React.Fragment key={sale.id}>
+                  <div className="hidden lg:grid grid-cols-[minmax(110px,1fr)_minmax(80px,auto)_minmax(220px,2fr)_minmax(150px,auto)_minmax(180px,auto)_auto] gap-3 items-center px-3 sm:px-5 py-2.5 hover:bg-gray-50/70">
+                    <div className="flex items-center">
+                      {sale.sale_date ? (
+                        <span className="text-sm text-gray-700 font-medium">{format(new Date(sale.sale_date), 'dd/MM HH:mm')}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </div>
+                    <div className="hidden sm:flex items-center">
+                      <span className="inline-block px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-mono whitespace-nowrap overflow-hidden text-ellipsis max-w-[64px]">
+                        {sale.sale_number}
+                      </span>
+                    </div>
+                    <div className="leading-tight min-w-0">
+                      <div className="text-[13px] font-semibold text-cyan-700 truncate">{sale.customer_name || 'AVULSO'}</div>
+                      <div className="text-[10px] text-gray-400">{sale.vendor_name || 'ADMINISTRADOR'}</div>
+                    </div>
+                    <div>
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold border ${paymentMethodColors[sale.payment_method] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
+                        {sale.payment_method || '-'}
+                      </span>
+                    </div>
+                    <div className="text-right leading-tight tabular-nums">
+                      <div className="text-[11px] font-semibold text-gray-600 whitespace-nowrap">{(sale.total_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      <div className="text-[11px] font-semibold text-emerald-600 whitespace-nowrap">{(((sale.total_amount || 0) * Number(settings?.[0]?.cashback_percentage || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pr-2 shrink-0">
+                      <Button variant="secondary" size="icon" className="h-6 w-6 rounded bg-amber-50 text-amber-600 border border-amber-200" onClick={() => handleOpenInvoice(sale)}>
+                        <FileText className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="secondary" size="icon" className="h-6 w-6 rounded bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenEdit(sale)}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setShowConfirmDeleteSale(true); }}>
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="hidden sm:flex items-center">
-                    <span className="inline-block px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[11px] font-mono whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px]">
-                      {sale.sale_number}
-                    </span>
-                  </div>
-                  <div className="leading-tight">
-                    <div className="text-sm font-semibold text-cyan-700 truncate">{sale.customer_name || 'AVULSO'}</div>
-                    <div className="text-[10px] text-gray-400">{sale.vendor_name || 'ADMINISTRADOR'}</div>
-                  </div>
-                  <div>
-                    <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ${paymentMethodColors[sale.payment_method] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
-                      {sale.payment_method || '-'}
-                    </span>
-                  </div>
-                  <div className="text-right leading-tight tabular-nums">
-                    <div className="text-[12px] font-semibold text-gray-600">{(sale.total_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                    <div className="text-[12px] font-semibold text-emerald-600">{(((sale.total_amount || 0) * Number(settings?.[0]?.cashback_percentage || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                  </div>
-                  <div className="flex items-center justify-end gap-2">
-                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-amber-50 text-amber-600 border border-amber-200" onClick={() => handleOpenInvoice(sale)}>
-                      <FileText className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenEdit(sale)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setShowConfirmDeleteSale(true); }}>
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="lg:hidden px-3 py-2 hover:bg-gray-50/70">
+                  <div className="lg:hidden px-3 py-2 hover:bg-gray-50/70">
                   <div className="flex items-center justify-between">
                     <div className="text-[12px] text-gray-700 font-medium">{sale.sale_date ? format(new Date(sale.sale_date), 'dd/MM HH:mm') : '-'}</div>
                     <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-mono">{sale.sale_number}</span>
@@ -179,7 +181,9 @@ export default function Sales() {
                 </div>
               </React.Fragment>
             ))}
+            </div>
           </div>
+        </div>
         </div>
         {/* Dialog: Nota Fiscal */}
         <Dialog open={showInvoice} onOpenChange={setShowInvoice}>
