@@ -158,7 +158,7 @@ export default function CashierProducts() {
                                   onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                 />
                               ) : (
-                                <Package className="w-5 h-5 text-indigo-600" />
+                                <Package className="w-5 h-5 text-indigo-600 shrink-0" />
                               )}
                               <div className="min-w-0">
                                 <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
@@ -199,7 +199,7 @@ export default function CashierProducts() {
                                   onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                 />
                               ) : (
-                                <Package className="w-5 h-5 text-indigo-600" />
+                                <Package className="w-5 h-5 text-indigo-600 shrink-0" />
                               )}
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>

@@ -250,7 +250,7 @@ export default function Inventory() {
                 {/* Desktop row */}
                 <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 items-center px-3 sm:px-8 py-3 hover:bg-gray-50/70">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Package className="w-5 h-5 text-indigo-600" />
+                    <Package className="w-5 h-5 text-indigo-600 shrink-0" />
                     <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
                   </div>
                   <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
@@ -285,7 +285,7 @@ export default function Inventory() {
                 <div className="lg:hidden px-3 py-2 hover:bg-gray-50/70">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Package className="w-5 h-5 text-indigo-600" />
+                      <Package className="w-5 h-5 text-indigo-600 shrink-0" />
                       <div className="min-w-0">
                         <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
                         <div className="text-[11px] text-gray-500 truncate">{product.category || '-'} • {product.barcode || '-'}</div>
