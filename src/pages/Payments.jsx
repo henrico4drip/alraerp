@@ -664,7 +664,10 @@ export default function Payments() {
                 <div
                   key={inst.index}
                   className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer shadow-sm transition-all"
-                  onClick={() => handleOpenAbate(inst)}
+                  onClick={() => {
+                    handleOpenAbate(inst)
+                    setSelectedSaleId(null)
+                  }}
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-gray-700">
