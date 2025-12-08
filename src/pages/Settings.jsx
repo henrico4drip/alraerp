@@ -271,13 +271,13 @@ export default function Settings() {
                 <div className="space-y-2">
                   <Label className="text-gray-700">Chave PIX Principal</Label>
                   <div className="relative">
-                    <QrCode className="absolute left-3 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
                     <Input
                       value={pixKey}
                       onChange={(e) => setPixKey(e.target.value)}
                       placeholder="CPF, CNPJ, Email ou Telefone"
-                      className="h-12 pl-12 rounded-xl border-gray-200"
+                      className="h-12 pr-12 rounded-xl border-gray-200"
                     />
+                    <QrCode className="absolute right-3 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
 
@@ -324,7 +324,6 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label className="text-gray-700">Email de Contato</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                       <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="h-11 pr-12 rounded-xl border-gray-200" placeholder="contato@empresa.com" />
                       <Mail className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                     </div>
