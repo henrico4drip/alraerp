@@ -99,6 +99,9 @@ export default function Payments() {
   const [abateAmount, setAbateAmount] = useState('')
   const [abateType, setAbateType] = useState('full') // 'full' | 'partial'
 
+  // State for Installments List Dialog
+  const [selectedSaleId, setSelectedSaleId] = useState(null)
+
   // Estado do pop-up de boletos
   const [showBoletoDialog, setShowBoletoDialog] = useState(false)
   const [boletoPagesHtml, setBoletoPagesHtml] = useState('')
@@ -164,6 +167,36 @@ export default function Payments() {
     filteredList.reduce((sum, i) => sum + i.installment_amount, 0),
     [filteredList])
 
+  // Logic for Installment List Dialog
+  const selectedSaleForList = useMemo(() =>
+    sales.find(s => s.id === selectedSaleId),
+    [sales, selectedSaleId]
+  )
+
+  const openInstallmentsList = useMemo(() => {
+    if (!selectedSaleForList) return []
+    const result = []
+    const s = selectedSaleForList
+    const carnePayments = (s.payments || []).filter((p) => p.method === 'Carnê' && Array.isArray(p.schedule))
+
+    for (const p of carnePayments) {
+      const schedule = Array.isArray(p.schedule) ? p.schedule : []
+      for (const inst of schedule) {
+        if (inst.status !== 'paid') {
+          result.push({
+            ...inst,
+            sale_id: s.id,
+            customer_id: s.customer_id,
+            customer_name: s.customer_name,
+            installments_total: schedule.length,
+            installment_index: inst.index,
+            installment_amount: Number(inst.amount || 0),
+          })
+        }
+      }
+    }
+    return result.sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+  }, [selectedSaleForList])
 
   // --- CALENDAR LOGIC ---
   const handleDayClick = (day) => {
@@ -531,7 +564,7 @@ export default function Payments() {
                           <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-green-100 text-green-600" onClick={() => handleOpenWhatsapp(item)} title="WhatsApp">
                             <span className="text-xs">WA</span>
                           </Button>
-                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => handleOpenAbate(item)} title="Abater / Pagar">
+                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => setSelectedSaleId(item.sale_id)} title="Ver parcelas">
                             <Banknote className="w-4 h-4" />
                           </Button>
                         </div>
@@ -614,6 +647,50 @@ export default function Payments() {
                 Confirmar Pagamento
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!selectedSaleId} onOpenChange={(open) => !open && setSelectedSaleId(null)}>
+        <DialogContent className="max-w-2xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Parcelas em Aberto</DialogTitle>
+            <p className="text-sm text-gray-500">{selectedSaleForList?.customer_name || ''}</p>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
+            {openInstallmentsList.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">Nenhuma parcela em aberto.</p>
+            ) : (
+              openInstallmentsList.map((inst) => (
+                <div
+                  key={inst.index}
+                  className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer shadow-sm transition-all"
+                  onClick={() => handleOpenAbate(inst)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-gray-700">
+                      {inst.installment_index}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {new Date(inst.due_date).toLocaleDateString('pt-BR')}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Vencimento
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-lg text-gray-900">
+                      R$ {Number(inst.installment_amount).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-green-600 font-medium">ABERTO</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setSelectedSaleId(null)}>Fechar</Button>
           </div>
         </DialogContent>
       </Dialog>
