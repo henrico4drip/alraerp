@@ -7,6 +7,7 @@ import './index.css'
 
 // Páginas (iremos usar as versões em src ou stubs)
 import Dashboard from './pages/Dashboard'
+import Dashboard2 from './pages/Dashboard2'
 import Layout from './Layout'
 import Cashier from './pages/Cashier'
 import Sales from './pages/Sales'
@@ -147,6 +148,10 @@ function App() {
             <Route
               path="/dashboard"
               element={<RequireAuth><RequireSubscription><Layout currentPageName="Dashboard"><Dashboard /></Layout></RequireSubscription></RequireAuth>}
+            />
+            <Route
+              path="/dashboard2"
+              element={<RequireAuth><RequireSubscription><Dashboard2 /></RequireSubscription></RequireAuth>}
             />
             <Route
               path="/cashier"

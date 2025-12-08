@@ -11,6 +11,7 @@ import {
   Settings as SettingsIcon,
   Menu,
   X,
+  Check,
   LayoutDashboard,
   Megaphone,
   BarChart3,
@@ -51,6 +52,14 @@ export default function Layout({ children, currentPageName }) {
   const [taskTime, setTaskTime] = useState("");
   const [taskPriority, setTaskPriority] = useState("Média");
   const [taskCategory, setTaskCategory] = useState("Outro");
+  // Edição de tarefa existente
+  const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskDesc, setEditTaskDesc] = useState("");
+  const [editTaskTime, setEditTaskTime] = useState("");
+  const [editTaskPriority, setEditTaskPriority] = useState("Média");
+  const [editTaskCategory, setEditTaskCategory] = useState("Outro");
   const isCashierRoute = location.pathname.startsWith('/cashier');
   const [keepBottomNavForEntry, setKeepBottomNavForEntry] = useState(false);
 
@@ -217,6 +226,12 @@ export default function Layout({ children, currentPageName }) {
               >
                 <Calendar className="w-5 h-5" /> <span>AGENDA</span>
               </button>
+              <Link
+                to={createPageUrl('Dashboard2')}
+                className="px-2 sm:px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
+              >
+                <LayoutDashboard className="w-5 h-5" /> <span className="hidden sm:inline">Dashboard 2.0</span>
+              </Link>
             </div>
 
             <div className="flex items-center gap-2 md:gap-3 shrink-0">
@@ -315,174 +330,203 @@ export default function Layout({ children, currentPageName }) {
           {isDashboard ? <div className="ios-home-reveal w-full mt-8">{children}</div> : children}
         </main>
 
-        {/* Agenda Calendar Dialog */}
+        {/* Agenda Calendar Dialog - Estilo Apple/iCloud */}
         <Dialog open={showAgendaDialog} onOpenChange={setShowAgendaDialog}>
-          <DialogContent className="sm:w-[920px] sm:h-[620px] w-[95vw] h-[80vh] max-w-none rounded-2xl overflow-hidden">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Agenda - {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-              </DialogTitle>
-            </DialogHeader>
-            
-            {/* Calendar Navigation + 50/50 Layout */}
-            <div className="flex items-center justify-between mb-4">
-              {/* Agenda Layout 50/50 */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* Coluna esquerda: Calendário */}
-                <div>
-                  {/* Calendar Navigation */}
-                  <div className="flex items-center justify-between mb-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-                      className="rounded-lg"
-                    >
-                      ←
-                    </Button>
-                    <span className="font-medium">
-                      {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                      className="rounded-lg"
-                    >
-                      →
-                    </Button>
-                  </div>
-
-                  {/* Calendar Grid */}
-                  <div className="grid grid-cols-7 gap-1 mb-4">
-                    {/* Days of week header */}
-                    {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                      <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
-                        {day}
-                      </div>
-                    ))}
-                    
-                    {/* Calendar days */}
-                    {(() => {
-                      const year = currentMonth.getFullYear();
-                      const month = currentMonth.getMonth();
-                      const firstDay = new Date(year, month, 1);
-                      const lastDay = new Date(year, month + 1, 0);
-                      const startDate = new Date(firstDay);
-                      startDate.setDate(startDate.getDate() - firstDay.getDay());
-                      
-                      const days = [];
-                      for (let i = 0; i < 42; i++) {
-                        const date = new Date(startDate);
-                        date.setDate(startDate.getDate() + i);
-                        
-                        const dateStr = date.toISOString().split('T')[0];
-                        const isCurrentMonth = date.getMonth() === month;
-                        const isToday = date.toDateString() === new Date().toDateString();
-                        const hasTasks = agendaItems.some(item => item.date === dateStr);
-                        
-                        days.push(
-                          <button
-                            key={i}
-                            onClick={() => {
-                              if (isCurrentMonth) {
-                                setSelectedDate(dateStr);
-                              }
-                            }}
-                            className={`
-                              relative h-8 w-8 text-sm rounded-lg transition-colors
-                              ${isCurrentMonth 
-                                ? 'hover:bg-indigo-50 text-gray-900' 
-                                : 'text-gray-300 cursor-not-allowed'
-                              }
-                              ${isToday ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}
-                            `}
-                            disabled={!isCurrentMonth}
-                          >
-                            {date.getDate()}
-                            {hasTasks && (
-                              <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></div>
-                            )}
-                          </button>
-                        );
-                      }
-                      return days;
-                    })()}
-                  </div>
+          <DialogContent className="sm:w-[900px] sm:h-[600px] w-[95vw] h-[85vh] max-w-none rounded-3xl overflow-hidden p-0 gap-0 border-0 shadow-2xl flex flex-col sm:flex-row bg-[#f5f5f7]">
+            {/* COLUNA ESQUERDA: Calendário (Visual Clean) */}
+            <div className="w-full sm:w-[320px] bg-white border-r border-gray-200 p-6 flex flex-col h-full">
+              {/* Navegação do Mês */}
+              <div className="flex items-center justify-between mb-6">
+                <span className="text-xl font-bold capitalize text-gray-900">
+                  {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                </span>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="h-8 w-8 rounded-full hover:bg-gray-100 text-gray-500">
+                    <span className="sr-only">Anterior</span>
+                    <span className="text-lg">‹</span>
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="h-8 w-8 rounded-full hover:bg-gray-100 text-gray-500">
+                    <span className="sr-only">Próximo</span>
+                    <span className="text-lg">›</span>
+                  </Button>
                 </div>
+              </div>
 
-                {/* Coluna direita: Painel de tarefas do dia */}
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-medium text-gray-800">
-                      {selectedDate 
-                        ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
-                        : 'Selecione um dia'}
-                    </div>
-                    {selectedDate && (
-                      <Button variant="ghost" size="sm" className="h-8 px-2 rounded-lg" onClick={() => setSelectedDate(null)}>
-                        Limpar
-                      </Button>
-                    )}
+              {/* Grid Dias da Semana */}
+              <div className="grid grid-cols-7 mb-2">
+                {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
+                  <div key={i} className="text-center text-[11px] font-semibold text-gray-400 py-1 uppercase tracking-wide">
+                    {day}
                   </div>
+                ))}
+              </div>
 
-                  {/* Tasks List */}
-                  <div className="space-y-2 mb-4 max-h-48 overflow-auto">
-                    {selectedDate && agendaItems.filter(item => item.date === selectedDate).length > 0 ? (
-                      agendaItems
-                        .filter(item => item.date === selectedDate)
-                        .map(item => (
-                          <div key={item.id} className="flex items-start justify-between bg-white border border-gray-200 rounded-xl p-3">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{item.title}</div>
-                              {item.time && <div className="text-xs text-gray-500">{item.time}</div>}
-                              {item.desc && <div className="text-xs text-gray-600 mt-1">{item.desc}</div>}
-                              <div className="mt-2 flex items-center gap-2">
-                                <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-300 text-gray-600">{item.priority || 'Média'}</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-300 text-gray-600">{item.category || 'Outro'}</span>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
-                              onClick={() => setAgendaItems(prev => prev.filter(i => i.id !== item.id))}
-                            >
-                              ×
-                            </Button>
-                          </div>
-                        ))
-                    ) : (
-                      <div className="text-xs text-gray-500">Nenhuma tarefa para este dia.</div>
-                    )}
-                  </div>
+              {/* Grid Dias do Mês */}
+              <div className="grid grid-cols-7 gap-y-2 flex-1 content-start">
+                {(() => {
+                  const year = currentMonth.getFullYear();
+                  const month = currentMonth.getMonth();
+                  const firstDay = new Date(year, month, 1);
+                  const startDate = new Date(firstDay);
+                  startDate.setDate(startDate.getDate() - firstDay.getDay());
 
-                  {/* Botão para abrir modal de nova tarefa */}
-                  <div className="flex gap-2">
-                    <Button 
-                      type="button"
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl"
-                      onClick={() => setShowTaskDialog(true)}
-                      disabled={!selectedDate}
-                    >
-                      Adicionar tarefa
-                    </Button>
-                  </div>
-                </div>
+                  const days = [];
+                  for (let i = 0; i < 42; i++) {
+                    const date = new Date(startDate);
+                    date.setDate(startDate.getDate() + i);
+                    const dateStr = date.toISOString().split('T')[0];
+                    const isCurrentMonth = date.getMonth() === month;
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    const isSelected = selectedDate === dateStr;
+                    const hasTasks = agendaItems.some(item => item.date === dateStr);
+
+                    days.push(
+                      <button
+                        key={i}
+                        onClick={() => isCurrentMonth && setSelectedDate(dateStr)}
+                        disabled={!isCurrentMonth}
+                        className={`
+                          relative h-9 w-9 mx-auto flex items-center justify-center text-sm font-medium rounded-full transition-all
+                          ${!isCurrentMonth ? 'text-gray-200 cursor-default' : 'text-gray-900 hover:bg-gray-100'}
+                          ${isSelected ? 'bg-black text-white hover:bg-black shadow-md' : ''}
+                          ${isToday && !isSelected ? 'text-red-500 font-bold' : ''}
+                        `}
+                      >
+                        {date.getDate()}
+                        {/* Indicador de tarefa (Dot style) */}
+                        {hasTasks && (
+                          <div className={`absolute bottom-1 h-1 w-1 rounded-full ${isSelected ? 'bg-white' : 'bg-gray-400'}`}></div>
+                        )}
+                      </button>
+                    );
+                  }
+                  return days;
+                })()}
               </div>
             </div>
 
-            <div className="flex justify-end mt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAgendaDialog(false)}
-                className="rounded-xl"
-              >
-                Fechar
-              </Button>
+            {/* COLUNA DIREITA: Lista de Tarefas (Estilo Timeline) */}
+            <div className="flex-1 bg-[#f5f5f7] flex flex-col h-full overflow-hidden">
+              {/* Cabeçalho da Data Selecionada */}
+              <div className="p-6 border-b border-gray-200/50 bg-white/50 backdrop-blur-md sticky top-0 z-10 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 capitalize">
+                    {selectedDate
+                      ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })
+                      : 'Selecione uma data'}
+                  </h2>
+                  <p className="text-gray-500 text-sm mt-0.5">
+                    {selectedDate
+                      ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
+                      : 'Nenhuma data selecionada'}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowTaskDialog(true)}
+                  disabled={!selectedDate}
+                  className="rounded-full w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-lg p-0 flex items-center justify-center"
+                >
+                  <span className="text-xl pb-1">+</span>
+                </Button>
+              </div>
+
+              {/* Lista Scrollável */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {selectedDate && agendaItems.filter(item => item.date === selectedDate).length > 0 ? (
+                  agendaItems
+                    .filter(item => item.date === selectedDate)
+                    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+                    .map(item => (
+                      <div key={item.id} className="group flex gap-4 relative">
+                        {/* Coluna Horário */}
+                        <div className="w-14 text-right pt-1">
+                          <span className="text-xs font-semibold text-gray-900">{item.time || 'Dia todo'}</span>
+                        </div>
+                        
+                        {/* Linha Vertical Decorativa */}
+                        <div className="w-[2px] bg-gray-200 relative">
+                          <div className={`absolute top-2 -left-[3px] w-2 h-2 rounded-full border-2 border-white 
+                            ${item.category === 'Reunião' ? 'bg-purple-500' : 
+                              item.category === 'Entrega' ? 'bg-green-500' : 
+                              item.category === 'Chamada' ? 'bg-blue-500' : 'bg-orange-500'} 
+                          `}></div>
+                        </div>
+
+                        {/* Card do Evento */}
+                        <div className={`flex-1 bg-white p-3 rounded-xl border ${item.done ? 'border-green-200 bg-green-50' : 'border-gray-100'} shadow-sm transition-shadow hover:shadow-md mb-2`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className={`font-semibold text-sm ${item.done ? 'text-green-700 line-through' : 'text-gray-900'}`}>{item.title}</h4>
+                              {item.desc && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.desc}</p>}
+                              <div className="mt-2 flex gap-2">
+                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-medium">
+                                  {item.category || 'Geral'}
+                                </span>
+                                {item.time && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-medium">{item.time}</span>
+                                )}
+                                {item.priority === 'Alta' && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-50 text-red-600 font-medium">! Alta Prioridade</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => {
+                                  setEditingTaskId(item.id);
+                                  setEditTaskTitle(item.title || "");
+                                  setEditTaskDesc(item.desc || "");
+                                  setEditTaskTime(item.time || "");
+                                  setEditTaskPriority(item.priority || "Média");
+                                  setEditTaskCategory(item.category || "Outro");
+                                  setShowEditTaskDialog(true);
+                                }} 
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-700 p-1"
+                                title="Editar"
+                              >
+                                ✎
+                              </button>
+                              <button 
+                                onClick={() => setAgendaItems(prev => prev.map(i => i.id === item.id ? { ...i, done: !i.done } : i))} 
+                                className={`opacity-0 group-hover:opacity-100 transition-opacity ${item.done ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-700'} p-1`}
+                                title={item.done ? 'Desmarcar' : 'Concluir'}
+                              > 
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => setAgendaItems(prev => prev.filter(i => i.id !== item.id))} 
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-1"
+                                title="Excluir"
+                              > 
+                                <X className="w-4 h-4" /> 
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
+                    <CalendarDays className="w-16 h-16 mb-4 text-gray-300" strokeWidth={1} />
+                    <p className="text-sm">Sem compromissos</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Botão Fechar Mobile */}
+              <div className="p-4 border-t bg-white sm:hidden">
+                <Button variant="outline" className="w-full rounded-xl" onClick={() => setShowAgendaDialog(false)}>Fechar</Button>
+              </div>
             </div>
-          </DialogContent>
+            
+            {/* Botão Fechar Desktop (Absolute) */}
+            <button 
+              onClick={() => setShowAgendaDialog(false)} 
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hidden sm:block bg-gray-100/50 hover:bg-gray-200/80 rounded-full p-2 transition-colors z-20"
+            > 
+              <X className="w-5 h-5" /> 
+            </button>
+          </DialogContent> 
         </Dialog>
 
             {/* Task Dialog */}
@@ -536,6 +580,7 @@ export default function Layout({ children, currentPageName }) {
                       time: taskTime,
                       priority: taskPriority,
                       category: taskCategory,
+                      done: false,
                     };
                     setAgendaItems(prev => [...prev, newItem]);
 
@@ -628,7 +673,64 @@ export default function Layout({ children, currentPageName }) {
                   </div>
                 </form>
               </DialogContent>
-            </Dialog>
+        </Dialog>
+
+        {/* Edit Task Dialog */}
+        <Dialog open={showEditTaskDialog} onOpenChange={setShowEditTaskDialog}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Editar tarefa</DialogTitle>
+            </DialogHeader>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!editingTaskId) return;
+                setAgendaItems(prev => prev.map(i => i.id === editingTaskId ? {
+                  ...i,
+                  title: editTaskTitle.trim(),
+                  desc: editTaskDesc.trim(),
+                  time: editTaskTime,
+                  priority: editTaskPriority,
+                  category: editTaskCategory,
+                } : i));
+                setShowEditTaskDialog(false);
+                setEditingTaskId(null);
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <p className="text-xs text-gray-500">Título</p>
+                <input className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editTaskTitle} onChange={(e) => setEditTaskTitle(e.target.value)} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Descrição</p>
+                <textarea className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editTaskDesc} onChange={(e) => setEditTaskDesc(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-xs text-gray-500">Horário</p>
+                  <input className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editTaskTime} onChange={(e) => setEditTaskTime(e.target.value)} placeholder="ex.: 14:30" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Prioridade</p>
+                  <select className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editTaskPriority} onChange={(e) => setEditTaskPriority(e.target.value)}>
+                    <option>Média</option>
+                    <option>Baixa</option>
+                    <option>Alta</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Categoria</p>
+                <input className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editTaskCategory} onChange={(e) => setEditTaskCategory(e.target.value)} />
+              </div>
+              <div className="pt-2 flex gap-2 justify-end">
+                <Button variant="outline" className="rounded-xl" type="button" onClick={() => { setShowEditTaskDialog(false); setEditingTaskId(null); }}>Cancelar</Button>
+                <Button className="rounded-xl" type="submit">Salvar</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Bottom Navigation with Moving Green Highlight */}
           <nav className="fixed bottom-0 left-0 right-0 z-30">

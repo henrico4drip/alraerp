@@ -141,6 +141,27 @@ export default function Payments() {
     return Array.from(ys).sort((a,b)=>a-b)
   }, [openCarnes])
 
+  // Calendário estilo iOS: cabeçalho mês/ano, strip de dias e grade 7x
+  const firstDayOfMonth = useMemo(() => new Date(year, month, 1), [year, month])
+  const daysInMonth = useMemo(() => new Date(year, month + 1, 0).getDate(), [year, month])
+  const weekdayNames = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
+  const [selectedDay, setSelectedDay] = useState(new Date(year, month, now.getDate()))
+  const daysArray = useMemo(() => Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)), [year, month, daysInMonth])
+  const eventsByDay = useMemo(() => {
+    const map = new Map()
+    for (const inst of openCarnes) {
+      const d = new Date(inst.due_date)
+      if (d.getFullYear() !== year || d.getMonth() !== month) continue
+      const key = d.getDate()
+      const arr = map.get(key) || []
+      arr.push(inst)
+      map.set(key, arr)
+    }
+    return map
+  }, [openCarnes, year, month])
+  const isSameDate = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  const isToday = (d) => isSameDate(d, today)
+
   const renderPixQrSrc = (amount, txidRaw) => {
     if (!hasPixConfigured) return ''
     const txid = sanitizeTxid(txidRaw)
@@ -317,6 +338,60 @@ body { margin: 0; }
 
       {/* Seções: Atrasados e A vencer no mês */}
       <div className="space-y-4">
+        {/* Calendário (estilo iOS) */}
+        <div className="rounded-2xl border p-3 bg-white">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-base font-semibold">{monthNames[month]}/{year}</div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="rounded-xl px-2" onClick={() => { const m = month === 0 ? 11 : month - 1; const y = month === 0 ? year - 1 : year; setMonth(m); setYear(y) }}>‹</Button>
+              <Button variant="outline" className="rounded-xl px-2" onClick={() => { const m = month === 11 ? 0 : month + 1; const y = month === 11 ? year + 1 : year; setMonth(m); setYear(y) }}>›</Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-7 text-xs text-gray-500 mb-1">
+            {weekdayNames.map((w, i) => (<div key={i} className="text-center">{w}</div>))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {Array(firstDayOfMonth.getDay()).fill(0).map((_, i) => (<div key={`empty-${i}`} className="h-10" />))}
+            {daysArray.map((d) => {
+              const day = d.getDate()
+              const evts = eventsByDay.get(day) || []
+              const sel = isSameDate(d, selectedDay)
+              const todayFlag = isToday(d)
+              return (
+                <button key={day} onClick={() => setSelectedDay(d)} className={`h-10 rounded-xl flex flex-col items-center justify-center border ${sel ? 'border-[#3490c7] bg-[#3490c7]/10' : 'border-gray-200'} ${todayFlag ? 'ring-1 ring-[#3490c7]' : ''}`}>
+                  <span className="text-sm font-medium">{day}</span>
+                  <div className="flex gap-0.5 mt-0.5">
+                    {evts.slice(0,3).map((_, idx) => (<span key={idx} className="w-1.5 h-1.5 rounded-full bg-[#3490c7]"></span>))}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {/* Lista do dia selecionado */}
+          <div className="mt-3">
+            <div className="text-sm text-gray-600 mb-1">Selecionado: {selectedDay.toLocaleDateString('pt-BR')}</div>
+            {(() => {
+              const items = eventsByDay.get(selectedDay.getDate()) || []
+              if (items.length === 0) return <div className="text-gray-500 text-sm">Sem parcelas neste dia.</div>
+              return (
+                <div className="space-y-2">
+                  {items.map((i) => (
+                    <div key={`${i.sale_id}-${i.installment_index}-sel`} className="flex items-center justify-between border rounded-xl p-2">
+                      <div>
+                        <div className="font-medium text-sm">{i.customer_name || 'Cliente'}</div>
+                        <div className="text-xs text-gray-600">Parcela {i.installment_index}/{i.installments_total} • Valor R$ {i.installment_amount.toFixed(2)}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button className="rounded-xl" onClick={() => handleGenerateBoletoPix(i)} disabled={!hasPixConfigured}>QR</Button>
+                        <Button className="rounded-xl" onClick={() => handleOpenWhatsapp(i)}>Zap</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
         <div>
           <h2 className="text-lg font-semibold mb-2">Carnês atrasados</h2>
           {overdue.length > 0 ? (

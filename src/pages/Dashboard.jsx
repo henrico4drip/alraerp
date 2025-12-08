@@ -3,11 +3,11 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { 
-  Upload, 
-  FileText, 
-  DollarSign, 
-  Users, 
+import {
+  Upload,
+  FileText,
+  DollarSign,
+  Users,
   TrendingUp,
   Zap,
   Settings as SettingsIcon,
@@ -63,7 +63,7 @@ export default function Dashboard() {
           setLogoUrl((prev) => {
             if (prev !== s.logo_url) {
               setLogoReady(false);
-              try { localStorage.setItem('logo_url', s.logo_url); } catch {}
+              try { localStorage.setItem('logo_url', s.logo_url); } catch { }
               return s.logo_url;
             }
             // Same URL: ensure ready if already cached
@@ -88,6 +88,14 @@ export default function Dashboard() {
   // Mostrar aviso após 3s e iniciar rotação dos snippets
   useEffect(() => {
     const showTimer = setTimeout(() => setShowNotif(true), 3000);
+
+    // Pixel: CompleteRegistration
+    const regCompleted = localStorage.getItem('registration_completed');
+    if (regCompleted === 'true' && window.fbq) {
+      window.fbq('track', 'CompleteRegistration');
+      localStorage.removeItem('registration_completed');
+    }
+
     return () => clearTimeout(showTimer);
   }, []);
 
@@ -111,7 +119,7 @@ export default function Dashboard() {
           const created = await base44.entities.Settings.create({ logo_url: file_url });
           setSettings(created);
         }
-        try { localStorage.setItem('logo_url', file_url); } catch {}
+        try { localStorage.setItem('logo_url', file_url); } catch { }
         setLogoReady(false);
         setLogoUrl(file_url);
       } catch (error) {
@@ -146,7 +154,7 @@ export default function Dashboard() {
         {/* Logo */}
         <div className="mb-6 flex items-center justify-center">
           <div className="relative group">
-            <img 
+            <img
               ref={imgRef}
               src={logoUrl}
               alt="Logo"

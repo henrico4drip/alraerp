@@ -102,7 +102,7 @@ export default function Sales() {
         <h2 className="mb-3 text-lg font-semibold text-gray-800">Histório de vendas</h2>
         <div className="overflow-x-auto w-full px-3">
           <div className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] bg-white rounded-xl border border-gray-200 min-w-[960px]">
-            <div className="hidden lg:grid grid-cols-[minmax(110px,1fr)_minmax(80px,auto)_minmax(220px,2fr)_minmax(150px,auto)_minmax(180px,auto)_auto] gap-3 px-3 sm:px-5 py-2.5 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
+            <div className="hidden lg:grid grid-cols-[140px_90px_1fr_160px_180px_160px] gap-3 px-3 sm:px-5 py-2.5 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
               <div>DATA</div>
               <div>NÚMERO</div>
               <div>CLIENTE <span className="ml-2 text-[10px] font-normal text-gray-400">VENDEDOR</span></div>
@@ -113,7 +113,7 @@ export default function Sales() {
             <div className="divide-y divide-gray-100">
               {filteredSales.map((sale) => (
                 <React.Fragment key={sale.id}>
-                  <div className="hidden lg:grid grid-cols-[minmax(110px,1fr)_minmax(80px,auto)_minmax(220px,2fr)_minmax(150px,auto)_minmax(180px,auto)_auto] gap-3 items-center px-3 sm:px-5 py-2.5 hover:bg-gray-50/70">
+                  <div className="hidden lg:grid grid-cols-[140px_90px_1fr_160px_180px_160px] gap-3 items-center px-3 sm:px-5 py-2.5 hover:bg-gray-50/70">
                     <div className="flex items-center">
                       {sale.sale_date ? (
                         <span className="text-sm text-gray-700 font-medium">{format(new Date(sale.sale_date), 'dd/MM HH:mm')}</span>

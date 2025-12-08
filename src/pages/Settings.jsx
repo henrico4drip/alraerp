@@ -306,12 +306,12 @@ export default function Settings() {
                 <div className="border rounded-xl p-4 bg-white">
                   <p className="text-sm text-gray-500">Gerenciar</p>
                   <p className="text-xs text-gray-600 mb-3">Abrir portal para cancelar, trocar forma de pagamento ou alterar plano</p>
-                  <Button onClick={manageSubscription} disabled={portalBusy} className="rounded-xl w-full bg-blue-600 text-white hover:bg-blue-700">{portalBusy ? 'Abrindo...' : 'Abrir Portal de Assinatura'}</Button>
+                  <Button onClick={manageSubscription} disabled={portalBusy} className="rounded-xl w-full bg-[#3490c7] text-white hover:bg-[#2c8ac2]">{portalBusy ? 'Abrindo...' : 'Abrir Portal de Assinatura'}</Button>
                 </div>
                 <div className="border rounded-xl p-4 bg-white">
                   <p className="text-sm text-gray-500">Upgrade</p>
                   <p className="text-xs text-gray-600 mb-3">Migre para anual com desconto e cobrança imediata no Stripe</p>
-                  <Button onClick={upgradePlan} disabled={upgradeBusy} className="rounded-xl w-full bg-blue-600 hover:bg-blue-700 text-white">{upgradeBusy ? 'Processando...' : 'Ir para plano anual'}</Button>
+                  <Button onClick={upgradePlan} disabled={upgradeBusy} className="rounded-xl w-full bg-[#3490c7] hover:bg-[#2c8ac2] text-white">{upgradeBusy ? 'Processando...' : 'Ir para plano anual'}</Button>
                 </div>
               </div>
             </div>

@@ -62,6 +62,7 @@ export default function CashierPayment() {
   const [confirmRemoveCartItemId, setConfirmRemoveCartItemId] = useState(null);
   const [showConfirmRemovePayment, setShowConfirmRemovePayment] = useState(false);
   const [confirmRemovePaymentIdx, setConfirmRemovePaymentIdx] = useState(null);
+  const [editingPaymentIdx, setEditingPaymentIdx] = useState(null);
   useEffect(() => {
     const animatePayment = sessionStorage.getItem('animateCashierPaymentEntry') === 'true';
     if (animatePayment) {
@@ -155,6 +156,31 @@ export default function CashierPayment() {
     const installments = (method === 'Cartão de Crédito' || method === 'Carnê') ? (paymentDraft.installments || 1) : 1;
     setPaymentDraft({ ...paymentDraft, method: method, amount: amt, installments });
   };
+
+  const startEditPayment = (idx) => {
+    const p = payments[idx]
+    if (!p) return
+    setEditingPaymentIdx(idx)
+    setPaymentDraft({
+      method: p.method,
+      amount: p.amount,
+      installments: p.installments || 1,
+      firstDueDays: p.first_due_days || p.firstDueDays || 30,
+    })
+  }
+
+  const commitEditPayment = () => {
+    if (editingPaymentIdx == null) return
+    const updated = {
+      method: paymentDraft.method,
+      amount: Number(paymentDraft.amount || 0),
+      installments: Number(paymentDraft.installments || 1),
+      first_due_days: paymentDraft.firstDueDays ? Number(paymentDraft.firstDueDays) : undefined,
+    }
+    setPayments((prev) => prev.map((p, i) => (i === editingPaymentIdx ? { ...p, ...updated } : p)))
+    setEditingPaymentIdx(null)
+    setPaymentDraft({ method: "", amount: 0, installments: 1 })
+  }
 
   const addCustomPaymentMethod = async () => {
     const m = (newPaymentMethod || '').trim();
@@ -628,7 +654,7 @@ export default function CashierPayment() {
                         />
                       )}
                     </div>
-                    <Button className="rounded-xl" onClick={() => addPayment()}>+</Button>
+                    <Button className="rounded-xl" onClick={() => (editingPaymentIdx != null ? commitEditPayment() : addPayment())}>{editingPaymentIdx != null ? 'Atualizar' : '+'}</Button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -641,7 +667,7 @@ export default function CashierPayment() {
                       onChange={(e) => setPaymentDraft({ ...paymentDraft, amount: e.target.value })}
                       className="rounded-xl border-gray-200 flex-1"
                     />
-                    <Button className="rounded-xl" onClick={() => addPayment()}>+</Button>
+                    <Button className="rounded-xl" onClick={() => (editingPaymentIdx != null ? commitEditPayment() : addPayment())}>{editingPaymentIdx != null ? 'Atualizar' : '+'}</Button>
                   </div>
                 )}
 
@@ -676,10 +702,12 @@ export default function CashierPayment() {
                         <div className="text-sm">
                           <span className="font-medium">{p.method}</span>
                           {p.installments > 1 ? ` • ${p.installments}x` : ''}
+                          {p.method === 'Carnê' && p.first_due_days ? ` • 1ª em ${p.first_due_days}d` : ''}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm">R$ {p.amount.toFixed(2)}</span>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setConfirmRemovePaymentIdx(idx); setShowConfirmRemovePayment(true); }}>×</Button>
+                          <Button size="sm" variant="outline" className="h-7 rounded-lg" onClick={() => startEditPayment(idx)}>Editar</Button>
+                          <Button size="sm" variant="ghost" className="h-7 rounded-lg" onClick={() => { setConfirmRemovePaymentIdx(idx); setShowConfirmRemovePayment(true); }}>Excluir</Button>
                         </div>
                       </div>
                     ))}

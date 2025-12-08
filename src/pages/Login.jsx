@@ -11,8 +11,8 @@ export default function Login() {
     if (user) navigate('/dashboard')
   }, [user, navigate])
 
-  
-  
+
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -56,9 +56,10 @@ export default function Login() {
           createdAt: new Date().toISOString(),
         }
         window.localStorage.setItem('signup_profile', JSON.stringify(profile))
+        window.localStorage.setItem('registration_completed', 'true') // Pixel tracking
         const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         window.localStorage.setItem('trial_until', until.toISOString())
-      } catch {}
+      } catch { }
       navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(err?.message || 'Erro ao criar conta')
@@ -73,7 +74,7 @@ export default function Login() {
       const mode = params.get('mode')
       const signup = params.get('signup')
       if (mode === 'signup' || signup === '1') setShowSignupForm(true)
-    } catch {}
+    } catch { }
   }, [location.search])
   const oauthLogin = async (provider) => {
     if (!supabase) return
@@ -165,7 +166,7 @@ export default function Login() {
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="submit" className="btn-login" disabled={loading}>{loading ? (showSignupForm ? 'Criando...' : 'Entrando...') : (showSignupForm ? 'Criar conta' : 'Entrar')}</button>
               {showSignupForm && (
-                <button type="button" className="btn-login" style={{ background:'#ffffff22' }} onClick={() => setShowSignupForm(false)}>Login</button>
+                <button type="button" className="btn-login" style={{ background: '#ffffff22' }} onClick={() => setShowSignupForm(false)}>Login</button>
               )}
             </div>
           </form>
