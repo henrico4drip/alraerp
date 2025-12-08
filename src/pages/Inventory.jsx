@@ -410,8 +410,16 @@ export default function Inventory() {
                 <Button type="button" variant="outline" onClick={handleCloseDialog} className="flex-1 rounded-xl">
                   Cancelar
                 </Button>
-                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl">
-                  {editingProduct ? "Salvar" : "Criar"}
+                <Button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                >
+                  {(createMutation.isPending || updateMutation.isPending) ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saves...
+                    </span>
+                  ) : (editingProduct ? "Salvar" : "Criar")}
                 </Button>
               </div>
             </form>
