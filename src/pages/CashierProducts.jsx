@@ -243,13 +243,13 @@ export default function CashierProducts() {
                             const cur = item.unit_price
                             if (orig && cur < orig) {
                               return (
-                                <div className="text-right">
-                                  <span className="text-[11px] line-through text-gray-500 mr-1">R$ {Number(orig).toFixed(2)}</span>
+                                <div className="mt-0.5">
+                                  <span className="text-[11px] line-through text-gray-500 mr-2">R$ {Number(orig).toFixed(2)}</span>
                                   <span className="text-xs font-semibold text-green-600">R$ {Number(cur).toFixed(2)}</span>
                                 </div>
                               )
                             }
-                            return <p className="text-xs text-gray-500">R$ {Number(cur).toFixed(2)}</p>
+                            return <p className="text-xs text-gray-500 mt-0.5">R$ {Number(cur).toFixed(2)}</p>
                           })()}
                         </div>
                         <div className="flex items-center gap-1">
