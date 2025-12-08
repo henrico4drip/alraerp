@@ -257,6 +257,9 @@ export default function CashierProducts() {
                             <Minus className="w-3 h-3" />
                           </Button>
                           <span className="w-6 text-center font-semibold text-sm">{item.quantity}</span>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => updateQuantity(item.product_id, 1)}>
+                            <Plus className="w-3 h-3" />
+                          </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setConfirmRemoveCartItemId(item.product_id); setShowConfirmRemoveCartItem(true); }}>
                             <Trash2 className="w-3 h-3 text-red-500" />
                           </Button>
