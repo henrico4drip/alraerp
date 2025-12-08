@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react'
+import { startOfDay, endOfDay, isWithinInterval, isSameDay, isAfter, isBefore, addMonths, subMonths, format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { base44 } from '@/api/base44Client'
 import { Button } from '@/components/ui/button'
@@ -86,14 +88,21 @@ export default function Payments() {
     return m
   }, [customers])
 
-  const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth())
+  // --- STATE ---
+  const [currentMonth, setCurrentMonth] = useState(new Date()) // Mês exibido no calendário
+  const [dateRange, setDateRange] = useState({ from: null, to: null }) // Seleção de data
+
+  // State for Edit Dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [targetInstallment, setTargetInstallment] = useState(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [editDate, setEditDate] = useState('')
 
   // Estado do pop-up de boletos
   const [showBoletoDialog, setShowBoletoDialog] = useState(false)
   const [boletoPagesHtml, setBoletoPagesHtml] = useState('')
 
+  // --- DATA PROCESSING ---
   const openCarnes = useMemo(() => {
     const result = []
     for (const s of sales) {
@@ -121,208 +130,94 @@ export default function Payments() {
         }
       }
     }
-    return result
+    return result.sort((a, b) => a.due_date - b.due_date)
   }, [sales, customerById])
 
-  // Substitui "filtered" por duas listas: atrasados e a vencer neste mês
-  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
-  const overdue = useMemo(
-    () => openCarnes.filter((i) => i.due_date < today),
-    [openCarnes, today]
-  )
-  const dueThisMonth = useMemo(
-    () => openCarnes.filter((i) => i.due_date.getFullYear() === year && i.due_date.getMonth() === month && i.due_date >= today),
-    [openCarnes, year, month, today]
-  )
+  const today = startOfDay(new Date())
 
-  const years = useMemo(() => {
-    const ys = new Set([now.getFullYear()])
-    for (const i of openCarnes) ys.add(i.due_date.getFullYear())
-    return Array.from(ys).sort((a, b) => a - b)
-  }, [openCarnes])
+  // Financial Summaries
+  const totalOverdue = useMemo(() =>
+    openCarnes.filter(i => isBefore(i.due_date, today)).reduce((sum, i) => sum + i.installment_amount, 0),
+    [openCarnes, today])
 
-  // Calendário estilo iOS: cabeçalho mês/ano, strip de dias e grade 7x
-  const firstDayOfMonth = useMemo(() => new Date(year, month, 1), [year, month])
-  const daysInMonth = useMemo(() => new Date(year, month + 1, 0).getDate(), [year, month])
-  const weekdayNames = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
-  const [selectedDay, setSelectedDay] = useState(new Date(year, month, now.getDate()))
-  const daysArray = useMemo(() => Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)), [year, month, daysInMonth])
-  const eventsByDay = useMemo(() => {
-    const map = new Map()
-    for (const inst of openCarnes) {
-      const d = new Date(inst.due_date)
-      if (d.getFullYear() !== year || d.getMonth() !== month) continue
-      const key = d.getDate()
-      const arr = map.get(key) || []
-      arr.push(inst)
-      map.set(key, arr)
+  const totalOpenGeneral = useMemo(() =>
+    openCarnes.reduce((sum, i) => sum + i.installment_amount, 0),
+    [openCarnes])
+
+  // Filtered List based on Range
+  const filteredList = useMemo(() => {
+    if (!dateRange.from) {
+      // Se não tem range, mostra os próximos 30 dias ou todos? Vamos mostrar todos os vencidos e próximos.
+      // O usuário pediu "os que estão pendentes nessa linha de racioncínio".
+      // Se nada selecionado, vamos listar atrasados primeiro, depois próximos.
+      return openCarnes
     }
-    return map
-  }, [openCarnes, year, month])
-  const isSameDate = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-  const isToday = (d) => isSameDate(d, today)
+    const from = startOfDay(dateRange.from)
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from)
 
-  const renderPixQrSrc = (amount, txidRaw) => {
-    if (!hasPixConfigured) return ''
-    const txid = sanitizeTxid(txidRaw)
-    const code = buildPixEmvPayload({
-      key: String(settings?.pix_key || ''),
-      amount: Number(amount || 0),
-      name: settings?.erp_name || 'LOJA',
-      city: (settings?.company_city || 'CIDADE'),
-      txid,
-    })
-    const data = encodeURIComponent(code)
-    return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${data}`
-  }
+    return openCarnes.filter(i => isWithinInterval(i.due_date, { start: from, end: to }))
+  }, [openCarnes, dateRange])
 
-  const sanitizePhone = (raw) => {
-    const digits = (raw || '').replace(/\D/g, '')
-    if (!digits) return ''
-    return digits.startsWith('55') ? digits : `55${digits}`
-  }
+  const totalSelected = useMemo(() =>
+    filteredList.reduce((sum, i) => sum + i.installment_amount, 0),
+    [filteredList])
 
-  const buildWhatsAppMessage = (installment) => {
-    const firstName = (installment.customer_name || '').trim().split(/\s+/)[0] || ''
-    const lines = [
-      `Olá ${firstName}, segue boleto da parcela ${installment.installment_index}/${installment.installments_total}.`,
-      `Vencimento: ${installment.due_date.toLocaleDateString('pt-BR')}`,
-      `Valor da parcela: R$ ${Number(installment.installment_amount).toFixed(2)}`,
-      `Total da venda: R$ ${Number(installment.total || 0).toFixed(2)}`,
-    ]
 
-    if (Array.isArray(installment.schedule) && installment.schedule.length > 0) {
-      lines.push('\nParcelas:')
-      for (const it of installment.schedule) {
-        const d = new Date(it.due_date)
-        lines.push(`- ${it.index}: ${d.toLocaleDateString('pt-BR')} • R$ ${Number(it.amount || 0).toFixed(2)}${it.index === installment.installment_index ? ' (esta)' : ''}`)
-      }
-    }
-
-    // PIX: mantém chave e link do QR; remove copia-e-cola do WhatsApp
-    if (hasPixConfigured) {
-      const txid = `${installment.sale_id}-${String(installment.installment_index).padStart(2, '0')}`
-      const qr = renderPixQrSrc(installment.installment_amount, txid)
-      lines.push('')
-      lines.push(`Chave PIX: ${String(settings?.pix_key || '')}`)
-      lines.push(`QR Code (link): ${qr}`)
-    }
-
-    return lines.filter(Boolean).join('\n')
-  }
-
-  const handleOpenWhatsapp = (installment) => {
-    const text = encodeURIComponent(buildWhatsAppMessage(installment))
-    const phone = sanitizePhone(installment.customer_phone)
-    const waUrl = phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`
-    window.open(waUrl, '_blank')
-  }
-
-  const handleGenerateBoletoPix = (installment) => {
-    if (!hasPixConfigured) {
-      alert('Configure sua chave PIX em Configurações para gerar o boleto/QR.')
+  // --- CALENDAR LOGIC ---
+  const handleDayClick = (day) => {
+    if (!dateRange.from || (dateRange.from && dateRange.to)) {
+      // Start new selection
+      setDateRange({ from: day, to: null })
       return
     }
-
-    const schedule = Array.isArray(installment.schedule) ? installment.schedule : []
-    if (schedule.length === 0) {
-      alert('Não há parcelas para gerar boletos.')
-      return
+    // Have 'from', selecting 'to'
+    if (isBefore(day, dateRange.from)) {
+      // Clicked before start -> reset start
+      setDateRange({ from: day, to: null })
+    } else {
+      // Complete range
+      setDateRange({ ...dateRange, to: day })
     }
+  }
 
-    const buildReceipt = (it) => {
-      const d = new Date(it.due_date)
-      const txid = `${installment.sale_id}-${String(it.index).padStart(2, '0')}`
-      const qrSrc = renderPixQrSrc(it.amount, txid)
-      const amount = Number(it.amount || 0).toFixed(2)
-      const dateStr = d.toLocaleDateString('pt-BR')
-
-      const brandTitle = sanitizeEmvText(settings?.erp_name || 'LOJA', 25)
-      const brandCnpj = settings?.company_cnpj || 'CNPJ não cadastrado'
-      const brandAddr = [settings?.company_address, settings?.company_zip, settings?.company_city, settings?.company_state]
-        .filter(Boolean).join(' - ')
-
-      return `
-      <div class="receipt">
-        <div class="receipt__grid">
-          <div class="receipt__left">
-            <div class="hdr">${brandTitle}</div>
-            <div class="sub">${brandCnpj}</div>
-            <div class="sub">${brandAddr || 'Endereço não cadastrado'}</div>
-            <div class="kv"><span class="k">Cliente</span><span class="v">${installment.customer_name || ''}</span></div>
-            <div class="kv"><span class="k">Parcela</span><span class="v">${it.index}/${installment.installments_total}</span></div>
-            <div class="kv"><span class="k">Vencimento</span><span class="v">${dateStr}</span></div>
-            <div class="kv"><span class="k">Valor</span><span class="v">R$ ${amount}</span></div>
-          </div>
-
-          <div class="receipt__right">
-            <img src="${qrSrc}" alt="QR PIX" class="qr"/>
-            <div class="contact">${settings?.contact_email || 'email@loja.com'}</div>
-          </div>
-        </div>
-      </div>`
+  const daysInMonth = useMemo(() => {
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    const date = new Date(year, month, 1)
+    const days = []
+    while (date.getMonth() === month) {
+      days.push(new Date(date))
+      date.setDate(date.getDate() + 1)
     }
+    return days
+  }, [currentMonth])
 
-    const pages = schedule.map(buildReceipt).join('\n')
+  const firstDayOfWeek = daysInMonth[0].getDay() // 0 = Sunday
+  const emptyDays = Array(firstDayOfWeek).fill(null)
 
-    const style = `
-      <style>
-        .receipts { max-height: 70vh; overflow-y: auto; overflow-x: hidden; padding-right: 6px; }
-        .receipt { border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 10px; background: #fff; max-width: 100%; }
-        .receipt__grid { display: grid; grid-template-columns: minmax(0,1fr) 180px; gap: 10px; padding: 10px; align-items: start; }
-        .receipt__left { display: flex; flex-direction: column; gap: 6px; }
-        .hdr { font-weight: 700; color: #111827; }
-        .sub { font-size: 12px; color: #374151; }
-        .kv { display: grid; grid-template-columns: 100px 1fr; gap: 6px; }
-        .k { color: #374151; font-weight: 600; }
-        .v { font-weight: 600; }
-        .receipt__right { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-        .qr { width: 160px; height: 160px; border: 1px solid #e5e7eb; border-radius: 8px; object-fit: contain; }
-        .contact { font-family: monospace; color: #111827; text-align: center; font-size: 12px; }
-      </style>
-    `
-
-    setBoletoPagesHtml(style + `<div class="receipts">${pages}</div>`)
-    setShowBoletoDialog(true)
+  const isDaySelected = (day) => {
+    if (!dateRange.from) return false
+    if (isSameDay(day, dateRange.from)) return true
+    if (dateRange.to && isSameDay(day, dateRange.to)) return true
+    if (dateRange.to && isWithinInterval(day, { start: dateRange.from, end: dateRange.to })) return true
+    return false
   }
 
-  const handleDownloadHtml = () => {
-    const doc = `<!doctype html><html><head><meta charset="utf-8"/><title>Boletos PIX</title>${boletoPagesHtml.match(/<style>[\s\S]*<\/style>/)?.[0] || ''}</head><body>${boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/, '')}</body></html>`
-    const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'boletos_pix.html'
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 2000)
+  const getDayStyle = (day) => {
+    if (!dateRange.from) return 'hover:bg-gray-100 rounded-lg'
+
+    const isStart = isSameDay(day, dateRange.from)
+    const isEnd = dateRange.to && isSameDay(day, dateRange.to)
+    const isIn = dateRange.to && isWithinInterval(day, { start: dateRange.from, end: dateRange.to })
+
+    if (isStart && isEnd) return 'bg-[#3490c7] text-white rounded-lg shadow-md z-10'
+    if (isStart) return 'bg-[#3490c7] text-white rounded-l-lg shadow-md z-10'
+    if (isEnd) return 'bg-[#3490c7] text-white rounded-r-lg shadow-md z-10'
+    if (isIn) return 'bg-[#3490c7]/20 text-[#3490c7]' // Middle range
+    return 'hover:bg-gray-100 rounded-lg'
   }
 
-  const handlePrintPdf = () => {
-    const styleTag = boletoPagesHtml.match(/<style>[\s\S]*<\/style>/)?.[0] || '<style></style>'
-    const innerCss = styleTag.replace(/^<style>/, '').replace(/<\/style>$/, '')
-    const extraCss = `
-@page { size: A4; margin: 12mm; }
-body { margin: 0; }
-.receipts { max-height: none !important; overflow: visible !important; padding-right: 0 !important; }
-.receipt { break-inside: avoid; page-break-inside: avoid; }
-`
-    const finalStyle = `<style>${innerCss}\n${extraCss}</style>`
-    const content = boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/, '')
-    const doc = `<!doctype html><html><head><meta charset="utf-8"/><title>Boletos PIX</title>${finalStyle}</head><body>${content}</body></html>`
-    const win = window.open('', '_blank')
-    if (!win) return
-    win.document.write(doc)
-    win.document.close()
-    win.focus()
-    setTimeout(() => { try { win.print() } finally { win.close() } }, 200)
-  }
-
-  // State for Edit Dialog
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [targetInstallment, setTargetInstallment] = useState(null)
-  const [editAmount, setEditAmount] = useState('')
-  const [editDate, setEditDate] = useState('')
-
+  // --- ACTIONS ---
   const updateSaleMutation = useMutation({
     mutationFn: ({ id, updates }) => base44.entities.Sale.update(id, updates),
     onSuccess: () => {
@@ -379,154 +274,246 @@ body { margin: 0; }
     updateSaleMutation.mutate({ id: sale.id, updates: { payments: newPayments } })
   }
 
+  // Reuse existing PIX helper functions logic
+  const handleGenerateBoletoPix = (installment) => {
+    if (!hasPixConfigured) {
+      alert('Configure sua chave PIX em Configurações para gerar o boleto/QR.')
+      return
+    }
+    const schedule = Array.isArray(installment.schedule) ? installment.schedule : []
+    const buildReceipt = (it) => {
+      const d = new Date(it.due_date)
+      const txid = `${installment.sale_id}-${String(it.index).padStart(2, '0')}`
+      const qrSrc = renderPixQrSrc(it.amount, txid)
+      const amount = Number(it.amount || 0).toFixed(2)
+      const dateStr = d.toLocaleDateString('pt-BR')
+      const brandTitle = sanitizeEmvText(settings?.erp_name || 'LOJA', 25)
+      const brandCnpj = settings?.company_cnpj || 'CNPJ não cadastrado'
+      const brandAddr = [settings?.company_address, settings?.company_zip, settings?.company_city, settings?.company_state].filter(Boolean).join(' - ')
+
+      return `<div class="receipt"><div class="receipt__grid"><div class="receipt__left"><div class="hdr">${brandTitle}</div><div class="sub">${brandCnpj}</div><div class="sub">${brandAddr || 'Endereço não cadastrado'}</div><div class="kv"><span class="k">Cliente</span><span class="v">${installment.customer_name || ''}</span></div><div class="kv"><span class="k">Parcela</span><span class="v">${it.index}/${installment.installments_total}</span></div><div class="kv"><span class="k">Vencimento</span><span class="v">${dateStr}</span></div><div class="kv"><span class="k">Valor</span><span class="v">R$ ${amount}</span></div></div><div class="receipt__right"><img src="${qrSrc}" alt="QR PIX" class="qr"/><div class="contact">${settings?.contact_email || 'email@loja.com'}</div></div></div></div>`
+    }
+    const pages = schedule.map(buildReceipt).join('\n')
+    const style = `<style>.receipts { max-height: 70vh; overflow-y: auto; overflow-x: hidden; padding-right: 6px; } .receipt { border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 10px; background: #fff; max-width: 100%; } .receipt__grid { display: grid; grid-template-columns: minmax(0,1fr) 180px; gap: 10px; padding: 10px; align-items: start; } .receipt__left { display: flex; flex-direction: column; gap: 6px; } .hdr { font-weight: 700; color: #111827; } .sub { font-size: 12px; color: #374151; } .kv { display: grid; grid-template-columns: 100px 1fr; gap: 6px; } .k { color: #374151; font-weight: 600; } .v { font-weight: 600; } .receipt__right { display: flex; flex-direction: column; align-items: center; gap: 6px; } .qr { width: 160px; height: 160px; border: 1px solid #e5e7eb; border-radius: 8px; object-fit: contain; } .contact { font-family: monospace; color: #111827; text-align: center; font-size: 12px; } </style>`
+    setBoletoPagesHtml(style + `<div class="receipts">${pages}</div>`)
+    setShowBoletoDialog(true)
+  }
+
+  const handleDownloadHtml = () => {
+    const doc = `<!doctype html><html><head><meta charset="utf-8"/><title>Boletos PIX</title>${boletoPagesHtml.match(/<style>[\s\S]*<\/style>/)?.[0] || ''}</head><body>${boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/, '')}</body></html>`
+    const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'boletos_pix.html'
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
+  }
+
+  const handlePrintPdf = () => {
+    const styleTag = boletoPagesHtml.match(/<style>[\s\S]*<\/style>/)?.[0] || '<style></style>'
+    const innerCss = styleTag.replace(/^<style>/, '').replace(/<\/style>$/, '')
+    const extraCss = `@page { size: A4; margin: 12mm; } body { margin: 0; } .receipts { max-height: none !important; overflow: visible !important; padding-right: 0 !important; } .receipt { break-inside: avoid; page-break-inside: avoid; }`
+    const finalStyle = `<style>${innerCss}\n${extraCss}</style>`
+    const content = boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/, '')
+    const doc = `<!doctype html><html><head><meta charset="utf-8"/><title>Boletos PIX</title>${finalStyle}</head><body>${content}</body></html>`
+    const win = window.open('', '_blank')
+    if (win) {
+      win.document.write(doc)
+      win.document.close()
+      win.focus()
+      setTimeout(() => { try { win.print() } finally { win.close() } }, 200)
+    }
+  }
+
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-semibold mb-4">Pagamentos (Carnê)</h1>
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
 
-      {!hasPixConfigured && (
-        <div className="mb-3 p-3 rounded-xl bg-yellow-50 text-yellow-800 border border-yellow-200">
-          Configure sua chave PIX em Configurações para gerar boletos com QR.
+      {/* Header Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex flex-col justify-between h-24">
+          <div className="text-red-900 font-medium text-sm uppercase tracking-wide">Vencido</div>
+          <div className="text-2xl font-bold text-red-700">R$ {totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
         </div>
-      )}
-
-      <div className="flex gap-2 mb-4">
-        <select value={String(year)} onChange={(e) => setYear(Number(e.target.value))} className="rounded-xl border-gray-200 p-2">
-          {years.map((y) => (<option key={y} value={y}>{y}</option>))}
-        </select>
-        <select value={String(month)} onChange={(e) => setMonth(Number(e.target.value))} className="rounded-xl border-gray-200 p-2">
-          {monthNames.map((m, idx) => (<option key={idx} value={idx}>{m}</option>))}
-        </select>
+        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col justify-between h-24">
+          <div className="text-blue-900 font-medium text-sm uppercase tracking-wide">A Receber Total</div>
+          <div className="text-2xl font-bold text-blue-700">R$ {totalOpenGeneral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+        </div>
+        <div className={`p-4 rounded-2xl border flex flex-col justify-between h-24 transition-colors ${dateRange.from ? 'bg-indigo-50 border-indigo-100' : 'bg-gray-50 border-gray-100 opacity-50'}`}>
+          <div className="text-indigo-900 font-medium text-sm uppercase tracking-wide">
+            {dateRange.from ? 'Selecionado' : 'Selecione um período'}
+          </div>
+          <div className="text-2xl font-bold text-indigo-700">
+            {dateRange.from ? `R$ ${totalSelected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+          </div>
+        </div>
       </div>
 
-      {/* Seções: Atrasados e A vencer no mês */}
-      <div className="space-y-4">
-        {/* Calendário (estilo iOS) */}
-        <div className="rounded-2xl border p-3 bg-white">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-base font-semibold">{monthNames[month]}/{year}</div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="rounded-xl px-2" onClick={() => { const m = month === 0 ? 11 : month - 1; const y = month === 0 ? year - 1 : year; setMonth(m); setYear(y) }}>‹</Button>
-              <Button variant="outline" className="rounded-xl px-2" onClick={() => { const m = month === 11 ? 0 : month + 1; const y = month === 11 ? year + 1 : year; setMonth(m); setYear(y) }}>›</Button>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        {/* Calendar Section (Left Side) */}
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+            {/* Calendar Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold capitalize text-gray-900">
+                {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+              </h2>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="rounded-full">‹</Button>
+                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="rounded-full">›</Button>
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-7 text-xs text-gray-500 mb-1">
-            {weekdayNames.map((w, i) => (<div key={i} className="text-center">{w}</div>))}
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array(firstDayOfMonth.getDay()).fill(0).map((_, i) => (<div key={`empty-${i}`} className="h-10" />))}
-            {daysArray.map((d) => {
-              const day = d.getDate()
-              const evts = eventsByDay.get(day) || []
-              const sel = isSameDate(d, selectedDay)
-              const todayFlag = isToday(d)
-              return (
-                <button key={day} onClick={() => setSelectedDay(d)} className={`h-10 rounded-xl flex flex-col items-center justify-center border ${sel ? 'border-[#3490c7] bg-[#3490c7]/10' : 'border-gray-200'} ${todayFlag ? 'ring-1 ring-[#3490c7]' : ''}`}>
-                  <span className="text-sm font-medium">{day}</span>
-                  <div className="flex gap-0.5 mt-0.5">
-                    {evts.slice(0, 3).map((_, idx) => (<span key={idx} className="w-1.5 h-1.5 rounded-full bg-[#3490c7]"></span>))}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-          {/* Lista do dia selecionado */}
-          <div className="mt-3">
-            <div className="text-sm text-gray-600 mb-1">Selecionado: {selectedDay.toLocaleDateString('pt-BR')}</div>
-            {(() => {
-              const items = eventsByDay.get(selectedDay.getDate()) || []
-              if (items.length === 0) return <div className="text-gray-500 text-sm">Sem parcelas neste dia.</div>
-              return (
-                <div className="space-y-2">
-                  {items.map((i) => (
-                    <div key={`${i.sale_id}-${i.installment_index}-sel`} className="flex items-center justify-between border rounded-xl p-2">
-                      <div>
-                        <div className="font-medium text-sm">{i.customer_name || 'Cliente'}</div>
-                        <div className="text-xs text-gray-600">Parcela {i.installment_index}/{i.installments_total} • Valor R$ {i.installment_amount.toFixed(2)}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button className="rounded-xl" onClick={() => handleGenerateBoletoPix(i)} disabled={!hasPixConfigured}>QR</Button>
-                        <Button className="rounded-xl" onClick={() => handleOpenWhatsapp(i)}>Zap</Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-          </div>
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold mb-2">Carnês atrasados</h2>
-          {overdue.length > 0 ? (
-            <div className="space-y-2">
-              {overdue.map((i) => (
-                <div key={`${i.sale_id}-over-${i.installment_index}`} className="flex items-center justify-between border rounded-xl p-3">
-                  <div>
-                    <div className="font-medium">{i.customer_name || 'Cliente'}</div>
-                    <div className="text-sm text-gray-600">Parcela {i.installment_index}/{i.installments_total} • Vencimento {i.due_date.toLocaleDateString('pt-BR')}</div>
-                    <div className="text-sm">Valor R$ {i.installment_amount.toFixed(2)} • Total R$ {Number(i.total || 0).toFixed(2)}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button className="rounded-xl" onClick={() => handleGenerateBoletoPix(i)} disabled={!hasPixConfigured}>Gerar QR Code</Button>
-                    <Button className="rounded-xl" onClick={() => handleOpenWhatsapp(i)}>WhatsApp</Button>
-                    <Button variant="outline" className="rounded-xl" onClick={() => openEdit(i)}>Editar</Button>
-                    <Button variant="ghost" className="rounded-xl" onClick={() => deleteInstallment(i)}>Excluir</Button>
-                  </div>
-                </div>
+
+            {/* Weekdays */}
+            <div className="grid grid-cols-7 mb-2">
+              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(d => (
+                <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">{d}</div>
               ))}
             </div>
-          ) : (
-            <div className="text-gray-600">Nenhum carnê atrasado.</div>
-          )}
-        </div>
 
-        <div>
-          <h2 className="text-lg font-semibold mb-2">A vencer em {monthNames[month]}/{year}</h2>
-          <div className="space-y-2">
-            {dueThisMonth.map((i) => (
-              <div key={`${i.sale_id}-${i.installment_index}`} className="flex items-center justify-between border rounded-xl p-3">
-                <div>
-                  <div className="font-medium">{i.customer_name || 'Cliente'}</div>
-                  <div className="text-sm text-gray-600">Parcela {i.installment_index}/{i.installments_total} • Vencimento {i.due_date.toLocaleDateString('pt-BR')}</div>
-                  <div className="text-sm">Valor R$ {i.installment_amount.toFixed(2)} • Total R$ {Number(i.total || 0).toFixed(2)}</div>
-                </div>
-                <div className="flex gap-2">
-                  <Button className="rounded-xl" onClick={() => handleGenerateBoletoPix(i)} disabled={!hasPixConfigured}>Gerar QR Code</Button>
-                  <Button className="rounded-xl" onClick={() => handleOpenWhatsapp(i)}>WhatsApp</Button>
-                  <Button variant="outline" className="rounded-xl" onClick={() => openEdit(i)}>Editar</Button>
-                  <Button variant="ghost" className="rounded-xl" onClick={() => deleteInstallment(i)}>Excluir</Button>
-                </div>
+            {/* Days Grid */}
+            <div className="grid grid-cols-7 gap-y-1 gap-x-0 relative">
+              {emptyDays.map((_, i) => <div key={`empty-${i}`} />)}
+              {daysInMonth.map(day => {
+                const isOverdue = openCarnes.some(c => isSameDay(new Date(c.due_date), day) && isBefore(day, today))
+                const hasPayment = openCarnes.some(c => isSameDay(new Date(c.due_date), day))
+
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => handleDayClick(day)}
+                    className={`
+                      relative w-full aspect-square flex items-center justify-center text-sm font-medium transition-all group
+                      ${getDayStyle(day)}
+                      ${isToday(day) && !isDaySelected(day) ? 'text-blue-600 font-bold' : ''}
+                    `}
+                  >
+                    <span className="relative z-20">{day.getDate()}</span>
+
+                    {/* Dots indicators */}
+                    <div className="absolute bottom-1.5 flex gap-0.5 z-20">
+                      {isOverdue && <div className="w-1 h-1 rounded-full bg-red-500" />}
+                      {!isOverdue && hasPayment && <div className="w-1 h-1 rounded-full bg-green-500" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-center text-gray-500">
+              Clique numa data inicial e outra final para filtrar.<br />
+              Boletinha <span className="text-red-500">vermelha</span> indica atraso.
+            </div>
+            {dateRange.from && (
+              <div className="mt-2 text-center">
+                <Button variant="outline" size="sm" onClick={() => setDateRange({ from: null, to: null })} className="rounded-xl text-xs h-7">
+                  Limpar Filtro
+                </Button>
               </div>
-            ))}
-            {dueThisMonth.length === 0 && (
-              <div className="text-gray-600">Nenhum pagamento a vencer em {monthNames[month]}/{year}.</div>
             )}
           </div>
         </div>
+
+        {/* List Section (Right Side) */}
+        <div className="lg:col-span-8">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {dateRange.from ? 'Extrato do Período' : 'Todos os Lançamentos'}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {dateRange.from
+                    ? `${format(dateRange.from, 'dd/MM/yyyy')} ${dateRange.to ? 'até ' + format(dateRange.to, 'dd/MM/yyyy') : ''}`
+                    : 'Exibindo lista completa de pendências e atrasos'
+                  }
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-gray-400 uppercase font-semibold">Total Listado</div>
+                <div className="text-lg font-bold text-gray-900">R$ {totalSelected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {filteredList.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
+                  <div className="text-4xl mb-2">💸</div>
+                  <p>Sem parcelas neste filtro.</p>
+                </div>
+              ) : (
+                filteredList.map((item, idx) => {
+                  const isLate = isBefore(new Date(item.due_date), today)
+                  return (
+                    <div key={`${item.sale_id}-${item.installment_index}-${idx}`}
+                      className={`p-3 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors hover:shadow-sm
+                            ${isLate ? 'bg-red-50/50 border-red-100' : 'bg-white border-gray-100 hover:border-gray-200'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
+                             ${isLate ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}
+                           `}>
+                          {item.installment_index}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{item.customer_name}</h4>
+                          <div className="text-xs flex gap-2 text-gray-500">
+                            <span>Vence: {format(new Date(item.due_date), 'dd/MM/yyyy')}</span>
+                            {isLate && <span className="text-red-600 font-bold">• ATRASADO</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="text-right mr-2">
+                          <div className="font-bold text-gray-900">R$ {item.installment_amount.toFixed(2)}</div>
+                          <div className="text-[10px] text-gray-400">Total Venda: R$ {item.total.toFixed(2)}</div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-gray-200" onClick={() => handleGenerateBoletoPix(item)} title="QR Code">
+                            <span className="text-xs">QR</span>
+                          </Button>
+                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-green-100 text-green-600" onClick={() => handleOpenWhatsapp(item)} title="WhatsApp">
+                            <span className="text-xs">WA</span>
+                          </Button>
+                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => openEdit(item)} title="Editar">
+                            <span className="text-xs">✎</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Footer Total if needed */}
+            <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-400">
+              Mostrando {filteredList.length} parcelas
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Diálogo de Boletos PIX */}
+      {/* Helper Dialogs */}
       <Dialog open={showBoletoDialog} onOpenChange={setShowBoletoDialog}>
         <DialogContent className="max-w-4xl w-[90vw]">
-          <DialogHeader>
-            <DialogTitle>Boletos PIX</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Boletos PIX</DialogTitle></DialogHeader>
           <div dangerouslySetInnerHTML={{ __html: boletoPagesHtml }} />
           <div className="flex justify-end gap-2 mt-4">
-            <Button onClick={handlePrintPdf} className="rounded-xl">Baixar PDF (Imprimir)</Button>
+            <Button onClick={handlePrintPdf} className="rounded-xl">Baixar PDF</Button>
             <Button onClick={handleDownloadHtml} className="rounded-xl" variant="secondary">Baixar HTML</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo: Editar Parcela */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Editar parcela</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Editar parcela</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-gray-500">Valor da parcela (R$)</p>
+              <p className="text-xs text-gray-500">Valor (R$)</p>
               <input type="number" step="0.01" className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
             </div>
             <div>
