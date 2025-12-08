@@ -15,7 +15,8 @@ import {
   DollarSign,
   Check,
   UserPlus,
-  FileText
+  FileText,
+  Pencil
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -779,93 +780,85 @@ export default function Cashier() {
           </DialogContent>
         </Dialog>
 
-        {/* New Product Dialog */}
-        <Dialog open={showNewProductDialog} onOpenChange={setShowNewProductDialog}>
+        {/* Unified Product Dialog */}
+        <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
           <DialogContent className="sm:max-w-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Novo Produto</DialogTitle>
+              <DialogTitle>{editingProductId ? "Editar Produto" : "Novo Produto"}</DialogTitle>
             </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const data = {
-                  name: newProductForm.name,
-                  barcode: newProductForm.barcode,
-                  price: parseFloat(newProductForm.price || 0),
-                  cost: parseFloat(newProductForm.cost || 0),
-                  stock: parseInt(newProductForm.stock || 0, 10),
-                  category: newProductForm.category,
-                };
-                createProductMutation.mutate(data);
-              }}
-              className="space-y-4"
-            >
+            <form onSubmit={handleProductSubmit} className="space-y-4">
               <div>
-                <Label className="text-sm text-gray-700">Nome *</Label>
+                <Label htmlFor="prod-name" className="text-sm text-gray-700">Nome *</Label>
                 <Input
-                  value={newProductForm.name}
-                  onChange={(e) => setNewProductForm({ ...newProductForm, name: e.target.value })}
+                  id="prod-name"
+                  value={productForm.name}
+                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                   required
                   className="rounded-xl border-gray-200"
                 />
               </div>
               <div>
-                <Label className="text-sm text-gray-700">Código de Barras</Label>
+                <Label htmlFor="prod-barcode" className="text-sm text-gray-700">Código de Barras</Label>
                 <Input
-                  value={newProductForm.barcode}
-                  onChange={(e) => setNewProductForm({ ...newProductForm, barcode: e.target.value })}
+                  id="prod-barcode"
+                  value={productForm.barcode}
+                  onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                  placeholder="EAN / Código"
                   className="rounded-xl border-gray-200"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm text-gray-700">Preço *</Label>
+                  <Label htmlFor="prod-price" className="text-sm text-gray-700">Preço de Venda *</Label>
                   <Input
+                    id="prod-price"
                     type="number"
-                    min="0"
                     step="0.01"
-                    value={newProductForm.price}
-                    onChange={(e) => setNewProductForm({ ...newProductForm, price: e.target.value })}
+                    min="0"
+                    value={productForm.price}
+                    onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
                     required
                     className="rounded-xl border-gray-200"
                   />
                 </div>
                 <div>
-                  <Label className="text-sm text-gray-700">Custo</Label>
+                  <Label htmlFor="prod-promo" className="text-sm text-gray-700">Preço Promocional</Label>
                   <Input
+                    id="prod-promo"
                     type="number"
-                    min="0"
                     step="0.01"
-                    value={newProductForm.cost}
-                    onChange={(e) => setNewProductForm({ ...newProductForm, cost: e.target.value })}
+                    min="0"
+                    value={productForm.promo_price}
+                    onChange={(e) => setProductForm({ ...productForm, promo_price: e.target.value })}
+                    placeholder="Opcional"
                     className="rounded-xl border-gray-200"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm text-gray-700">Estoque</Label>
+                  <Label htmlFor="prod-stock" className="text-sm text-gray-700">Estoque</Label>
                   <Input
+                    id="prod-stock"
                     type="number"
-                    min="0"
-                    step="1"
-                    value={newProductForm.stock}
-                    onChange={(e) => setNewProductForm({ ...newProductForm, stock: e.target.value })}
+                    value={productForm.stock}
+                    onChange={(e) => setProductForm({ ...productForm, stock: e.target.value })}
                     className="rounded-xl border-gray-200"
                   />
                 </div>
                 <div>
-                  <Label className="text-sm text-gray-700">Categoria</Label>
+                  <Label htmlFor="prod-category" className="text-sm text-gray-700">Categoria</Label>
                   <Input
-                    value={newProductForm.category}
-                    onChange={(e) => setNewProductForm({ ...newProductForm, category: e.target.value })}
+                    id="prod-category"
+                    value={productForm.category}
+                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
                     className="rounded-xl border-gray-200"
                   />
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
-                <Button type="submit" className="rounded-lg">Salvar</Button>
-                <Button type="button" variant="outline" className="rounded-lg" onClick={() => setShowNewProductDialog(false)}>Cancelar</Button>
+                <Button type="button" variant="outline" onClick={() => setShowProductDialog(false)} className="flex-1 rounded-xl">Cancelar</Button>
+                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl">Salvar</Button>
               </div>
             </form>
           </DialogContent>
@@ -897,6 +890,6 @@ export default function Cashier() {
           }}
         />
       </div>
-    </div>
+    </div >
   );
 }
