@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { startOfDay, endOfDay, isWithinInterval, isSameDay, isAfter, isBefore, addMonths, subMonths, format } from 'date-fns'
+import { startOfDay, endOfDay, isWithinInterval, isSameDay, isAfter, isBefore, addMonths, subMonths, format, isValid } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { base44 } from '@/api/base44Client'
@@ -113,7 +113,8 @@ export default function Payments() {
         for (const inst of schedule) {
           const due = new Date(inst.due_date)
           const isOpen = inst.status !== 'paid'
-          if (isOpen) {
+          // Validate date to avoid crashes
+          if (isOpen && isValid(due)) {
             result.push({
               sale_id: s.id,
               customer_id: s.customer_id,
