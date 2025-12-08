@@ -125,7 +125,7 @@ export default function Payments() {
   }, [sales, customerById])
 
   // Substitui "filtered" por duas listas: atrasados e a vencer neste mês
-  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
   const overdue = useMemo(
     () => openCarnes.filter((i) => i.due_date < today),
     [openCarnes, today]
@@ -138,7 +138,7 @@ export default function Payments() {
   const years = useMemo(() => {
     const ys = new Set([now.getFullYear()])
     for (const i of openCarnes) ys.add(i.due_date.getFullYear())
-    return Array.from(ys).sort((a,b)=>a-b)
+    return Array.from(ys).sort((a, b) => a - b)
   }, [openCarnes])
 
   // Calendário estilo iOS: cabeçalho mês/ano, strip de dias e grade 7x
@@ -201,7 +201,7 @@ export default function Payments() {
 
     // PIX: mantém chave e link do QR; remove copia-e-cola do WhatsApp
     if (hasPixConfigured) {
-      const txid = `${installment.sale_id}-${String(installment.installment_index).padStart(2,'0')}`
+      const txid = `${installment.sale_id}-${String(installment.installment_index).padStart(2, '0')}`
       const qr = renderPixQrSrc(installment.installment_amount, txid)
       lines.push('')
       lines.push(`Chave PIX: ${String(settings?.pix_key || '')}`)
@@ -232,7 +232,7 @@ export default function Payments() {
 
     const buildReceipt = (it) => {
       const d = new Date(it.due_date)
-      const txid = `${installment.sale_id}-${String(it.index).padStart(2,'0')}`
+      const txid = `${installment.sale_id}-${String(it.index).padStart(2, '0')}`
       const qrSrc = renderPixQrSrc(it.amount, txid)
       const amount = Number(it.amount || 0).toFixed(2)
       const dateStr = d.toLocaleDateString('pt-BR')
@@ -287,7 +287,7 @@ export default function Payments() {
   }
 
   const handleDownloadHtml = () => {
-    const doc = `<!doctype html><html><head><meta charset="utf-8"/><title>Boletos PIX</title>${boletoPagesHtml.match(/<style>[\s\S]*<\/style>/)?.[0] || ''}</head><body>${boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/,'')}</body></html>`
+    const doc = `<!doctype html><html><head><meta charset="utf-8"/><title>Boletos PIX</title>${boletoPagesHtml.match(/<style>[\s\S]*<\/style>/)?.[0] || ''}</head><body>${boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/, '')}</body></html>`
     const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -299,7 +299,7 @@ export default function Payments() {
 
   const handlePrintPdf = () => {
     const styleTag = boletoPagesHtml.match(/<style>[\s\S]*<\/style>/)?.[0] || '<style></style>'
-    const innerCss = styleTag.replace(/^<style>/,'').replace(/<\/style>$/,'')
+    const innerCss = styleTag.replace(/^<style>/, '').replace(/<\/style>$/, '')
     const extraCss = `
 @page { size: A4; margin: 12mm; }
 body { margin: 0; }
@@ -307,7 +307,7 @@ body { margin: 0; }
 .receipt { break-inside: avoid; page-break-inside: avoid; }
 `
     const finalStyle = `<style>${innerCss}\n${extraCss}</style>`
-    const content = boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/,'')
+    const content = boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/, '')
     const doc = `<!doctype html><html><head><meta charset="utf-8"/><title>Boletos PIX</title>${finalStyle}</head><body>${content}</body></html>`
     const win = window.open('', '_blank')
     if (!win) return
@@ -315,6 +315,68 @@ body { margin: 0; }
     win.document.close()
     win.focus()
     setTimeout(() => { try { win.print() } finally { win.close() } }, 200)
+  }
+
+  // State for Edit Dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [targetInstallment, setTargetInstallment] = useState(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [editDate, setEditDate] = useState('')
+
+  const updateSaleMutation = useMutation({
+    mutationFn: ({ id, updates }) => base44.entities.Sale.update(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['sales'])
+      setEditDialogOpen(false)
+    }
+  })
+
+  const openEdit = (inst) => {
+    setTargetInstallment(inst)
+    setEditAmount(inst.installment_amount)
+    setEditDate(new Date(inst.due_date).toISOString().split('T')[0])
+    setEditDialogOpen(true)
+  }
+
+  const saveEdit = () => {
+    if (!targetInstallment) return
+    const sale = sales.find(s => s.id === targetInstallment.sale_id)
+    if (!sale) return
+
+    const newPayments = (sale.payments || []).map(p => {
+      if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
+        const newSchedule = p.schedule.map(item => {
+          if (item.index === targetInstallment.installment_index) {
+            return {
+              ...item,
+              amount: parseFloat(editAmount),
+              due_date: new Date(editDate).toISOString()
+            }
+          }
+          return item
+        })
+        return { ...p, schedule: newSchedule }
+      }
+      return p
+    })
+
+    updateSaleMutation.mutate({ id: sale.id, updates: { payments: newPayments } })
+  }
+
+  const deleteInstallment = (inst) => {
+    if (!confirm('Tem certeza que deseja excluir esta parcela?')) return
+    const sale = sales.find(s => s.id === inst.sale_id)
+    if (!sale) return
+
+    const newPayments = (sale.payments || []).map(p => {
+      if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
+        const newSchedule = p.schedule.filter(item => item.index !== inst.installment_index)
+        return { ...p, schedule: newSchedule }
+      }
+      return p
+    })
+
+    updateSaleMutation.mutate({ id: sale.id, updates: { payments: newPayments } })
   }
 
   return (
@@ -361,7 +423,7 @@ body { margin: 0; }
                 <button key={day} onClick={() => setSelectedDay(d)} className={`h-10 rounded-xl flex flex-col items-center justify-center border ${sel ? 'border-[#3490c7] bg-[#3490c7]/10' : 'border-gray-200'} ${todayFlag ? 'ring-1 ring-[#3490c7]' : ''}`}>
                   <span className="text-sm font-medium">{day}</span>
                   <div className="flex gap-0.5 mt-0.5">
-                    {evts.slice(0,3).map((_, idx) => (<span key={idx} className="w-1.5 h-1.5 rounded-full bg-[#3490c7]"></span>))}
+                    {evts.slice(0, 3).map((_, idx) => (<span key={idx} className="w-1.5 h-1.5 rounded-full bg-[#3490c7]"></span>))}
                   </div>
                 </button>
               )
