@@ -249,9 +249,9 @@ export default function Settings() {
                         step="0.1"
                         value={cashbackPercentage}
                         onChange={(e) => setCashbackPercentage(e.target.value)}
-                        className="h-12 rounded-xl border-gray-200 pr-8 text-lg font-semibold"
+                        className="h-12 rounded-xl border-gray-200 pr-10 text-lg font-semibold"
                       />
-                      <span className="absolute right-4 top-3 text-gray-400">%</span>
+                      <span className="absolute right-4 top-3 text-gray-400 pointer-events-none">%</span>
                     </div>
                     <p className="text-xs text-gray-500">Porcentagem devolvida ao cliente em cada venda.</p>
                   </div>
@@ -271,12 +271,12 @@ export default function Settings() {
                 <div className="space-y-2">
                   <Label className="text-gray-700">Chave PIX Principal</Label>
                   <div className="relative">
-                    <QrCode className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                    <QrCode className="absolute left-3 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
                     <Input
                       value={pixKey}
                       onChange={(e) => setPixKey(e.target.value)}
                       placeholder="CPF, CNPJ, Email ou Telefone"
-                      className="h-12 pl-10 rounded-xl border-gray-200"
+                      className="h-12 pl-12 rounded-xl border-gray-200"
                     />
                   </div>
                 </div>
@@ -324,8 +324,8 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label className="text-gray-700">Email de Contato</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                      <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="h-11 pl-10 rounded-xl border-gray-200" placeholder="contato@empresa.com" />
+                      <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="h-11 pl-12 rounded-xl border-gray-200" placeholder="contato@empresa.com" />
                     </div>
                   </div>
                 </div>
@@ -338,8 +338,8 @@ export default function Settings() {
                   <div className="md:col-span-3 space-y-2">
                     <Label className="text-gray-700">Endereço</Label>
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                      <Input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} className="h-11 pl-10 rounded-xl border-gray-200" placeholder="Rua, Número, Bairro" />
+                      <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <Input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} className="h-11 pl-12 rounded-xl border-gray-200" placeholder="Rua, Número, Bairro" />
                     </div>
                   </div>
                 </div>
