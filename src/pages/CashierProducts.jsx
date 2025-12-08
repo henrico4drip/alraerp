@@ -134,19 +134,19 @@ export default function CashierProducts() {
 
                 <div className="max-h-80 overflow-y-auto divide-y divide-gray-200">
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-semibold text-gray-500 tracking-wide border-b border-gray-200">
+                    <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-semibold text-gray-500 tracking-wide border-b border-gray-200">
                       <div>PRODUTO</div>
                       <div>CATEGORIA</div>
                       <div>CÓDIGO</div>
-                      <div>PREÇO</div>
-                      <div className="flex items-center justify-end">ESTOQUE</div>
+                      <div className="text-right">PREÇO</div>
+
                     </div>
                     <div className="divide-y divide-gray-100">
                       {filteredProducts.map((product) => (
                         <React.Fragment key={product.id}>
                           {/* Desktop layout */}
                           <button
-                            className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px] gap-6 items-center w-full text-left px-3 sm:px-8 py-3 hover:bg-gray-50/70"
+                            className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px] gap-6 items-center w-full text-left px-3 sm:px-8 py-3 hover:bg-gray-50/70"
                             onClick={() => addToCart(product)}
                           >
                             <div className="flex items-center gap-3 min-w-0">
@@ -177,13 +177,7 @@ export default function CashierProducts() {
                                 <p className="font-semibold text-green-600 text-sm">R$ {Number(product.price).toFixed(2)}</p>
                               )}
                             </div>
-                            <div className="text-right">
-                              <p className={`font-semibold text-sm ${
-                                (product.stock || 0) > 10 ? 'text-green-600' :
-                                (product.stock || 0) > 0 ? 'text-yellow-600' :
-                                'text-red-600'
-                              }`}>{product.stock || 0}</p>
-                            </div>
+
                           </button>
                           {/* Mobile compact layout */}
                           <button
@@ -214,7 +208,7 @@ export default function CashierProducts() {
                                 ) : (
                                   <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
                                 )}
-                                <div className={`text-[11px] ${(product.stock || 0) > 10 ? 'text-green-600' : (product.stock || 0) > 0 ? 'text-yellow-600' : 'text-red-600'}`}>{product.stock || 0}</div>
+
                               </div>
                             </div>
                           </button>
@@ -276,7 +270,7 @@ export default function CashierProducts() {
                   <span>R$ {calculateTotal().toFixed(2)}</span>
                 </div>
                 <div className="mt-3">
-                  
+
                 </div>
               </CardContent>
             </Card>
@@ -417,7 +411,7 @@ export default function CashierProducts() {
         </div>
       </div>
 
-      
+
 
     </div>
   );
