@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { base44 } from '@/api/base44Client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Banknote } from 'lucide-react'
 
 const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -92,11 +93,11 @@ export default function Payments() {
   const [currentMonth, setCurrentMonth] = useState(new Date()) // Mês exibido no calendário
   const [dateRange, setDateRange] = useState({ from: null, to: null }) // Seleção de data
 
-  // State for Edit Dialog
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [targetInstallment, setTargetInstallment] = useState(null)
-  const [editAmount, setEditAmount] = useState('')
-  const [editDate, setEditDate] = useState('')
+  // State for Abate Dialog
+  const [abateDialogOpen, setAbateDialogOpen] = useState(false)
+  const [targetAbateInstallment, setTargetAbateInstallment] = useState(null)
+  const [abateAmount, setAbateAmount] = useState('')
+  const [abateType, setAbateType] = useState('full') // 'full' | 'partial'
 
   // Estado do pop-up de boletos
   const [showBoletoDialog, setShowBoletoDialog] = useState(false)
@@ -223,34 +224,85 @@ export default function Payments() {
     mutationFn: ({ id, updates }) => base44.entities.Sale.update(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries(['sales'])
-      setEditDialogOpen(false)
+      setAbateDialogOpen(false)
     }
   })
 
-  const openEdit = (inst) => {
-    setTargetInstallment(inst)
-    setEditAmount(inst.installment_amount)
-    setEditDate(new Date(inst.due_date).toISOString().split('T')[0])
-    setEditDialogOpen(true)
+  // Open Abate Dialog
+  const handleOpenAbate = (inst) => {
+    setTargetAbateInstallment(inst)
+    setAbateAmount(inst.installment_amount)
+    setAbateType('full')
+    setAbateDialogOpen(true)
   }
 
-  const saveEdit = () => {
-    if (!targetInstallment) return
-    const sale = sales.find(s => s.id === targetInstallment.sale_id)
+  // Save Abate (Full or Partial)
+  const handleSaveAbate = () => {
+    if (!targetAbateInstallment) return
+    const sale = sales.find(s => s.id === targetAbateInstallment.sale_id)
     if (!sale) return
+
+    const amountToPay = parseFloat(abateAmount)
+    if (!amountToPay || amountToPay <= 0) {
+      alert('Valor inválido')
+      return
+    }
+
+    const currentAmount = targetAbateInstallment.installment_amount
+
+    // Se valor for maior que o restante, avisa (ou ajusta pra full)
+    if (amountToPay > currentAmount + 0.01) { // margem de erro
+      alert('Valor a pagar não pode ser maior que o valor da parcela.')
+      return
+    }
+
+    const isFullPayment = Math.abs(amountToPay - currentAmount) < 0.01 || abateType === 'full'
+    const finalPayValue = isFullPayment ? currentAmount : amountToPay
 
     const newPayments = (sale.payments || []).map(p => {
       if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
-        const newSchedule = p.schedule.map(item => {
-          if (item.index === targetInstallment.installment_index) {
-            return {
-              ...item,
-              amount: parseFloat(editAmount),
-              due_date: new Date(editDate).toISOString()
-            }
+        let newSchedule = [...p.schedule]
+
+        // Find component index to modify
+        const idx = newSchedule.findIndex(item => item.index === targetAbateInstallment.installment_index)
+        if (idx === -1) return p
+
+        if (isFullPayment) {
+          // Marca como pago
+          newSchedule[idx] = {
+            ...newSchedule[idx],
+            status: 'paid',
+            value_paid: finalPayValue,
+            payment_date: new Date().toISOString()
           }
-          return item
-        })
+        } else {
+          // Pagamento Parcial:
+          // 1. Atualiza parcela atual com o valor restante
+          const remaining = currentAmount - finalPayValue
+          newSchedule[idx] = {
+            ...newSchedule[idx],
+            amount: remaining,
+            // Mantém status open/pending
+          }
+
+          // 2. Cria nova parcela "filha" já paga
+          // Para evitar colisão de index, podemos usar decimal ou string composta, 
+          // mas index numérico é comum. Vamos tentar manter numérico se possível ou converter pra string.
+          // Se o sistema espera index numérico, pode ser tricky. Vamos assumir que index é só identificador.
+          const paidInstallment = {
+            ...newSchedule[idx], // copia dados base
+            index: `${targetAbateInstallment.installment_index}.P`, // P de Partial
+            amount: finalPayValue,
+            status: 'paid',
+            value_paid: finalPayValue,
+            payment_date: new Date().toISOString(),
+            due_date: new Date().toISOString(), // Pago hoje
+            original_index: targetAbateInstallment.installment_index
+          }
+          // Adiciona ao schedule
+          newSchedule.push(paidInstallment)
+        }
+
         return { ...p, schedule: newSchedule }
       }
       return p
@@ -479,8 +531,8 @@ export default function Payments() {
                           <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-green-100 text-green-600" onClick={() => handleOpenWhatsapp(item)} title="WhatsApp">
                             <span className="text-xs">WA</span>
                           </Button>
-                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => openEdit(item)} title="Editar">
-                            <span className="text-xs">✎</span>
+                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => handleOpenAbate(item)} title="Abater / Pagar">
+                            <Banknote className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -510,21 +562,57 @@ export default function Payments() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog open={abateDialogOpen} onOpenChange={setAbateDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader><DialogTitle>Editar parcela</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs text-gray-500">Valor (R$)</p>
-              <input type="number" step="0.01" className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+          <DialogHeader><DialogTitle>Abater Parcela</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+              <p className="text-xs text-gray-500 uppercase font-medium">Valor Atual</p>
+              <p className="text-xl font-bold text-gray-900">R$ {targetAbateInstallment?.installment_amount?.toFixed(2)}</p>
             </div>
-            <div>
-              <p className="text-xs text-gray-500">Vencimento</p>
-              <input type="date" className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Tipo de Pagamento</label>
+              <div className="flex gap-2">
+                <Button
+                  variant={abateType === 'full' ? 'default' : 'outline'}
+                  onClick={() => { setAbateType('full'); setAbateAmount(targetAbateInstallment?.installment_amount); }}
+                  className="flex-1 rounded-xl"
+                >
+                  Total
+                </Button>
+                <Button
+                  variant={abateType === 'partial' ? 'default' : 'outline'}
+                  onClick={() => { setAbateType('partial'); setAbateAmount(''); }}
+                  className="flex-1 rounded-xl"
+                >
+                  Parcial
+                </Button>
+              </div>
             </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Valor a Pagar (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-lg font-semibold"
+                value={abateAmount}
+                onChange={(e) => setAbateAmount(e.target.value)}
+                disabled={abateType === 'full'}
+              />
+              {abateType === 'partial' && targetAbateInstallment && (Number(abateAmount) > 0) && (
+                <p className="text-xs text-gray-500 text-right">
+                  Restante: R$ {(targetAbateInstallment.installment_amount - Number(abateAmount)).toFixed(2)}
+                </p>
+              )}
+            </div>
+
             <div className="pt-2 flex gap-2 justify-end">
-              <Button variant="outline" className="rounded-xl" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
-              <Button className="rounded-xl" onClick={saveEdit} disabled={updateSaleMutation.isLoading}>Salvar</Button>
+              <Button variant="outline" className="rounded-xl" onClick={() => setAbateDialogOpen(false)}>Cancelar</Button>
+              <Button className="rounded-xl bg-green-600 hover:bg-green-700" onClick={handleSaveAbate} disabled={updateSaleMutation.isLoading}>
+                Confirmar Pagamento
+              </Button>
             </div>
           </div>
         </DialogContent>
