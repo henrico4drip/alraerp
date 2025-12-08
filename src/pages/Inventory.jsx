@@ -114,7 +114,7 @@ export default function Inventory() {
     const data = {
       ...formData,
       price: parseFloat(formData.price),
-      promo_price: formData.promo_price ? parseFloat(formData.promo_price) : undefined,
+      promo_price: formData.promo_price ? parseFloat(formData.promo_price) : null,
       cost: parseFloat(formData.cost || 0),
       stock: parseInt(formData.stock || 0),
     };
@@ -266,11 +266,10 @@ export default function Inventory() {
                     )}
                   </div>
                   <div className="text-right tabular-nums">
-                    <p className={`font-semibold text-sm ${
-                      (product.stock || 0) > 10 ? 'text-green-600' :
+                    <p className={`font-semibold text-sm ${(product.stock || 0) > 10 ? 'text-green-600' :
                       (product.stock || 0) > 0 ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>{product.stock || 0}</p>
+                        'text-red-600'
+                      }`}>{product.stock || 0}</p>
                   </div>
                   <div className="flex items-center justify-end gap-1">
                     <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(product)}>
@@ -300,11 +299,10 @@ export default function Inventory() {
                       ) : (
                         <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
                       )}
-                      <div className={`text-[11px] ${
-                        (product.stock || 0) > 10 ? 'text-green-600' :
+                      <div className={`text-[11px] ${(product.stock || 0) > 10 ? 'text-green-600' :
                         (product.stock || 0) > 0 ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>{product.stock || 0}</div>
+                          'text-red-600'
+                        }`}>{product.stock || 0}</div>
                     </div>
                   </div>
                   <div className="mt-2 flex items-center justify-end gap-1">
@@ -374,6 +372,18 @@ export default function Inventory() {
                     className="rounded-xl border-gray-200"
                   />
                 </div>
+              </div>
+              <div>
+                <Label htmlFor="cost" className="text-sm text-gray-700">Custo (R$)</Label>
+                <Input
+                  id="cost"
+                  type="number"
+                  step="0.01"
+                  value={formData.cost}
+                  onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                  placeholder="0.00"
+                  className="rounded-xl border-gray-200"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -445,7 +455,7 @@ export default function Inventory() {
                     if (lines.length === 0) return
                     const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
                     const idx = (name) => headers.indexOf(name)
-                    for (let i=1;i<lines.length;i++) {
+                    for (let i = 1; i < lines.length; i++) {
                       const cols = lines[i].split(',')
                       const payload = {
                         name: cols[idx('name')] || '',
@@ -457,7 +467,7 @@ export default function Inventory() {
                         category: cols[idx('category')] || '',
                       }
                       if (payload.name) {
-                        try { await createMutation.mutateAsync(payload) } catch {}
+                        try { await createMutation.mutateAsync(payload) } catch { }
                       }
                     }
                     setShowImportDialog(false)
@@ -469,7 +479,7 @@ export default function Inventory() {
                 <CardHeader><CardTitle className="text-sm">Modelo</CardTitle></CardHeader>
                 <CardContent>
                   <Button className="rounded-xl" onClick={() => {
-                    const headers = ['name','barcode','price','promo_price','cost','stock','category']
+                    const headers = ['name', 'barcode', 'price', 'promo_price', 'cost', 'stock', 'category']
                     const content = headers.join(',') + '\n'
                     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
                     const url = URL.createObjectURL(blob)
@@ -491,9 +501,9 @@ export default function Inventory() {
             <Card className="rounded-xl border border-gray-200">
               <CardContent>
                 <Button className="rounded-xl" onClick={() => {
-                  const headers = ['name','barcode','price','promo_price','cost','stock','category']
-                  const rows = products.map(p => [p.name||'', p.barcode||'', p.price??'', p.promo_price??'', p.cost??'', p.stock??'', p.category||''])
-                  const content = [headers, ...rows].map(r => r.map(v => String(v).replace(/"/g,'""')).join(',')).join('\n')
+                  const headers = ['name', 'barcode', 'price', 'promo_price', 'cost', 'stock', 'category']
+                  const rows = products.map(p => [p.name || '', p.barcode || '', p.price ?? '', p.promo_price ?? '', p.cost ?? '', p.stock ?? '', p.category || ''])
+                  const content = [headers, ...rows].map(r => r.map(v => String(v).replace(/"/g, '""')).join(',')).join('\n')
                   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
                   const url = URL.createObjectURL(blob)
                   const a = document.createElement('a')
