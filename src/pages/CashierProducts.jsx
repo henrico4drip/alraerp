@@ -10,6 +10,7 @@ import { Plus, ShoppingCart, Minus, Trash2, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCashier } from "@/context/CashierContext";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function CashierProducts() {
   const navigate = useNavigate();
@@ -65,10 +66,9 @@ export default function CashierProducts() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate]);
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list(),
-    initialData: [],
   });
 
   const createProductMutation = useMutation({
@@ -134,87 +134,93 @@ export default function CashierProducts() {
 
                 <div className="max-h-80 overflow-y-auto divide-y divide-gray-200">
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-semibold text-gray-500 tracking-wide border-b border-gray-200">
-                      <div>PRODUTO</div>
-                      <div>CATEGORIA</div>
-                      <div>CÓDIGO</div>
-                      <div className="text-right">PREÇO</div>
+                    {isLoading ? (
+                      <LoadingSpinner />
+                    ) : (
+                      <>
+                        <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-semibold text-gray-500 tracking-wide border-b border-gray-200">
+                          <div>PRODUTO</div>
+                          <div>CATEGORIA</div>
+                          <div>CÓDIGO</div>
+                          <div className="text-right">PREÇO</div>
 
-                    </div>
-                    <div className="divide-y divide-gray-100">
-                      {filteredProducts.map((product) => (
-                        <React.Fragment key={product.id}>
-                          {/* Desktop layout */}
-                          <button
-                            className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px] gap-6 items-center w-full text-left px-3 sm:px-8 py-3 hover:bg-gray-50/70"
-                            onClick={() => addToCart(product)}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              {(product.image_url || product.imageUrl) ? (
-                                <img
-                                  src={product.image_url || product.imageUrl}
-                                  alt={product.name}
-                                  className="w-8 h-8 rounded-md object-cover"
-                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                />
-                              ) : (
-                                <Package className="w-5 h-5 text-indigo-600 shrink-0" />
-                              )}
-                              <div className="min-w-0">
-                                <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
-                                <p className="text-xs text-gray-500 truncate">{product.description || ''}</p>
-                              </div>
-                            </div>
-                            <div className="text-xs text-gray-500 truncate">{product.category || '-'}</div>
-                            <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
-                            <div className="text-right tabular-nums">
-                              {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
-                                <div className="flex flex-col items-end">
-                                  <p className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</p>
-                                  <p className="font-semibold text-green-600 text-sm">R$ {Number(product.promo_price).toFixed(2)}</p>
-                                </div>
-                              ) : (
-                                <p className="font-semibold text-green-600 text-sm">R$ {Number(product.price).toFixed(2)}</p>
-                              )}
-                            </div>
-
-                          </button>
-                          {/* Mobile compact layout */}
-                          <button
-                            className="lg:hidden w-full text-left px-3 py-2 hover:bg-gray-50/70"
-                            onClick={() => addToCart(product)}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              {(product.image_url || product.imageUrl) ? (
-                                <img
-                                  src={product.image_url || product.imageUrl}
-                                  alt={product.name}
-                                  className="w-8 h-8 rounded-md object-cover"
-                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                />
-                              ) : (
-                                <Package className="w-5 h-5 text-indigo-600 shrink-0" />
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
-                                <div className="text-[11px] text-gray-500 truncate">{product.category || '-'} • {product.barcode || '-'}</div>
-                              </div>
-                              <div className="text-right">
-                                {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
-                                  <div className="text-right">
-                                    <div className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</div>
-                                    <div className="text-xs font-semibold text-green-600">R$ {Number(product.promo_price).toFixed(2)}</div>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                          {filteredProducts.map((product) => (
+                            <React.Fragment key={product.id}>
+                              {/* Desktop layout */}
+                              <button
+                                className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px] gap-6 items-center w-full text-left px-3 sm:px-8 py-3 hover:bg-gray-50/70"
+                                onClick={() => addToCart(product)}
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {(product.image_url || product.imageUrl) ? (
+                                    <img
+                                      src={product.image_url || product.imageUrl}
+                                      alt={product.name}
+                                      className="w-8 h-8 rounded-md object-cover"
+                                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                  ) : (
+                                    <Package className="w-5 h-5 text-indigo-600 shrink-0" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
+                                    <p className="text-xs text-gray-500 truncate">{product.description || ''}</p>
                                   </div>
-                                ) : (
-                                  <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
-                                )}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">{product.category || '-'}</div>
+                                <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
+                                <div className="text-right tabular-nums">
+                                  {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
+                                    <div className="flex flex-col items-end">
+                                      <p className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</p>
+                                      <p className="font-semibold text-green-600 text-sm">R$ {Number(product.promo_price).toFixed(2)}</p>
+                                    </div>
+                                  ) : (
+                                    <p className="font-semibold text-green-600 text-sm">R$ {Number(product.price).toFixed(2)}</p>
+                                  )}
+                                </div>
 
-                              </div>
-                            </div>
-                          </button>
-                        </React.Fragment>
-                      ))}
-                    </div>
+                              </button>
+                              {/* Mobile compact layout */}
+                              <button
+                                className="lg:hidden w-full text-left px-3 py-2 hover:bg-gray-50/70"
+                                onClick={() => addToCart(product)}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {(product.image_url || product.imageUrl) ? (
+                                    <img
+                                      src={product.image_url || product.imageUrl}
+                                      alt={product.name}
+                                      className="w-8 h-8 rounded-md object-cover"
+                                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                  ) : (
+                                    <Package className="w-5 h-5 text-indigo-600 shrink-0" />
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
+                                    <div className="text-[11px] text-gray-500 truncate">{product.category || '-'} • {product.barcode || '-'}</div>
+                                  </div>
+                                  <div className="text-right">
+                                    {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
+                                      <div className="text-right">
+                                        <div className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</div>
+                                        <div className="text-xs font-semibold text-green-600">R$ {Number(product.promo_price).toFixed(2)}</div>
+                                      </div>
+                                    ) : (
+                                      <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
+                                    )}
+
+                                  </div>
+                                </div>
+                              </button>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>

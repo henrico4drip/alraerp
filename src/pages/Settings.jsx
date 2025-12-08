@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -27,6 +28,7 @@ export default function Settings() {
   const [upgradeBusy, setUpgradeBusy] = useState(false)
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
   const [confirmRemovePaymentMethod, setConfirmRemovePaymentMethod] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     (async () => {
@@ -49,6 +51,8 @@ export default function Settings() {
       } catch (err) {
         console.error('Falha ao carregar configurações:', err)
         alert(`Falha ao carregar configurações: ${err?.message || 'erro desconhecido'}`)
+      } finally {
+        setIsLoading(false)
       }
     })()
   }, [])
@@ -65,7 +69,7 @@ export default function Settings() {
   }
 
   const save = async () => {
-    const payload = { 
+    const payload = {
       erp_name: erpName,
       cashback_percentage: Number(cashbackPercentage) || 0,
       payment_methods: paymentMethods,
@@ -153,7 +157,7 @@ export default function Settings() {
         const created = await base44.entities.Settings.create({ logo_url: file_url })
         setSettings(created)
       }
-      try { localStorage.setItem('logo_url', file_url) } catch {}
+      try { localStorage.setItem('logo_url', file_url) } catch { }
     } catch (err) {
       console.error('Erro ao enviar logo', err)
     }
@@ -166,156 +170,160 @@ export default function Settings() {
           <CardTitle>Configurações</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {/* Seção de Logo da Loja */}
-            <div className="space-y-2">
-              <Label>Logo da loja</Label>
-              <div className="flex items-center gap-4">
-                {settings?.logo_url ? (
-                  <img
-                    src={settings.logo_url}
-                    alt="Logo"
-                    className="h-16 w-auto object-contain"
-                    loading="eager"
-                    decoding="async"
-                    fetchpriority="high"
-                    height={64}
-                  />
-                ) : (
-                  <img
-                    src={'/logo-fallback.svg'}
-                    alt="Logo"
-                    className="h-16 w-auto object-contain opacity-70"
-                    loading="eager"
-                    decoding="async"
-                    fetchpriority="high"
-                    height={64}
-                  />
-                )}
-                <div>
-                  <input
-                    id="logoInput"
-                    type="file"
-                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                    onChange={handleLogoUpload}
-                    className="hidden"
-                  />
-                  <Button type="button" className="rounded-xl" onClick={() => document.getElementById('logoInput').click()}>
-                    Trocar logo
-                  </Button>
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : (
+            <div className="space-y-6">
+              {/* Seção de Logo da Loja */}
+              <div className="space-y-2">
+                <Label>Logo da loja</Label>
+                <div className="flex items-center gap-4">
+                  {settings?.logo_url ? (
+                    <img
+                      src={settings.logo_url}
+                      alt="Logo"
+                      className="h-16 w-auto object-contain"
+                      loading="eager"
+                      decoding="async"
+                      fetchpriority="high"
+                      height={64}
+                    />
+                  ) : (
+                    <img
+                      src={'/logo-fallback.svg'}
+                      alt="Logo"
+                      className="h-16 w-auto object-contain opacity-70"
+                      loading="eager"
+                      decoding="async"
+                      fetchpriority="high"
+                      height={64}
+                    />
+                  )}
+                  <div>
+                    <input
+                      id="logoInput"
+                      type="file"
+                      accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                    <Button type="button" className="rounded-xl" onClick={() => document.getElementById('logoInput').click()}>
+                      Trocar logo
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nome do ERP</Label>
-                <Input value={erpName} onChange={(e) => setErpName(e.target.value)} placeholder="Meu Negócio" />
-              </div>
-              <div className="space-y-2">
-                <Label>Percentual de Cashback (%)</Label>
-                <Input 
-                  type="number" 
-                  min={0} 
-                  max={100} 
-                  step="0.1"
-                  value={cashbackPercentage}
-                  onChange={(e) => setCashbackPercentage(e.target.value)}
-                  placeholder="5"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Chave PIX</Label>
-                <Input value={pixKey} onChange={(e) => setPixKey(e.target.value)} placeholder="email@exemplo.com, telefone, EVP ou CPF/CNPJ" />
-              </div>
-              <div className="space-y-2">
-                <Label>E-mail de Contato</Label>
-                <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="contato@minhaloja.com" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Meios de Pagamento (Outros)</Label>
-              <div className="flex gap-2">
-                <Input 
-                  value={newPaymentMethod}
-                  onChange={(e) => setNewPaymentMethod(e.target.value)}
-                  placeholder="Ex.: Boleto, Transferência, Vale"
-                  className="flex-1"
-                />
-                <Button onClick={addPaymentMethod}>Adicionar</Button>
-              </div>
-              {paymentMethods.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {paymentMethods.map((m) => (
-                    <div key={m} className="px-2 py-1 bg-gray-100 rounded-xl flex items-center gap-2">
-                      <span>{m}</span>
-                      <button className="text-red-600" onClick={() => { setConfirmRemovePaymentMethod(m); setShowConfirmRemovePaymentMethod(true); }}>x</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Dados do Estabelecimento</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>CNPJ</Label>
-                  <Input value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} placeholder="00.000.000/0000-00" />
+                  <Label>Nome do ERP</Label>
+                  <Input value={erpName} onChange={(e) => setErpName(e.target.value)} placeholder="Meu Negócio" />
                 </div>
                 <div className="space-y-2">
-                  <Label>CEP</Label>
-                  <Input value={companyZip} onChange={(e) => setCompanyZip(e.target.value)} placeholder="00000-000" />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Endereço</Label>
-                  <Input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} placeholder="Rua, número, bairro" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cidade</Label>
-                  <Input value={companyCity} onChange={(e) => setCompanyCity(e.target.value)} placeholder="Cidade" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Estado (UF)</Label>
-                  <Input value={companyState} onChange={(e) => setCompanyState(e.target.value)} placeholder="RS" />
+                  <Label>Percentual de Cashback (%)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={cashbackPercentage}
+                    onChange={(e) => setCashbackPercentage(e.target.value)}
+                    placeholder="5"
+                  />
                 </div>
               </div>
-            </div>
 
-            <div className="flex justify-end">
-              <Button onClick={save} className="rounded-xl">Salvar Configurações</Button>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Chave PIX</Label>
+                  <Input value={pixKey} onChange={(e) => setPixKey(e.target.value)} placeholder="email@exemplo.com, telefone, EVP ou CPF/CNPJ" />
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail de Contato</Label>
+                  <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="contato@minhaloja.com" />
+                </div>
+              </div>
 
-            <div className="mt-8">
-              <Label className="block mb-2">Assinatura</Label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="border rounded-xl p-4 bg-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Plano atual</p>
-                      <p className="text-base font-semibold text-gray-900">{settings?.plan_name || 'Indisponível'}</p>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] bg-gray-100 text-gray-700 border border-gray-200">{settings?.subscription_status || (localStorage.getItem('subscribed') === 'true' ? 'active' : (new Date(localStorage.getItem('trial_until') || 0).getTime() > Date.now() ? 'trialing' : 'inactive'))}</span>
+              <div className="space-y-2">
+                <Label>Meios de Pagamento (Outros)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newPaymentMethod}
+                    onChange={(e) => setNewPaymentMethod(e.target.value)}
+                    placeholder="Ex.: Boleto, Transferência, Vale"
+                    className="flex-1"
+                  />
+                  <Button onClick={addPaymentMethod}>Adicionar</Button>
+                </div>
+                {paymentMethods.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {paymentMethods.map((m) => (
+                      <div key={m} className="px-2 py-1 bg-gray-100 rounded-xl flex items-center gap-2">
+                        <span>{m}</span>
+                        <button className="text-red-600" onClick={() => { setConfirmRemovePaymentMethod(m); setShowConfirmRemovePaymentMethod(true); }}>x</button>
+                      </div>
+                    ))}
                   </div>
-                  <div className="mt-2 text-xs text-gray-500">Renovação: {settings?.subscription_end_date ? new Date(settings.subscription_end_date).toLocaleDateString('pt-BR') : '-'}</div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Dados do Estabelecimento</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>CNPJ</Label>
+                    <Input value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} placeholder="00.000.000/0000-00" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CEP</Label>
+                    <Input value={companyZip} onChange={(e) => setCompanyZip(e.target.value)} placeholder="00000-000" />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Endereço</Label>
+                    <Input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} placeholder="Rua, número, bairro" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cidade</Label>
+                    <Input value={companyCity} onChange={(e) => setCompanyCity(e.target.value)} placeholder="Cidade" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Estado (UF)</Label>
+                    <Input value={companyState} onChange={(e) => setCompanyState(e.target.value)} placeholder="RS" />
+                  </div>
                 </div>
-                <div className="border rounded-xl p-4 bg-white">
-                  <p className="text-sm text-gray-500">Gerenciar</p>
-                  <p className="text-xs text-gray-600 mb-3">Abrir portal para cancelar, trocar forma de pagamento ou alterar plano</p>
-                  <Button onClick={manageSubscription} disabled={portalBusy} className="rounded-xl w-full bg-[#3490c7] text-white hover:bg-[#2c8ac2]">{portalBusy ? 'Abrindo...' : 'Abrir Portal de Assinatura'}</Button>
-                </div>
-                <div className="border rounded-xl p-4 bg-white">
-                  <p className="text-sm text-gray-500">Upgrade</p>
-                  <p className="text-xs text-gray-600 mb-3">Migre para anual com desconto e cobrança imediata no Stripe</p>
-                  <Button onClick={upgradePlan} disabled={upgradeBusy} className="rounded-xl w-full bg-[#3490c7] hover:bg-[#2c8ac2] text-white">{upgradeBusy ? 'Processando...' : 'Ir para plano anual'}</Button>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={save} className="rounded-xl">Salvar Configurações</Button>
+              </div>
+
+              <div className="mt-8">
+                <Label className="block mb-2">Assinatura</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="border rounded-xl p-4 bg-white">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">Plano atual</p>
+                        <p className="text-base font-semibold text-gray-900">{settings?.plan_name || 'Indisponível'}</p>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] bg-gray-100 text-gray-700 border border-gray-200">{settings?.subscription_status || (localStorage.getItem('subscribed') === 'true' ? 'active' : (new Date(localStorage.getItem('trial_until') || 0).getTime() > Date.now() ? 'trialing' : 'inactive'))}</span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">Renovação: {settings?.subscription_end_date ? new Date(settings.subscription_end_date).toLocaleDateString('pt-BR') : '-'}</div>
+                  </div>
+                  <div className="border rounded-xl p-4 bg-white">
+                    <p className="text-sm text-gray-500">Gerenciar</p>
+                    <p className="text-xs text-gray-600 mb-3">Abrir portal para cancelar, trocar forma de pagamento ou alterar plano</p>
+                    <Button onClick={manageSubscription} disabled={portalBusy} className="rounded-xl w-full bg-[#3490c7] text-white hover:bg-[#2c8ac2]">{portalBusy ? 'Abrindo...' : 'Abrir Portal de Assinatura'}</Button>
+                  </div>
+                  <div className="border rounded-xl p-4 bg-white">
+                    <p className="text-sm text-gray-500">Upgrade</p>
+                    <p className="text-xs text-gray-600 mb-3">Migre para anual com desconto e cobrança imediata no Stripe</p>
+                    <Button onClick={upgradePlan} disabled={upgradeBusy} className="rounded-xl w-full bg-[#3490c7] hover:bg-[#2c8ac2] text-white">{upgradeBusy ? 'Processando...' : 'Ir para plano anual'}</Button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

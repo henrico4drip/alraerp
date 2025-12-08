@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import PrintLabelsModal from "@/components/PrintLabelsModal";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function Inventory() {
   const [showDialog, setShowDialog] = useState(false);
@@ -36,10 +37,9 @@ export default function Inventory() {
 
   const queryClient = useQueryClient();
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => base44.entities.Product.list('-created_date'),
-    initialData: [],
   });
 
   const createMutation = useMutation({
@@ -236,87 +236,93 @@ export default function Inventory() {
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)]">
-          <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
-            <div>PRODUTO</div>
-            <div>CÓDIGO</div>
-            <div>CATEGORIA</div>
-            <div className="text-right">PREÇO</div>
-            <div className="text-right">ESTOQUE</div>
-            <div className="flex items-center justify-end">AÇÕES</div>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {sortedProducts.map((product) => (
-              <React.Fragment key={product.id}>
-                {/* Desktop row */}
-                <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 items-center px-3 sm:px-8 py-3 hover:bg-gray-50/70">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Package className="w-5 h-5 text-indigo-600 shrink-0" />
-                    <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
-                  </div>
-                  <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
-                  <div className="text-xs text-gray-500 truncate">{product.category || '-'}</div>
-                  <div className="text-right tabular-nums">
-                    {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
-                      <div className="flex flex-col items-end">
-                        <p className="text-xs line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</p>
-                        <p className="font-semibold text-green-600 text-sm">R$ {Number(product.promo_price).toFixed(2)}</p>
-                      </div>
-                    ) : (
-                      <p className="font-semibold text-green-600 text-sm">R$ {Number(product.price).toFixed(2)}</p>
-                    )}
-                  </div>
-                  <div className="text-right tabular-nums">
-                    <p className={`font-semibold text-sm ${(product.stock || 0) > 10 ? 'text-green-600' :
-                      (product.stock || 0) > 0 ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>{product.stock || 0}</p>
-                  </div>
-                  <div className="flex items-center justify-end gap-1">
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(product)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteProductId(product.id); setShowConfirmDeleteProduct(true); }}>
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-                {/* Mobile compact card */}
-                <div className="lg:hidden px-3 py-2 hover:bg-gray-50/70">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Package className="w-5 h-5 text-indigo-600 shrink-0" />
-                      <div className="min-w-0">
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : (
+            <>
+              <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
+                <div>PRODUTO</div>
+                <div>CÓDIGO</div>
+                <div>CATEGORIA</div>
+                <div className="text-right">PREÇO</div>
+                <div className="text-right">ESTOQUE</div>
+                <div className="flex items-center justify-end">AÇÕES</div>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {sortedProducts.map((product) => (
+                  <React.Fragment key={product.id}>
+                    {/* Desktop row */}
+                    <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 items-center px-3 sm:px-8 py-3 hover:bg-gray-50/70">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Package className="w-5 h-5 text-indigo-600 shrink-0" />
                         <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
-                        <div className="text-[11px] text-gray-500 truncate">{product.category || '-'} • {product.barcode || '-'}</div>
+                      </div>
+                      <div className="text-xs text-gray-500 font-mono truncate">{product.barcode || '-'}</div>
+                      <div className="text-xs text-gray-500 truncate">{product.category || '-'}</div>
+                      <div className="text-right tabular-nums">
+                        {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
+                          <div className="flex flex-col items-end">
+                            <p className="text-xs line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</p>
+                            <p className="font-semibold text-green-600 text-sm">R$ {Number(product.promo_price).toFixed(2)}</p>
+                          </div>
+                        ) : (
+                          <p className="font-semibold text-green-600 text-sm">R$ {Number(product.price).toFixed(2)}</p>
+                        )}
+                      </div>
+                      <div className="text-right tabular-nums">
+                        <p className={`font-semibold text-sm ${(product.stock || 0) > 10 ? 'text-green-600' :
+                          (product.stock || 0) > 0 ? 'text-yellow-600' :
+                            'text-red-600'
+                          }`}>{product.stock || 0}</p>
+                      </div>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(product)}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteProductId(product.id); setShowConfirmDeleteProduct(true); }}>
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="text-right">
-                      {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
-                        <div className="text-right">
-                          <div className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</div>
-                          <div className="text-xs font-semibold text-green-600">R$ {Number(product.promo_price).toFixed(2)}</div>
+                    {/* Mobile compact card */}
+                    <div className="lg:hidden px-3 py-2 hover:bg-gray-50/70">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Package className="w-5 h-5 text-indigo-600 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
+                            <div className="text-[11px] text-gray-500 truncate">{product.category || '-'} • {product.barcode || '-'}</div>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
-                      )}
-                      <div className={`text-[11px] ${(product.stock || 0) > 10 ? 'text-green-600' :
-                        (product.stock || 0) > 0 ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>{product.stock || 0}</div>
+                        <div className="text-right">
+                          {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
+                            <div className="text-right">
+                              <div className="text-[11px] line-through text-gray-500">R$ {Number(product.price).toFixed(2)}</div>
+                              <div className="text-xs font-semibold text-green-600">R$ {Number(product.promo_price).toFixed(2)}</div>
+                            </div>
+                          ) : (
+                            <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
+                          )}
+                          <div className={`text-[11px] ${(product.stock || 0) > 10 ? 'text-green-600' :
+                            (product.stock || 0) > 0 ? 'text-yellow-600' :
+                              'text-red-600'
+                            }`}>{product.stock || 0}</div>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-end gap-1">
+                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(product)}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteProductId(product.id); setShowConfirmDeleteProduct(true); }}>
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-end gap-1">
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(product)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteProductId(product.id); setShowConfirmDeleteProduct(true); }}>
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
