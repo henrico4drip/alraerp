@@ -13,6 +13,7 @@ export default function Settings() {
   const [settings, setSettings] = useState(null)
   const [erpName, setErpName] = useState('')
   const [cashbackPercentage, setCashbackPercentage] = useState(5)
+  const [cashbackExpirationDays, setCashbackExpirationDays] = useState(30)
   const [paymentMethods, setPaymentMethods] = useState([])
   const [newPaymentMethod, setNewPaymentMethod] = useState('')
   const [pixKey, setPixKey] = useState('')
@@ -39,6 +40,7 @@ export default function Settings() {
           setSettings(s)
           setErpName(s.erp_name || '')
           setCashbackPercentage(typeof s.cashback_percentage === 'number' ? s.cashback_percentage : 5)
+          setCashbackExpirationDays(typeof s.cashback_expiration_days === 'number' ? s.cashback_expiration_days : 30)
           setPaymentMethods(Array.isArray(s.payment_methods) ? s.payment_methods : [])
           setPixKey(s.pix_key || '')
           setCompanyCnpj(s.company_cnpj || '')
@@ -72,6 +74,7 @@ export default function Settings() {
     const payload = {
       erp_name: erpName,
       cashback_percentage: Number(cashbackPercentage) || 0,
+      cashback_expiration_days: Number(cashbackExpirationDays) || 30,
       payment_methods: paymentMethods,
       pix_key: pixKey,
       company_cnpj: companyCnpj,
@@ -229,6 +232,16 @@ export default function Settings() {
                     value={cashbackPercentage}
                     onChange={(e) => setCashbackPercentage(e.target.value)}
                     placeholder="5"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Validade do Cashback (dias)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={cashbackExpirationDays}
+                    onChange={(e) => setCashbackExpirationDays(e.target.value)}
+                    placeholder="30"
                   />
                 </div>
               </div>

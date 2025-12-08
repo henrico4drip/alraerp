@@ -419,7 +419,8 @@ export default function CashierPayment() {
     const expiresStr = expiresDate.toLocaleDateString('pt-BR');
 
     const earned = Number(lastSale.cashback_earned || 0).toFixed(2);
-    const msg = `Olá${customer?.name ? ` ${customer.name}` : ""}! Você ganhou R$ ${earned} de cashback nesta compra. Seu saldo total de cashback é R$ ${balance} e vence em ${expDays} dias (até ${expiresStr}). Obrigado!`;
+    const firstName = customer?.name ? customer.name.split(' ')[0] : "";
+    const msg = `Olá${firstName ? ` ${firstName}` : ""}! Você ganhou R$ ${earned} de cashback nesta compra. Seu saldo total de cashback é R$ ${balance} e vence em ${expDays} dias (até ${expiresStr}). Obrigado!`;
 
     if (!phoneWithCountry) {
       alert("Cliente sem telefone válido para WhatsApp.");
