@@ -3,10 +3,10 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/auth/AuthContext";
-import { 
-  ShoppingCart, 
-  Package, 
-  Users, 
+import {
+  ShoppingCart,
+  Package,
+  Users,
   TrendingUp,
   Settings as SettingsIcon,
   Menu,
@@ -148,9 +148,8 @@ export default function Layout({ children, currentPageName }) {
   return (
     <div className="min-h-screen bg-white flex overflow-x-hidden">
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 bg-white shadow-lg transition-transform duration-300 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } w-64`}>
+      <div className={`fixed inset-y-0 left-0 z-50 bg-white shadow-lg transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } w-64`}>
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
@@ -180,11 +179,10 @@ export default function Layout({ children, currentPageName }) {
                     key={item.name}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
                         ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                         : 'text-gray-700 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     <Icon className="w-5 h-5" />
                     {item.name}
@@ -226,12 +224,7 @@ export default function Layout({ children, currentPageName }) {
               >
                 <Calendar className="w-5 h-5" /> <span>AGENDA</span>
               </button>
-              <Link
-                to={createPageUrl('Dashboard2')}
-                className="px-2 sm:px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
-              >
-                <LayoutDashboard className="w-5 h-5" /> <span className="hidden sm:inline">Dashboard 2.0</span>
-              </Link>
+
             </div>
 
             <div className="flex items-center gap-2 md:gap-3 shrink-0">
@@ -243,7 +236,7 @@ export default function Layout({ children, currentPageName }) {
                     onClick={async () => {
                       if (installPrompt) {
                         await installPrompt.prompt();
-                        try { await installPrompt.userChoice; } catch {}
+                        try { await installPrompt.userChoice; } catch { }
                         setInstallPrompt(null); setInstallAvailable(false);
                       } else {
                         setShowInstallHelp(true);
@@ -288,7 +281,7 @@ export default function Layout({ children, currentPageName }) {
                         setAccountOpen(false);
                         try {
                           await logout();
-                        } catch {}
+                        } catch { }
                         navigate('/login', { replace: true });
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
@@ -442,13 +435,13 @@ export default function Layout({ children, currentPageName }) {
                         <div className="w-14 text-right pt-1">
                           <span className="text-xs font-semibold text-gray-900">{item.time || 'Dia todo'}</span>
                         </div>
-                        
+
                         {/* Linha Vertical Decorativa */}
                         <div className="w-[2px] bg-gray-200 relative">
                           <div className={`absolute top-2 -left-[3px] w-2 h-2 rounded-full border-2 border-white 
-                            ${item.category === 'Reunião' ? 'bg-purple-500' : 
-                              item.category === 'Entrega' ? 'bg-green-500' : 
-                              item.category === 'Chamada' ? 'bg-blue-500' : 'bg-orange-500'} 
+                            ${item.category === 'Reunião' ? 'bg-purple-500' :
+                              item.category === 'Entrega' ? 'bg-green-500' :
+                                item.category === 'Chamada' ? 'bg-blue-500' : 'bg-orange-500'} 
                           `}></div>
                         </div>
 
@@ -471,7 +464,7 @@ export default function Layout({ children, currentPageName }) {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button 
+                              <button
                                 onClick={() => {
                                   setEditingTaskId(item.id);
                                   setEditTaskTitle(item.title || "");
@@ -480,25 +473,25 @@ export default function Layout({ children, currentPageName }) {
                                   setEditTaskPriority(item.priority || "Média");
                                   setEditTaskCategory(item.category || "Outro");
                                   setShowEditTaskDialog(true);
-                                }} 
+                                }}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-700 p-1"
                                 title="Editar"
                               >
                                 ✎
                               </button>
-                              <button 
-                                onClick={() => setAgendaItems(prev => prev.map(i => i.id === item.id ? { ...i, done: !i.done } : i))} 
+                              <button
+                                onClick={() => setAgendaItems(prev => prev.map(i => i.id === item.id ? { ...i, done: !i.done } : i))}
                                 className={`opacity-0 group-hover:opacity-100 transition-opacity ${item.done ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-700'} p-1`}
                                 title={item.done ? 'Desmarcar' : 'Concluir'}
-                              > 
+                              >
                                 <Check className="w-4 h-4" />
                               </button>
-                              <button 
-                                onClick={() => setAgendaItems(prev => prev.filter(i => i.id !== item.id))} 
+                              <button
+                                onClick={() => setAgendaItems(prev => prev.filter(i => i.id !== item.id))}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-1"
                                 title="Excluir"
-                              > 
-                                <X className="w-4 h-4" /> 
+                              >
+                                <X className="w-4 h-4" />
                               </button>
                             </div>
                           </div>
@@ -512,167 +505,167 @@ export default function Layout({ children, currentPageName }) {
                   </div>
                 )}
               </div>
-              
+
               {/* Botão Fechar Mobile */}
               <div className="p-4 border-t bg-white sm:hidden">
                 <Button variant="outline" className="w-full rounded-xl" onClick={() => setShowAgendaDialog(false)}>Fechar</Button>
               </div>
             </div>
-            
+
             {/* Botão Fechar Desktop (Absolute) */}
-            <button 
-              onClick={() => setShowAgendaDialog(false)} 
+            <button
+              onClick={() => setShowAgendaDialog(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hidden sm:block bg-gray-100/50 hover:bg-gray-200/80 rounded-full p-2 transition-colors z-20"
-            > 
-              <X className="w-5 h-5" /> 
+            >
+              <X className="w-5 h-5" />
             </button>
-          </DialogContent> 
+          </DialogContent>
         </Dialog>
 
-            {/* Task Dialog */}
-            <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
-              <DialogContent className="sm:max-w-md rounded-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {selectedDate && new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { 
-                      weekday: 'long', 
-                      day: 'numeric', 
-                      month: 'long' 
-                    })}
-                  </DialogTitle>
-                </DialogHeader>
-                {/* Existing tasks for selected date */}
-                {selectedDate && agendaItems.filter(item => item.date === selectedDate).length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Tarefas existentes:</h4>
-                    <div className="space-y-2">
-                      {agendaItems
-                        .filter(item => item.date === selectedDate)
-                        .map(item => (
-                          <div key={item.id} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                            <span className="text-sm text-gray-700">{item.title}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setAgendaItems(prev => prev.filter(i => i.id !== item.id));
-                              }}
-                              className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
-                            >
-                              ×
-                            </Button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-                {/* Add new task (form completo) */}
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!taskTitle.trim() || !selectedDate) return;
+        {/* Task Dialog */}
+        <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedDate && new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long'
+                })}
+              </DialogTitle>
+            </DialogHeader>
+            {/* Existing tasks for selected date */}
+            {selectedDate && agendaItems.filter(item => item.date === selectedDate).length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Tarefas existentes:</h4>
+                <div className="space-y-2">
+                  {agendaItems
+                    .filter(item => item.date === selectedDate)
+                    .map(item => (
+                      <div key={item.id} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                        <span className="text-sm text-gray-700">{item.title}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setAgendaItems(prev => prev.filter(i => i.id !== item.id));
+                          }}
+                          className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            {/* Add new task (form completo) */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!taskTitle.trim() || !selectedDate) return;
 
-                    const newItem = {
-                      id: Date.now(),
-                      date: selectedDate,
-                      title: taskTitle.trim(),
-                      desc: taskDesc.trim(),
-                      time: taskTime,
-                      priority: taskPriority,
-                      category: taskCategory,
-                      done: false,
-                    };
-                    setAgendaItems(prev => [...prev, newItem]);
+                const newItem = {
+                  id: Date.now(),
+                  date: selectedDate,
+                  title: taskTitle.trim(),
+                  desc: taskDesc.trim(),
+                  time: taskTime,
+                  priority: taskPriority,
+                  category: taskCategory,
+                  done: false,
+                };
+                setAgendaItems(prev => [...prev, newItem]);
 
-                    setTaskTitle("");
-                    setTaskDesc("");
-                    setTaskTime("");
-                    setTaskPriority("Média");
-                    setTaskCategory("Outro");
-                    setShowTaskDialog(false);
-                  }}
-                  className="space-y-4"
+                setTaskTitle("");
+                setTaskDesc("");
+                setTaskTime("");
+                setTaskPriority("Média");
+                setTaskCategory("Outro");
+                setShowTaskDialog(false);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="task-title" className="text-xs text-gray-700">Título</Label>
+                  <Input
+                    id="task-title"
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    placeholder="Ex: Ligar para fornecedor"
+                    className="rounded-xl border-gray-200"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="task-time" className="text-xs text-gray-700">Horário</Label>
+                  <Input
+                    id="task-time"
+                    type="time"
+                    value={taskTime}
+                    onChange={(e) => setTaskTime(e.target.value)}
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="task-priority" className="text-xs text-gray-700">Prioridade</Label>
+                  <select
+                    id="task-priority"
+                    value={taskPriority}
+                    onChange={(e) => setTaskPriority(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 text-sm px-3 py-2"
+                  >
+                    <option>Baixa</option>
+                    <option>Média</option>
+                    <option>Alta</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="task-category" className="text-xs text-gray-700">Categoria</Label>
+                  <select
+                    id="task-category"
+                    value={taskCategory}
+                    onChange={(e) => setTaskCategory(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 text-sm px-3 py-2"
+                  >
+                    <option>Outro</option>
+                    <option>Reunião</option>
+                    <option>Chamada</option>
+                    <option>Entrega</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="task-desc" className="text-xs text-gray-700">Descrição</Label>
+                <textarea
+                  id="task-desc"
+                  value={taskDesc}
+                  onChange={(e) => setTaskDesc(e.target.value)}
+                  placeholder="Detalhes adicionais"
+                  className="w-full rounded-xl border border-gray-200 text-sm px-3 py-2 min-h-[80px]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowTaskDialog(false)}
+                  className="flex-1 rounded-xl"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="task-title" className="text-xs text-gray-700">Título</Label>
-                      <Input
-                        id="task-title"
-                        value={taskTitle}
-                        onChange={(e) => setTaskTitle(e.target.value)}
-                        placeholder="Ex: Ligar para fornecedor"
-                        className="rounded-xl border-gray-200"
-                        autoFocus
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="task-time" className="text-xs text-gray-700">Horário</Label>
-                      <Input
-                        id="task-time"
-                        type="time"
-                        value={taskTime}
-                        onChange={(e) => setTaskTime(e.target.value)}
-                        className="rounded-xl border-gray-200"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="task-priority" className="text-xs text-gray-700">Prioridade</Label>
-                      <select
-                        id="task-priority"
-                        value={taskPriority}
-                        onChange={(e) => setTaskPriority(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 text-sm px-3 py-2"
-                      >
-                        <option>Baixa</option>
-                        <option>Média</option>
-                        <option>Alta</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label htmlFor="task-category" className="text-xs text-gray-700">Categoria</Label>
-                      <select
-                        id="task-category"
-                        value={taskCategory}
-                        onChange={(e) => setTaskCategory(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 text-sm px-3 py-2"
-                      >
-                        <option>Outro</option>
-                        <option>Reunião</option>
-                        <option>Chamada</option>
-                        <option>Entrega</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="task-desc" className="text-xs text-gray-700">Descrição</Label>
-                    <textarea
-                      id="task-desc"
-                      value={taskDesc}
-                      onChange={(e) => setTaskDesc(e.target.value)}
-                      placeholder="Detalhes adicionais"
-                      className="w-full rounded-xl border border-gray-200 text-sm px-3 py-2 min-h-[80px]"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setShowTaskDialog(false)}
-                      className="flex-1 rounded-xl"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl"
-                      disabled={!taskTitle.trim()}
-                    >
-                      Adicionar
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl"
+                  disabled={!taskTitle.trim()}
+                >
+                  Adicionar
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
         </Dialog>
 
         {/* Edit Task Dialog */}
@@ -733,43 +726,42 @@ export default function Layout({ children, currentPageName }) {
         </Dialog>
 
         {/* Bottom Navigation with Moving Green Highlight */}
-          <nav className="fixed bottom-0 left-0 right-0 z-30">
-            <div className="relative bg-gray-100 border-t border-gray-200 h-[64px] sm:h-[56px]">
-              {/* Destaque verde que acompanha o item ativo */}
-              <div
-                className={`pointer-events-none absolute inset-y-0 rounded-full shadow-lg transition-all duration-500 ease-out z-0 ${bottomNavItems[currentActiveIndex]?.name === 'MARKETING' ? 'bg-blue-500' : 'bg-green-500'}`}
-                style={{ 
-                  width: `${itemPercent - 2}%`, 
-                  left: `${currentActiveIndex * itemPercent + 1}%`,
-                  margin: '6px 0',
-                }}
-              />
-              
-              <div className="grid grid-cols-5 gap-0 relative z-10">
-                {bottomNavItems.map((item, idx) => {
-                  const Icon = item.icon;
-                  const isActive = idx === currentActiveIndex;
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.path}
-                      onClick={() => { if (item.name === 'CAIXA') { try { sessionStorage.setItem('animateCashierEntry', 'true'); } catch {} } }}
-                      className={`relative flex flex-col items-center justify-center h-[64px] sm:h-[56px] px-1 sm:px-2 transition-colors duration-300 ${
-                        isActive ? 'text-white' : 'text-gray-700 hover:text-gray-900'
+        <nav className="fixed bottom-0 left-0 right-0 z-30">
+          <div className="relative bg-gray-100 border-t border-gray-200 h-[64px] sm:h-[56px]">
+            {/* Destaque verde que acompanha o item ativo */}
+            <div
+              className={`pointer-events-none absolute inset-y-0 rounded-full shadow-lg transition-all duration-500 ease-out z-0 ${bottomNavItems[currentActiveIndex]?.name === 'MARKETING' ? 'bg-blue-500' : 'bg-green-500'}`}
+              style={{
+                width: `${itemPercent - 2}%`,
+                left: `${currentActiveIndex * itemPercent + 1}%`,
+                margin: '6px 0',
+              }}
+            />
+
+            <div className="grid grid-cols-5 gap-0 relative z-10">
+              {bottomNavItems.map((item, idx) => {
+                const Icon = item.icon;
+                const isActive = idx === currentActiveIndex;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    onClick={() => { if (item.name === 'CAIXA') { try { sessionStorage.setItem('animateCashierEntry', 'true'); } catch { } } }}
+                    className={`relative flex flex-col items-center justify-center h-[64px] sm:h-[56px] px-1 sm:px-2 transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                       }`}
-                    >
-                      {item.name === 'MARKETING' && (
-                        <span className="absolute -top-1 left-1/2 -translate-x-1/2 bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 text-[10px] rounded-full shadow-sm">em breve</span>
-                      )}
-                      <Icon className="w-6 h-6 mb-0 sm:mb-0" />
-                      <span className="hidden sm:inline text-xs font-semibold tracking-wide">{item.name}</span>
-                    </Link>
-                  );
-                })}
-              </div>
+                  >
+                    {item.name === 'MARKETING' && (
+                      <span className="absolute -top-1 left-1/2 -translate-x-1/2 bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 text-[10px] rounded-full shadow-sm">em breve</span>
+                    )}
+                    <Icon className="w-6 h-6 mb-0 sm:mb-0" />
+                    <span className="hidden sm:inline text-xs font-semibold tracking-wide">{item.name}</span>
+                  </Link>
+                );
+              })}
             </div>
-          </nav>
-        </div>
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }
