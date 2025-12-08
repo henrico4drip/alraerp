@@ -97,6 +97,7 @@ export default function Payments() {
   const [abateDialogOpen, setAbateDialogOpen] = useState(false)
   const [targetAbateInstallment, setTargetAbateInstallment] = useState(null)
   const [abateAmount, setAbateAmount] = useState('')
+  const [abateDueDate, setAbateDueDate] = useState('')
   const [abateType, setAbateType] = useState('full') // 'full' | 'partial'
 
   // State for Installments List Dialog
@@ -105,6 +106,7 @@ export default function Payments() {
   // Estado do pop-up de boletos
   const [showBoletoDialog, setShowBoletoDialog] = useState(false)
   const [boletoPagesHtml, setBoletoPagesHtml] = useState('')
+
 
   // --- DATA PROCESSING ---
   const openCarnes = useMemo(() => {
@@ -265,8 +267,34 @@ export default function Payments() {
   const handleOpenAbate = (inst) => {
     setTargetAbateInstallment(inst)
     setAbateAmount(inst.installment_amount)
+    setAbateDueDate(inst.due_date ? new Date(inst.due_date).toISOString().split('T')[0] : '')
     setAbateType('full')
     setAbateDialogOpen(true)
+  }
+
+  // Update Date Only
+  const handleUpdateDateOnly = () => {
+    if (!targetAbateInstallment) return
+    const sale = sales.find(s => s.id === targetAbateInstallment.sale_id)
+    if (!sale) return
+
+    const newPayments = (sale.payments || []).map(p => {
+      if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
+        const newSchedule = p.schedule.map(item => {
+          if (item.index === targetAbateInstallment.installment_index) {
+            return {
+              ...item,
+              due_date: new Date(abateDueDate).toISOString()
+            }
+          }
+          return item
+        })
+        return { ...p, schedule: newSchedule }
+      }
+      return p
+    })
+
+    updateSaleMutation.mutate({ id: sale.id, updates: { payments: newPayments } })
   }
 
   // Save Abate (Full or Partial)
@@ -307,15 +335,16 @@ export default function Payments() {
             status: 'paid',
             value_paid: finalPayValue,
             payment_date: new Date().toISOString()
+            // Mantém due_date original ou atualiza também? Geralmente mantém o histórico de quando venceu.
           }
         } else {
           // Pagamento Parcial:
-          // 1. Atualiza parcela atual com o valor restante
+          // 1. Atualiza parcela atual com o valor restante e NOVA DATA (se alterada)
           const remaining = currentAmount - finalPayValue
           newSchedule[idx] = {
             ...newSchedule[idx],
             amount: remaining,
-            // Mantém status open/pending
+            due_date: new Date(abateDueDate).toISOString() // Aplica nova data ao restante
           }
 
           // 2. Cria nova parcela "filha" já paga
@@ -599,9 +628,20 @@ export default function Payments() {
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader><DialogTitle>Abater Parcela</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-              <p className="text-xs text-gray-500 uppercase font-medium">Valor Atual</p>
-              <p className="text-xl font-bold text-gray-900">R$ {targetAbateInstallment?.installment_amount?.toFixed(2)}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <p className="text-xs text-gray-500 uppercase font-medium">Valor Atual</p>
+                <p className="text-xl font-bold text-gray-900">R$ {targetAbateInstallment?.installment_amount?.toFixed(2)}</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 uppercase font-medium block">Vencimento</label>
+                <input
+                  type="date"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm font-semibold h-[52px]"
+                  value={abateDueDate}
+                  onChange={(e) => setAbateDueDate(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -642,9 +682,12 @@ export default function Payments() {
             </div>
 
             <div className="pt-2 flex gap-2 justify-end">
+              <Button variant="ghost" className="rounded-xl mr-auto text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={handleUpdateDateOnly} title="Salvar apenas a nova data">
+                Salvar Data
+              </Button>
               <Button variant="outline" className="rounded-xl" onClick={() => setAbateDialogOpen(false)}>Cancelar</Button>
               <Button className="rounded-xl bg-green-600 hover:bg-green-700" onClick={handleSaveAbate} disabled={updateSaleMutation.isLoading}>
-                Confirmar Pagamento
+                Confirmar
               </Button>
             </div>
           </div>
