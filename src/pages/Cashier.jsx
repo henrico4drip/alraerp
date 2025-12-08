@@ -67,6 +67,9 @@ export default function Cashier() {
   const [showConfirmRemovePayment, setShowConfirmRemovePayment] = useState(false);
   const [confirmRemovePaymentIdx, setConfirmRemovePaymentIdx] = useState(null);
 
+  const [editingCartItem, setEditingCartItem] = useState(null);
+  const [newPrice, setNewPrice] = useState("");
+
   useEffect(() => {
     const fetchSettings = async () => {
       const settingsList = await base44.entities.Settings.list();
