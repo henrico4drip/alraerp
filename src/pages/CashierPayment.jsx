@@ -212,7 +212,7 @@ export default function CashierPayment() {
   };
 
   const cashbackEarnedPreview = selectedCustomer
-    ? calculateTotal() * ((settings?.cashback_percentage ?? 5) / 100)
+    ? Math.max(0, calculateTotal() - discountAmount() - (cashbackToUse || 0)) * ((settings?.cashback_percentage ?? 5) / 100)
     : 0;
 
   const printReceipt = (sale) => {
@@ -247,10 +247,10 @@ export default function CashierPayment() {
           <h1>Nota de Venda</h1>
           <div class="muted">${sale.sale_number} - ${new Date(sale.sale_date).toLocaleString()}</div>
           <div>Cliente: <strong>${sale.customer_name || 'Cliente Avulso'}</strong></div>
-          ${ (sale.payments && sale.payments.length > 0)
-            ? `<div class=\"muted\">Pagamentos:</div><div>${sale.payments.map(p => `${p.method}${(p.installments || 1) > 1 ? ` • ${p.installments}x` : ''}: R$ ${(p.amount || 0).toFixed(2)}`).join('<br/>')}</div>`
-            : `<div class=\"muted\">Pagamento: ${sale.payment_method}</div>`
-          }
+          ${(sale.payments && sale.payments.length > 0)
+        ? `<div class=\"muted\">Pagamentos:</div><div>${sale.payments.map(p => `${p.method}${(p.installments || 1) > 1 ? ` • ${p.installments}x` : ''}: R$ ${(p.amount || 0).toFixed(2)}`).join('<br/>')}</div>`
+        : `<div class=\"muted\">Pagamento: ${sale.payment_method}</div>`
+      }
           ${sale.observations ? `<div>Obs: ${sale.observations}</div>` : ''}
           <table>
             <thead>
@@ -330,7 +330,7 @@ export default function CashierPayment() {
         discount_amount: discountAmount(),
         discount_percent: Number(discountPercent) || 0,
         cashback_used: Number(cashbackToUse || 0),
-        cashback_earned: (() => { const percent = settings?.cashback_percentage ?? 5; return Number((total * (percent / 100)).toFixed(2)); })(),
+        cashback_earned: (() => { const percent = settings?.cashback_percentage ?? 5; return Number((Math.max(0, total - discountAmount() - (cashbackToUse || 0)) * (percent / 100)).toFixed(2)); })(),
         payment_method: payments.map((p) => p.method).join(" + "),
         payments: paymentsWithSchedule.map((p) => ({ method: p.method, amount: p.amount, installments: p.installments, first_due_days: p.first_due_days, schedule: p.schedule })),
         observations,
@@ -426,7 +426,7 @@ export default function CashierPayment() {
       try {
         navigator.clipboard.writeText(msg);
         alert("Mensagem de cashback copiada para a área de transferência.");
-      } catch (e) {}
+      } catch (e) { }
       return;
     }
 
@@ -501,129 +501,163 @@ export default function CashierPayment() {
           {/* Customer and Payment Section */}
           <div className="flex flex-col h-full min-h-0 space-y-4">
             <Card className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] border-0 rounded-2xl bg-white flex-1 min-h-0 flex flex-col">
-            <CardHeader className="bg-gray-100 border-b border-gray-200 rounded-t-2xl p-4">
-              <div className="flex flex-wrap gap-2 items-center">
-                <Button variant="outline" className="rounded-xl" onClick={() => setShowNewCustomerDialog(true)}>
-                  {selectedCustomer ? selectedCustomer.name : 'Cliente'}
-                </Button>
-                <Button variant="outline" className="rounded-xl" onClick={() => setShowDiscountDialog(true)}>
-                  {Number(discountPercent) > 0
-                    ? `Desconto (${Number(discountPercent)}%) • R$ ${Number(discountAmount() || 0).toFixed(2)}`
-                    : 'Desconto'}
-                </Button>
-                <Button variant="outline" className="rounded-xl" onClick={() => navigate('/cashier/products')}>
-                  Itens
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4 flex-1 overflow-y-auto">
-
-              {/* Barra de cashback após seleção de cliente */}
-              {/* Removido slider superior de cashback para usar caixa numérica abaixo do Valor */}
-
-              {/* Payment Method - inline controls (no floating) */}
-              <div>
-                <Label className="mb-2 block text-sm text-gray-700">Pagamento</Label>
-                <div className="flex flex-nowrap gap-1 mb-2 overflow-x-auto">
-                  <Button
-                    size="sm"
-                    variant={paymentDraft.method === 'PIX' ? undefined : 'outline'}
-                    className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'PIX' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
-                    onClick={() => handleSelectPaymentMethod('PIX')}
-                  >
-                    PIX
+              <CardHeader className="bg-gray-100 border-b border-gray-200 rounded-t-2xl p-4">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Button variant="outline" className="rounded-xl" onClick={() => setShowNewCustomerDialog(true)}>
+                    {selectedCustomer ? selectedCustomer.name : 'Cliente'}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant={paymentDraft.method === 'Dinheiro' ? undefined : 'outline'}
-                    className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Dinheiro' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
-                    onClick={() => handleSelectPaymentMethod('Dinheiro')}
-                  >
-                    Dinheiro
+                  <Button variant="outline" className="rounded-xl" onClick={() => setShowDiscountDialog(true)}>
+                    {Number(discountPercent) > 0
+                      ? `Desconto (${Number(discountPercent)}%) • R$ ${Number(discountAmount() || 0).toFixed(2)}`
+                      : 'Desconto'}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant={paymentDraft.method === 'Cartão de Débito' ? undefined : 'outline'}
-                    className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Cartão de Débito' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
-                    onClick={() => handleSelectPaymentMethod('Cartão de Débito')}
-                  >
-                    Cartão débito
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={paymentDraft.method === 'Cartão de Crédito' ? undefined : 'outline'}
-                    className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Cartão de Crédito' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
-                    onClick={() => handleSelectPaymentMethod('Cartão de Crédito')}
-                  >
-                    Cartão crédito
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={paymentDraft.method === 'Carnê' ? undefined : 'outline'}
-                    className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Carnê' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
-                    onClick={() => handleSelectPaymentMethod('Carnê')}
-                  >
-                    Carnê
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={paymentDraft.method === 'Outros' ? undefined : 'outline'}
-                    className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Outros' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
-                    onClick={() => { handleSelectPaymentMethod('Outros'); setShowPaymentPopover(v => !v); }}
-                  >
-                    Outros
+                  <Button variant="outline" className="rounded-xl" onClick={() => navigate('/cashier/products')}>
+                    Itens
                   </Button>
                 </div>
-                {showPaymentPopover && (
-                  <div className="mb-2 flex items-center gap-1 flex-wrap">
-                    <div className="flex items-center gap-2 w-full">
-                      <Input
-                        placeholder="Digite a forma de pagamento"
-                        value={newPaymentMethod}
-                        onChange={(e) => setNewPaymentMethod(e.target.value)}
-                        className="h-8 text-xs rounded-lg flex-1"
-                      />
-                      <Button
-                        size="sm"
-                        className="h-8 px-2 text-xs rounded-lg"
-                        variant="outline"
-                        onClick={() => { if ((newPaymentMethod || '').trim()) { handleSelectPaymentMethod((newPaymentMethod || '').trim()); setShowPaymentPopover(false); } }}
-                      >
-                        Usar agora
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-8 px-2 text-xs rounded-lg"
-                        onClick={addCustomPaymentMethod}
-                        disabled={savingPaymentMethod}
-                      >
-                        {savingPaymentMethod ? 'Salvando...' : 'Salvar novo método'}
-                      </Button>
-                    </div>
-                    {(settings?.payment_methods || []).length > 0 ? (
-                      (settings.payment_methods).map((m) => (
-                        <Button
-                          key={m}
-                          size="sm"
-                          variant={paymentDraft.method === m ? undefined : 'outline'}
-                          className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === m ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
-                          onClick={() => handleSelectPaymentMethod(m)}
-                        >
-                          {m}
-                        </Button>
-                      ))
-                    ) : (
-                      <div className="text-xs text-gray-500">
-                        Nenhum método personalizado.
-                      </div>
-                    )}
-                    <Button size="sm" variant="ghost" className="h-8 px-2 text-xs rounded-lg" onClick={() => setShowPaymentPopover(false)}>Fechar</Button>
-                  </div>
-                )}
+              </CardHeader>
+              <CardContent className="p-4 space-y-4 flex-1 overflow-y-auto">
 
-                {paymentDraft.method === 'Cartão de Crédito' || paymentDraft.method === 'Carnê' ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 flex gap-2">
+                {/* Barra de cashback após seleção de cliente */}
+                {/* Removido slider superior de cashback para usar caixa numérica abaixo do Valor */}
+
+                {/* Payment Method - inline controls (no floating) */}
+                <div>
+                  <Label className="mb-2 block text-sm text-gray-700">Pagamento</Label>
+                  <div className="flex flex-nowrap gap-1 mb-2 overflow-x-auto">
+                    <Button
+                      size="sm"
+                      variant={paymentDraft.method === 'PIX' ? undefined : 'outline'}
+                      className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'PIX' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
+                      onClick={() => handleSelectPaymentMethod('PIX')}
+                    >
+                      PIX
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={paymentDraft.method === 'Dinheiro' ? undefined : 'outline'}
+                      className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Dinheiro' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
+                      onClick={() => handleSelectPaymentMethod('Dinheiro')}
+                    >
+                      Dinheiro
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={paymentDraft.method === 'Cartão de Débito' ? undefined : 'outline'}
+                      className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Cartão de Débito' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
+                      onClick={() => handleSelectPaymentMethod('Cartão de Débito')}
+                    >
+                      Cartão débito
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={paymentDraft.method === 'Cartão de Crédito' ? undefined : 'outline'}
+                      className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Cartão de Crédito' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
+                      onClick={() => handleSelectPaymentMethod('Cartão de Crédito')}
+                    >
+                      Cartão crédito
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={paymentDraft.method === 'Carnê' ? undefined : 'outline'}
+                      className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Carnê' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
+                      onClick={() => handleSelectPaymentMethod('Carnê')}
+                    >
+                      Carnê
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={paymentDraft.method === 'Outros' ? undefined : 'outline'}
+                      className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === 'Outros' ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
+                      onClick={() => { handleSelectPaymentMethod('Outros'); setShowPaymentPopover(v => !v); }}
+                    >
+                      Outros
+                    </Button>
+                  </div>
+                  {showPaymentPopover && (
+                    <div className="mb-2 flex items-center gap-1 flex-wrap">
+                      <div className="flex items-center gap-2 w-full">
+                        <Input
+                          placeholder="Digite a forma de pagamento"
+                          value={newPaymentMethod}
+                          onChange={(e) => setNewPaymentMethod(e.target.value)}
+                          className="h-8 text-xs rounded-lg flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 px-2 text-xs rounded-lg"
+                          variant="outline"
+                          onClick={() => { if ((newPaymentMethod || '').trim()) { handleSelectPaymentMethod((newPaymentMethod || '').trim()); setShowPaymentPopover(false); } }}
+                        >
+                          Usar agora
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 px-2 text-xs rounded-lg"
+                          onClick={addCustomPaymentMethod}
+                          disabled={savingPaymentMethod}
+                        >
+                          {savingPaymentMethod ? 'Salvando...' : 'Salvar novo método'}
+                        </Button>
+                      </div>
+                      {(settings?.payment_methods || []).length > 0 ? (
+                        (settings.payment_methods).map((m) => (
+                          <Button
+                            key={m}
+                            size="sm"
+                            variant={paymentDraft.method === m ? undefined : 'outline'}
+                            className={`h-8 px-2 text-xs rounded-lg ${paymentDraft.method === m ? 'bg-gray-600 text-white hover:bg-gray-500' : ''}`}
+                            onClick={() => handleSelectPaymentMethod(m)}
+                          >
+                            {m}
+                          </Button>
+                        ))
+                      ) : (
+                        <div className="text-xs text-gray-500">
+                          Nenhum método personalizado.
+                        </div>
+                      )}
+                      <Button size="sm" variant="ghost" className="h-8 px-2 text-xs rounded-lg" onClick={() => setShowPaymentPopover(false)}>Fechar</Button>
+                    </div>
+                  )}
+
+                  {paymentDraft.method === 'Cartão de Crédito' || paymentDraft.method === 'Carnê' ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 flex gap-2">
+                        <Input
+                          placeholder="Valor (R$)"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={paymentDraft.amount}
+                          onChange={(e) => setPaymentDraft({ ...paymentDraft, amount: e.target.value })}
+                          className="rounded-xl border-gray-200 w-1/2"
+                        />
+                        <Input
+                          placeholder="Parcelas"
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={paymentDraft.installments}
+                          onChange={(e) => setPaymentDraft({ ...paymentDraft, installments: e.target.value })}
+                          className="rounded-xl border-gray-200 w-1/4"
+                        />
+                        {paymentDraft.method === 'Carnê' && (
+                          <Input
+                            placeholder="Dias até 1ª parcela"
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={paymentDraft.firstDueDays || 30}
+                            onChange={(e) => setPaymentDraft({ ...paymentDraft, firstDueDays: e.target.value })}
+                            className="rounded-xl border-gray-200 w-1/4"
+                          />
+                        )}
+                      </div>
+                      <Button className="rounded-xl" onClick={() => (editingPaymentIdx != null ? commitEditPayment() : addPayment())}>{editingPaymentIdx != null ? 'Atualizar' : '+'}</Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
                       <Input
                         placeholder="Valor (R$)"
                         type="number"
@@ -631,142 +665,108 @@ export default function CashierPayment() {
                         step="0.01"
                         value={paymentDraft.amount}
                         onChange={(e) => setPaymentDraft({ ...paymentDraft, amount: e.target.value })}
-                        className="rounded-xl border-gray-200 w-1/2"
+                        className="rounded-xl border-gray-200 flex-1"
                       />
+                      <Button className="rounded-xl" onClick={() => (editingPaymentIdx != null ? commitEditPayment() : addPayment())}>{editingPaymentIdx != null ? 'Atualizar' : '+'}</Button>
+                    </div>
+                  )}
+
+
+                  {/* Cashback em caixa (exibição abaixo do valor) */}
+                  {selectedCustomer && (
+                    <div className="mt-2">
+                      <Label className="text-xs text-gray-700">Cashback (R$)</Label>
                       <Input
-                        placeholder="Parcelas"
                         type="number"
-                        min="1"
-                        step="1"
-                        value={paymentDraft.installments}
-                        onChange={(e) => setPaymentDraft({ ...paymentDraft, installments: e.target.value })}
-                        className="rounded-xl border-gray-200 w-1/4"
+                        min="0"
+                        max={maxCashbackToUse}
+                        step="0.01"
+                        value={Number(cashbackToUse || 0)}
+                        onChange={(e) => {
+                          const val = Number(e.target.value || 0);
+                          setCashbackToUse(Math.min(maxCashbackToUse, Math.max(0, val)));
+                        }}
+                        className="rounded-xl border-indigo-200"
                       />
-                      {paymentDraft.method === 'Carnê' && (
-                        <Input
-                          placeholder="Dias até 1ª parcela"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={paymentDraft.firstDueDays || 30}
-                          onChange={(e) => setPaymentDraft({ ...paymentDraft, firstDueDays: e.target.value })}
-                          className="rounded-xl border-gray-200 w-1/4"
-                        />
-                      )}
-                    </div>
-                    <Button className="rounded-xl" onClick={() => (editingPaymentIdx != null ? commitEditPayment() : addPayment())}>{editingPaymentIdx != null ? 'Atualizar' : '+'}</Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Valor (R$)"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={paymentDraft.amount}
-                      onChange={(e) => setPaymentDraft({ ...paymentDraft, amount: e.target.value })}
-                      className="rounded-xl border-gray-200 flex-1"
-                    />
-                    <Button className="rounded-xl" onClick={() => (editingPaymentIdx != null ? commitEditPayment() : addPayment())}>{editingPaymentIdx != null ? 'Atualizar' : '+'}</Button>
-                  </div>
-                )}
-
-
-                {/* Cashback em caixa (exibição abaixo do valor) */}
-                {selectedCustomer && (
-                  <div className="mt-2">
-                    <Label className="text-xs text-gray-700">Cashback (R$)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max={maxCashbackToUse}
-                      step="0.01"
-                      value={Number(cashbackToUse || 0)}
-                      onChange={(e) => {
-                        const val = Number(e.target.value || 0);
-                        setCashbackToUse(Math.min(maxCashbackToUse, Math.max(0, val)));
-                      }}
-                      className="rounded-xl border-indigo-200"
-                    />
-                    <div className="flex justify-between text-[11px] text-indigo-700 mt-1">
-                      <span>Selecionado: R$ {Number(cashbackToUse || 0).toFixed(2)}</span>
-                      <span>Disponível: R$ {Number(maxCashbackToUse || 0).toFixed(2)}</span>
-                    </div>
-                  </div>
-                )}
-
-                {payments.length > 0 && (
-                  <div className="mt-3 space-y-1">
-                    {payments.map((p, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-gray-50 p-2 rounded-xl">
-                        <div className="text-sm">
-                          <span className="font-medium">{p.method}</span>
-                          {p.installments > 1 ? ` • ${p.installments}x` : ''}
-                          {p.method === 'Carnê' && p.first_due_days ? ` • 1ª em ${p.first_due_days}d` : ''}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">R$ {p.amount.toFixed(2)}</span>
-                          <Button size="sm" variant="outline" className="h-7 rounded-lg" onClick={() => startEditPayment(idx)}>Editar</Button>
-                          <Button size="sm" variant="ghost" className="h-7 rounded-lg" onClick={() => { setConfirmRemovePaymentIdx(idx); setShowConfirmRemovePayment(true); }}>Excluir</Button>
-                        </div>
+                      <div className="flex justify-between text-[11px] text-indigo-700 mt-1">
+                        <span>Selecionado: R$ {Number(cashbackToUse || 0).toFixed(2)}</span>
+                        <span>Disponível: R$ {Number(maxCashbackToUse || 0).toFixed(2)}</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    </div>
+                  )}
 
-              <div className="mt-2 text-sm">
-                <div className="flex justify-between"><span>Subtotal</span><span>R$ {calculateTotal().toFixed(2)}</span></div>
-                {discountAmount() > 0 && (
-                  <div className="flex justify-between text-pink-600"><span>Desconto ({Number(discountPercent) || 0}%)</span><span>- R$ {discountAmount().toFixed(2)}</span></div>
-                )}
-                {cashbackToUse > 0 && (
-                  <div className="flex justify-between text-pink-600"><span>Cashback</span><span>- R$ {cashbackToUse.toFixed(2)}</span></div>
-                )}
-                {selectedCustomer && (
-                  <div className="flex justify-between text-green-600"><span>Cashback a ganhar</span><span>+ R$ {Number(cashbackEarnedPreview).toFixed(2)}</span></div>
-                )}
-                <div className="flex justify-between"><span>Pagamentos</span><span>R$ {sumPayments().toFixed(2)}</span></div>
-                <div className="grid grid-cols-3 gap-2 mt-2 text-center">
-                  <div className="p-2 rounded-lg bg-gray-50">
-                    <div className="text-[10px] text-gray-500">Troco (R$)</div>
-                    <div className="text-sm font-semibold">{sumPayments() > Math.max(0, calculateTotal() - discountAmount() - cashbackToUse) ? (sumPayments() - Math.max(0, calculateTotal() - discountAmount() - cashbackToUse)).toFixed(2) : '-'}</div>
-                  </div>
-                  <div className="p-2 rounded-lg bg-gray-50">
-                    <div className="text-[10px] text-gray-500">Faltam (R$)</div>
-                    <div className="text-sm font-semibold">{remainingAmount().toFixed(2)}</div>
-                  </div>
-                  <div className="p-2 rounded-lg bg-gray-50">
-                    <div className="text-[10px] text-gray-500">Final (R$)</div>
-                    <div className="text-sm font-semibold">{Math.max(0, calculateTotal() - discountAmount() - cashbackToUse).toFixed(2)}</div>
+                  {payments.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {payments.map((p, idx) => (
+                        <div key={idx} className="flex items-center justify-between bg-gray-50 p-2 rounded-xl">
+                          <div className="text-sm">
+                            <span className="font-medium">{p.method}</span>
+                            {p.installments > 1 ? ` • ${p.installments}x` : ''}
+                            {p.method === 'Carnê' && p.first_due_days ? ` • 1ª em ${p.first_due_days}d` : ''}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">R$ {p.amount.toFixed(2)}</span>
+                            <Button size="sm" variant="outline" className="h-7 rounded-lg" onClick={() => startEditPayment(idx)}>Editar</Button>
+                            <Button size="sm" variant="ghost" className="h-7 rounded-lg" onClick={() => { setConfirmRemovePaymentIdx(idx); setShowConfirmRemovePayment(true); }}>Excluir</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2 text-sm">
+                  <div className="flex justify-between"><span>Subtotal</span><span>R$ {calculateTotal().toFixed(2)}</span></div>
+                  {discountAmount() > 0 && (
+                    <div className="flex justify-between text-pink-600"><span>Desconto ({Number(discountPercent) || 0}%)</span><span>- R$ {discountAmount().toFixed(2)}</span></div>
+                  )}
+                  {cashbackToUse > 0 && (
+                    <div className="flex justify-between text-pink-600"><span>Cashback</span><span>- R$ {cashbackToUse.toFixed(2)}</span></div>
+                  )}
+                  {selectedCustomer && (
+                    <div className="flex justify-between text-green-600"><span>Cashback a ganhar</span><span>+ R$ {Number(cashbackEarnedPreview).toFixed(2)}</span></div>
+                  )}
+                  <div className="flex justify-between"><span>Pagamentos</span><span>R$ {sumPayments().toFixed(2)}</span></div>
+                  <div className="grid grid-cols-3 gap-2 mt-2 text-center">
+                    <div className="p-2 rounded-lg bg-gray-50">
+                      <div className="text-[10px] text-gray-500">Troco (R$)</div>
+                      <div className="text-sm font-semibold">{sumPayments() > Math.max(0, calculateTotal() - discountAmount() - cashbackToUse) ? (sumPayments() - Math.max(0, calculateTotal() - discountAmount() - cashbackToUse)).toFixed(2) : '-'}</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-gray-50">
+                      <div className="text-[10px] text-gray-500">Faltam (R$)</div>
+                      <div className="text-sm font-semibold">{remainingAmount().toFixed(2)}</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-gray-50">
+                      <div className="text-[10px] text-gray-500">Final (R$)</div>
+                      <div className="text-sm font-semibold">{Math.max(0, calculateTotal() - discountAmount() - cashbackToUse).toFixed(2)}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div>
-                <Label className="mb-2 block text-sm text-gray-700">Observações</Label>
-                <Input
-                  value={observations}
-                  onChange={(e) => setObservations(e.target.value)}
-                  placeholder="Observações da venda"
-                  className="rounded-xl border-gray-200"
-                />
-              </div>
+                <div>
+                  <Label className="mb-2 block text-sm text-gray-700">Observações</Label>
+                  <Input
+                    value={observations}
+                    onChange={(e) => setObservations(e.target.value)}
+                    placeholder="Observações da venda"
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
 
 
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <div className="hidden lg:flex gap-2 mt-auto">
-            <Button variant="outline" onClick={() => navigate('/cashier/products')} className="rounded-xl">Voltar</Button>
-            <Button
-              onClick={handleFinalizeSale}
-              disabled={cart.length === 0 || payments.length === 0 || remainingAmount() > 0}
-              className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700"
-            >
-              Finalizar pagamentos
-            </Button>
+            <div className="hidden lg:flex gap-2 mt-auto">
+              <Button variant="outline" onClick={() => navigate('/cashier/products')} className="rounded-xl">Voltar</Button>
+              <Button
+                onClick={handleFinalizeSale}
+                disabled={cart.length === 0 || payments.length === 0 || remainingAmount() > 0}
+                className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700"
+              >
+                Finalizar pagamentos
+              </Button>
+            </div>
           </div>
-        </div>
         </div>
 
         {/* Bottom action bar (mobile) */}

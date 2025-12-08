@@ -15,6 +15,11 @@ export function CashierProvider({ children }) {
 
   const addToCart = (product) => {
     const existingItem = cart.find((item) => item.product_id === product.id);
+    // Determine effective price (promo vs regular)
+    const price = Number(product.price || 0);
+    const promo = Number(product.promo_price || 0);
+    const effectivePrice = (product.promo_price && promo < price) ? promo : price;
+
     if (existingItem) {
       setCart(
         cart.map((item) =>
@@ -29,7 +34,7 @@ export function CashierProvider({ children }) {
         {
           product_id: product.id,
           product_name: product.name,
-          unit_price: product.price,
+          unit_price: effectivePrice,
           quantity: 1,
         },
       ]);

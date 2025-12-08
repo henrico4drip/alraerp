@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Search, 
-  Plus, 
-  Minus, 
-  Trash2, 
+import {
+  Search,
+  Plus,
+  Minus,
+  Trash2,
   ShoppingCart,
   DollarSign,
   Check,
@@ -133,7 +133,7 @@ export default function Cashier() {
 
   const handleSearchProducts = (value) => {
     setSearchTerm(value);
-    
+
     // Try to find by barcode first
     const productByBarcode = products.find(p => p.barcode === value);
     if (productByBarcode) {
@@ -145,6 +145,10 @@ export default function Cashier() {
 
   const addToCart = (product) => {
     const existingItem = cart.find(item => item.product_id === product.id);
+    const price = Number(product.price || 0);
+    const promo = Number(product.promo_price || 0);
+    const effectivePrice = (product.promo_price && promo < price) ? promo : price;
+
     if (existingItem) {
       setCart(cart.map(item =>
         item.product_id === product.id
@@ -155,7 +159,7 @@ export default function Cashier() {
       setCart([...cart, {
         product_id: product.id,
         product_name: product.name,
-        unit_price: product.price,
+        unit_price: effectivePrice,
         quantity: 1
       }]);
     }
@@ -179,8 +183,10 @@ export default function Cashier() {
 
   const calculateCashbackEarned = () => {
     const total = calculateTotal();
+    const used = parseFloat(cashbackToUse) || 0;
+    const netTotal = Math.max(0, total - used);
     const percentage = settings?.cashback_percentage || 5;
-    return total * (percentage / 100);
+    return netTotal * (percentage / 100);
   };
 
   const getFinalTotal = () => {
@@ -338,10 +344,10 @@ export default function Cashier() {
           <h1>Nota de Venda</h1>
           <div class="muted">${sale.sale_number} - ${new Date(sale.sale_date).toLocaleString()}</div>
           <div>Cliente: <strong>${sale.customer_name || 'Cliente Avulso'}</strong></div>
-          ${ (sale.payments && sale.payments.length > 0)
-          ? `<div class=\"muted\">Pagamentos:</div><div>${sale.payments.map(p => `${p.method}${(p.installments || 1) > 1 ? ` • ${p.installments}x` : ''}: R$ ${(p.amount || 0).toFixed(2)}`).join('<br/>')}</div>`
-          : `<div class=\"muted\">Pagamento: ${sale.payment_method}</div>`
-          }
+          ${(sale.payments && sale.payments.length > 0)
+        ? `<div class=\"muted\">Pagamentos:</div><div>${sale.payments.map(p => `${p.method}${(p.installments || 1) > 1 ? ` • ${p.installments}x` : ''}: R$ ${(p.amount || 0).toFixed(2)}`).join('<br/>')}</div>`
+        : `<div class=\"muted\">Pagamento: ${sale.payment_method}</div>`
+      }
           ${sale.observations ? `<div>Obs: ${sale.observations}</div>` : ''}
           <table>
             <thead>
@@ -662,7 +668,7 @@ export default function Cashier() {
                       </div>
                     </div>
                   )}
-                 </div>
+                </div>
 
                 {/* Observations */}
                 <div className="mb-4">
