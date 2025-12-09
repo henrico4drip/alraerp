@@ -47,7 +47,7 @@ async function getCurrentUserId() {
       const { data: { session } } = await supabase.auth.getSession()
       return session?.user?.id || null
     }
-  } catch {}
+  } catch { }
   try {
     const raw = localStorage.getItem('session')
     const sess = raw ? JSON.parse(raw) : null
@@ -126,6 +126,7 @@ export const base44 = {
     Customer: makeRepo('customers'),
     Product: makeRepo('products'),
     Sale: makeRepo('sales'),
+    Expense: makeRepo('expenses'),
     User: makeRepo('users'),
   },
   integrations: {

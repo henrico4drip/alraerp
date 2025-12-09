@@ -76,6 +76,8 @@ const buildPixEmvPayload = ({ key, amount, name, city, txid, description }) => {
 
 const asPaymentsArray = (p) => Array.isArray(p) ? p : (p ? [p] : [])
 
+import AccountsPayable from '@/components/AccountsPayable'
+
 export default function Payments() {
   const queryClient = useQueryClient()
   const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list('-created_date'), initialData: [] })
@@ -90,6 +92,7 @@ export default function Payments() {
   }, [customers])
 
   // --- STATE ---
+  const [activeTab, setActiveTab] = useState('receivables') // 'receivables' | 'payables'
   const [currentMonth, setCurrentMonth] = useState(new Date()) // Mês exibido no calendário
   const [dateRange, setDateRange] = useState({ from: null, to: null }) // Seleção de data
 
@@ -496,173 +499,198 @@ export default function Payments() {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
 
-      {/* Header Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex flex-col justify-between h-24">
-          <div className="text-red-900 font-medium text-sm uppercase tracking-wide">Vencido</div>
-          <div className="text-2xl font-bold text-red-700">R$ {totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-        </div>
-        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col justify-between h-24">
-          <div className="text-blue-900 font-medium text-sm uppercase tracking-wide">A Receber Total</div>
-          <div className="text-2xl font-bold text-blue-700">R$ {totalOpenGeneral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-        </div>
-        <div className={`p-4 rounded-2xl border flex flex-col justify-between h-24 transition-colors ${dateRange.from ? 'bg-indigo-50 border-indigo-100' : 'bg-gray-50 border-gray-100 opacity-50'}`}>
-          <div className="text-indigo-900 font-medium text-sm uppercase tracking-wide">
-            {dateRange.from ? 'Selecionado' : 'Selecione um período'}
-          </div>
-          <div className="text-2xl font-bold text-indigo-700">
-            {dateRange.from ? `R$ ${totalSelected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
-          </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Financeiro</h1>
+        <div className="bg-gray-100 p-1 rounded-xl flex">
+          <button
+            onClick={() => setActiveTab('receivables')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'receivables' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            A Receber
+          </button>
+          <button
+            onClick={() => setActiveTab('payables')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'payables' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            A Pagar
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" data-tutorial="payments-main">
-
-        {/* Calendar Section (Left Side) */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-            {/* Calendar Header */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold capitalize text-gray-900">
-                {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-              </h2>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="rounded-full">‹</Button>
-                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="rounded-full">›</Button>
+      {activeTab === 'payables' ? (
+        <AccountsPayable />
+      ) : (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Header Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex flex-col justify-between h-24">
+              <div className="text-red-900 font-medium text-sm uppercase tracking-wide">Vencido</div>
+              <div className="text-2xl font-bold text-red-700">R$ {totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col justify-between h-24">
+              <div className="text-blue-900 font-medium text-sm uppercase tracking-wide">A Receber Total</div>
+              <div className="text-2xl font-bold text-blue-700">R$ {totalOpenGeneral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            </div>
+            <div className={`p-4 rounded-2xl border flex flex-col justify-between h-24 transition-colors ${dateRange.from ? 'bg-indigo-50 border-indigo-100' : 'bg-gray-50 border-gray-100 opacity-50'}`}>
+              <div className="text-indigo-900 font-medium text-sm uppercase tracking-wide">
+                {dateRange.from ? 'Selecionado' : 'Selecione um período'}
+              </div>
+              <div className="text-2xl font-bold text-indigo-700">
+                {dateRange.from ? `R$ ${totalSelected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
               </div>
             </div>
+          </div>
 
-            {/* Weekdays */}
-            <div className="grid grid-cols-7 mb-2">
-              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-                <div key={`weekday-${i}`} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">{d}</div>
-              ))}
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" data-tutorial="payments-main">
 
-            {/* Days Grid */}
-            <div className="grid grid-cols-7 gap-y-1 gap-x-0 relative">
-              {emptyDays.map((_, i) => <div key={`empty-${i}`} />)}
-              {daysInMonth.map(day => {
-                const isOverdue = openCarnes.some(c => isSameDay(new Date(c.due_date), day) && isBefore(day, today))
-                const hasPayment = openCarnes.some(c => isSameDay(new Date(c.due_date), day))
+            {/* Calendar Section (Left Side) */}
+            <div className="lg:col-span-4 space-y-4">
+              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+                {/* Calendar Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-bold capitalize text-gray-900">
+                    {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                  </h2>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="rounded-full">‹</Button>
+                    <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="rounded-full">›</Button>
+                  </div>
+                </div>
 
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => handleDayClick(day)}
-                    className={`
+                {/* Weekdays */}
+                <div className="grid grid-cols-7 mb-2">
+                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                    <div key={`weekday-${i}`} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">{d}</div>
+                  ))}
+                </div>
+
+                {/* Days Grid */}
+                <div className="grid grid-cols-7 gap-y-1 gap-x-0 relative">
+                  {emptyDays.map((_, i) => <div key={`empty-${i}`} />)}
+                  {daysInMonth.map(day => {
+                    const isOverdue = openCarnes.some(c => isSameDay(new Date(c.due_date), day) && isBefore(day, today))
+                    const hasPayment = openCarnes.some(c => isSameDay(new Date(c.due_date), day))
+
+                    return (
+                      <button
+                        key={day.toISOString()}
+                        onClick={() => handleDayClick(day)}
+                        className={`
                       relative w-full aspect-square flex items-center justify-center text-sm font-medium transition-all group
                       ${getDayStyle(day)}
                       ${isSameDay(day, new Date()) && !isDaySelected(day) ? 'text-blue-600 font-bold' : ''}
                     `}
-                  >
-                    <span className="relative z-20">{day.getDate()}</span>
+                      >
+                        <span className="relative z-20">{day.getDate()}</span>
 
-                    {/* Dots indicators */}
-                    <div className="absolute bottom-1.5 flex gap-0.5 z-20">
-                      {isOverdue && <div className="w-1 h-1 rounded-full bg-red-500" />}
-                      {!isOverdue && hasPayment && <div className="w-1 h-1 rounded-full bg-green-500" />}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-center text-gray-500">
-              Clique numa data inicial e outra final para filtrar.<br />
-              Boletinha <span className="text-red-500">vermelha</span> indica atraso.
-            </div>
-            {dateRange.from && (
-              <div className="mt-2 text-center">
-                <Button variant="outline" size="sm" onClick={() => setDateRange({ from: null, to: null })} className="rounded-xl text-xs h-7">
-                  Limpar Filtro
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* List Section (Right Side) */}
-        <div className="lg:col-span-8">
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  {dateRange.from ? 'Extrato do Período' : 'Todos os Lançamentos'}
-                </h2>
-                <p className="text-sm text-gray-500">
-                  {dateRange.from
-                    ? `${dateRange.from.toLocaleDateString('pt-BR')} ${dateRange.to ? 'até ' + dateRange.to.toLocaleDateString('pt-BR') : ''}`
-                    : 'Exibindo lista completa de pendências e atrasos'
-                  }
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-gray-400 uppercase font-semibold">Total Listado</div>
-                <div className="text-lg font-bold text-gray-900">R$ {totalSelected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
-              {filteredList.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
-                  <div className="text-4xl mb-2">💸</div>
-                  <p>Sem parcelas neste filtro.</p>
+                        {/* Dots indicators */}
+                        <div className="absolute bottom-1.5 flex gap-0.5 z-20">
+                          {isOverdue && <div className="w-1 h-1 rounded-full bg-red-500" />}
+                          {!isOverdue && hasPayment && <div className="w-1 h-1 rounded-full bg-green-500" />}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
-              ) : (
-                filteredList.map((item, idx) => {
-                  const itemDate = new Date(item.due_date)
-                  const isLate = isValid(itemDate) && isBefore(itemDate, today)
-                  return (
-                    <div key={`${item.sale_id}-${item.installment_index}-${idx}`}
-                      className={`p-3 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors hover:shadow-sm
+
+                <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-center text-gray-500">
+                  Clique numa data inicial e outra final para filtrar.<br />
+                  Boletinha <span className="text-red-500">vermelha</span> indica atraso.
+                </div>
+                {dateRange.from && (
+                  <div className="mt-2 text-center">
+                    <Button variant="outline" size="sm" onClick={() => setDateRange({ from: null, to: null })} className="rounded-xl text-xs h-7">
+                      Limpar Filtro
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* List Section (Right Side) */}
+            <div className="lg:col-span-8">
+              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">
+                      {dateRange.from ? 'Extrato do Período' : 'Todos os Lançamentos'}
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      {dateRange.from
+                        ? `${dateRange.from.toLocaleDateString('pt-BR')} ${dateRange.to ? 'até ' + dateRange.to.toLocaleDateString('pt-BR') : ''}`
+                        : 'Exibindo lista completa de pendências e atrasos'
+                      }
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-400 uppercase font-semibold">Total Listado</div>
+                    <div className="text-lg font-bold text-gray-900">R$ {totalSelected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                  {filteredList.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
+                      <div className="text-4xl mb-2">💸</div>
+                      <p>Sem parcelas neste filtro.</p>
+                    </div>
+                  ) : (
+                    filteredList.map((item, idx) => {
+                      const itemDate = new Date(item.due_date)
+                      const isLate = isValid(itemDate) && isBefore(itemDate, today)
+                      return (
+                        <div key={`${item.sale_id}-${item.installment_index}-${idx}`}
+                          className={`p-3 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors hover:shadow-sm
                             ${isLate ? 'bg-red-50/50 border-red-100' : 'bg-white border-gray-100 hover:border-gray-200'}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
                              ${isLate ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}
                            `}>
-                          {item.installment_index}
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{item.customer_name}</h4>
-                          <div className="text-xs flex gap-2 text-gray-500">
-                            <span>Vence: {isValid(itemDate) ? itemDate.toLocaleDateString('pt-BR') : 'Data Inválida'}</span>
-                            {isLate && <span className="text-red-600 font-bold">• ATRASADO</span>}
+                              {item.installment_index}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{item.customer_name}</h4>
+                              <div className="text-xs flex gap-2 text-gray-500">
+                                <span>Vence: {isValid(itemDate) ? itemDate.toLocaleDateString('pt-BR') : 'Data Inválida'}</span>
+                                {isLate && <span className="text-red-600 font-bold">• ATRASADO</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                            <div className="text-right mr-2">
+                              <div className="font-bold text-gray-900">R$ {item.installment_amount.toFixed(2)}</div>
+                              <div className="text-[10px] text-gray-400">Total Venda: R$ {item.total.toFixed(2)}</div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-gray-200" onClick={() => handleGenerateBoletoPix(item)} title="QR Code">
+                                <span className="text-xs">QR</span>
+                              </Button>
+                              <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-green-100 text-green-600" onClick={() => handleOpenWhatsapp(item)} title="WhatsApp">
+                                <span className="text-xs">WA</span>
+                              </Button>
+                              <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => setSelectedSaleId(item.sale_id)} title="Ver parcelas">
+                                <Banknote className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )
+                    })
+                  )}
+                </div>
 
-                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                        <div className="text-right mr-2">
-                          <div className="font-bold text-gray-900">R$ {item.installment_amount.toFixed(2)}</div>
-                          <div className="text-[10px] text-gray-400">Total Venda: R$ {item.total.toFixed(2)}</div>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-gray-200" onClick={() => handleGenerateBoletoPix(item)} title="QR Code">
-                            <span className="text-xs">QR</span>
-                          </Button>
-                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-green-100 text-green-600" onClick={() => handleOpenWhatsapp(item)} title="WhatsApp">
-                            <span className="text-xs">WA</span>
-                          </Button>
-                          <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => setSelectedSaleId(item.sale_id)} title="Ver parcelas">
-                            <Banknote className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            {/* Footer Total if needed */}
-            <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-400">
-              Mostrando {filteredList.length} parcelas
+                {/* Footer Total if needed */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-400">
+                  Mostrando {filteredList.length} parcelas
+                </div>
+              </div>
             </div>
           </div>
+
         </div>
-      </div>
+      )}
 
       {/* Helper Dialogs */}
       <Dialog open={showBoletoDialog} onOpenChange={setShowBoletoDialog}>
