@@ -9,6 +9,8 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X } from 'lucide-react'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import SubscriptionLockOverlay from '@/components/SubscriptionLockOverlay'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -28,10 +30,10 @@ export default function Settings() {
   const [companyZip, setCompanyZip] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [portalBusy, setPortalBusy] = useState(false)
-  const [upgradeBusy, setUpgradeBusy] = useState(false)
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
   const [confirmRemovePaymentMethod, setConfirmRemovePaymentMethod] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const effective = useEffectiveSettings()
   useEffect(() => {
@@ -119,31 +121,6 @@ export default function Settings() {
       alert('Erro ao abrir o portal de assinatura')
     } finally {
       setPortalBusy(false)
-    }
-  }
-
-  const upgradePlan = async () => {
-    try {
-      setUpgradeBusy(true)
-      const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
-      const SITE = 'https://alraerp.com.br'
-      const successUrl = `${SITE}/settings?status=success`
-      const cancelUrl = `${SITE}/settings`
-      const res = await fetch(`${API}/create-checkout-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'annual', user_id: user?.id || undefined, successUrl, cancelUrl }),
-      })
-      const json = await res.json()
-      if (json?.url) {
-        window.location.href = json.url
-      } else {
-        alert('Não foi possível iniciar o upgrade')
-      }
-    } catch (err) {
-      alert('Erro ao iniciar o upgrade')
-    } finally {
-      setUpgradeBusy(false)
     }
   }
 
@@ -387,10 +364,10 @@ export default function Settings() {
                   </div>
 
                   <div className="space-y-3">
-                    <p className="font-medium text-gray-900">Upgrade</p>
-                    <p className="text-sm text-gray-500 leading-snug">Ganhe descontos exclusivos migrando para o plano anual hoje mesmo.</p>
-                    <Button onClick={upgradePlan} disabled={upgradeBusy} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md shadow-blue-200 border-0">
-                      {upgradeBusy ? 'Processando...' : 'Mudar para Anual'}
+                    <p className="font-medium text-gray-900">Mudar Plano</p>
+                    <p className="text-sm text-gray-500 leading-snug">Veja as opções disponíveis e escolha a melhor para o seu negócio.</p>
+                    <Button onClick={() => setShowUpgradeModal(true)} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md shadow-blue-200 border-0">
+                      Ver Planos
                     </Button>
                   </div>
                 </div>
@@ -400,6 +377,12 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
+        <DialogContent className="max-w-4xl p-0 bg-transparent border-0 shadow-none">
+          <SubscriptionLockOverlay />
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={showConfirmRemovePaymentMethod}
