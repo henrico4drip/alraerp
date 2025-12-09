@@ -63,8 +63,13 @@ export default function Tutorial() {
             return
         }
 
+        let clickHandler = null
+        let retryCount = 0
+        const maxRetries = 10
+
         const findTarget = () => {
             const element = document.querySelector(stepData.target)
+
             if (element) {
                 targetRef.current = element
                 // Scroll element into view
@@ -72,26 +77,35 @@ export default function Tutorial() {
 
                 // Add click listener if this step waits for user click
                 if (stepData.waitForClick) {
-                    const handleClick = () => {
+                    clickHandler = (e) => {
+                        console.log('Tutorial: User clicked on', stepData.target)
                         // Small delay to allow navigation to complete
                         setTimeout(() => {
                             nextStep()
                         }, 300)
                     }
 
-                    element.addEventListener('click', handleClick, { once: true })
-
-                    // Cleanup function
-                    return () => {
-                        element.removeEventListener('click', handleClick)
-                    }
+                    element.addEventListener('click', clickHandler)
                 }
+            } else if (retryCount < maxRetries) {
+                // Retry finding element
+                retryCount++
+                setTimeout(findTarget, 200)
+            } else {
+                console.warn('Tutorial: Could not find element', stepData.target)
             }
         }
 
         // Try to find element with delay to ensure DOM is ready
         const timer = setTimeout(findTarget, 500)
-        return () => clearTimeout(timer)
+
+        // Cleanup function
+        return () => {
+            clearTimeout(timer)
+            if (clickHandler && targetRef.current) {
+                targetRef.current.removeEventListener('click', clickHandler)
+            }
+        }
     }, [stepData?.target, stepData?.waitForClick, location.pathname, nextStep])
 
     // Check if we're on the correct page for current step
