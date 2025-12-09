@@ -113,9 +113,10 @@ export default function Tutorial() {
         if (!targetRef.current || stepData.position === 'center') {
             return {
                 position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)'
+                bottom: '20px',
+                right: '20px',
+                maxWidth: '400px',
+                width: 'calc(100vw - 40px)'
             }
         }
 
@@ -160,8 +161,7 @@ export default function Tutorial() {
         <>
             {/* Backdrop overlay */}
             <div
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9998] transition-opacity duration-300"
-                onClick={skipTutorial}
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9998] transition-opacity duration-300 pointer-events-none"
             />
 
             {/* Spotlight on target element */}
