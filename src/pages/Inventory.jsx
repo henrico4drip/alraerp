@@ -200,6 +200,7 @@ export default function Inventory() {
             </Button>
             <Button
               onClick={() => handleOpenDialog()}
+              data-tutorial="new-product-btn"
               className="bg-blue-600 hover:bg-blue-700 rounded-xl"
             >
               <Plus className="w-4 h-4 mr-2" />

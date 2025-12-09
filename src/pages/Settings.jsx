@@ -80,11 +80,11 @@ export default function Settings() {
       if (settings) {
         const updated = await base44.entities.Settings.update(settings.id, payload)
         setSettings(updated)
-        try { localStorage.setItem('settings', JSON.stringify([updated])) } catch {}
+        try { localStorage.setItem('settings', JSON.stringify([updated])) } catch { }
       } else {
         const created = await base44.entities.Settings.create(payload)
         setSettings(created)
-        try { localStorage.setItem('settings', JSON.stringify([created])) } catch {}
+        try { localStorage.setItem('settings', JSON.stringify([created])) } catch { }
       }
       alert('Configurações salvas!')
     } catch (err) {
@@ -183,7 +183,7 @@ export default function Settings() {
                   <Palette className="w-5 h-5 text-purple-500" /> Identidade Visual
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
+              <CardContent className="p-6 space-y-6" data-tutorial="store-settings">
                 <div className="flex flex-col md:flex-row gap-8 items-start">
                   <div className="space-y-3">
                     <Label className="text-gray-600 font-medium">Logo da Loja</Label>
@@ -232,7 +232,7 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="p-6 space-y-8">
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
+                  <div className="space-y-2" data-tutorial="cashback-settings">
                     <Label className="text-gray-700">Cashback Padrão (%)</Label>
                     <div className="relative">
                       <Input

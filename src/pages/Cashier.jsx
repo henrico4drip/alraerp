@@ -434,7 +434,7 @@ export default function Cashier() {
           </DialogContent>
         </Dialog>
 
-        <div className="grid lg:grid-cols-3 gap-4">
+        <div className="grid lg:grid-cols-3 gap-4" data-tutorial="cashier-main">
           {/* Products Section */}
           <div className="lg:col-span-2 space-y-4">
             <Card className="shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)] border-0 rounded-2xl bg-white">

@@ -30,6 +30,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from '@/api/supabaseClient'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import Onboarding from '@/components/Onboarding'
+import Tutorial from '@/components/Tutorial'
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
@@ -168,14 +169,14 @@ export default function Layout({ children, currentPageName }) {
   }, []);
 
   const allNavItems = [
-    { name: "Dashboard", path: createPageUrl("Dashboard"), icon: LayoutDashboard },
-    { name: "Caixa", path: createPageUrl("Cashier"), icon: ShoppingCart },
+    { name: "Dashboard", path: createPageUrl("Dashboard"), icon: LayoutDashboard, tutorialId: "dashboard-link" },
+    { name: "Caixa", path: createPageUrl("Cashier"), icon: ShoppingCart, tutorialId: "cashier-link" },
     { name: "Vendas", path: createPageUrl("Sales"), icon: TrendingUp },
-    { name: "Clientes", path: createPageUrl("Customers"), icon: Users },
-    { name: "Estoque", path: createPageUrl("Inventory"), icon: Package },
+    { name: "Clientes", path: createPageUrl("Customers"), icon: Users, tutorialId: "customers-link" },
+    { name: "Estoque", path: createPageUrl("Inventory"), icon: Package, tutorialId: "inventory-link" },
     { name: "Relatórios", path: createPageUrl("Reports"), icon: BarChart3 },
     { name: "Marketing", path: createPageUrl("Marketing"), icon: Megaphone },
-    { name: "Configurações", path: createPageUrl("Settings"), icon: SettingsIcon },
+    { name: "Configurações", path: createPageUrl("Settings"), icon: SettingsIcon, tutorialId: "settings-link" },
   ];
 
   const bottomNavItems = [
@@ -227,6 +228,7 @@ export default function Layout({ children, currentPageName }) {
                     key={item.name}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
+                    data-tutorial={item.tutorialId}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
                       ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                       : 'text-gray-700 hover:bg-gray-50'
@@ -858,6 +860,12 @@ export default function Layout({ children, currentPageName }) {
           </div>
         </nav>
       </div>
+
+      {/* Tutorial System */}
+      <Tutorial />
+
+      {/* Onboarding */}
+      <Onboarding settings={settings} />
     </div>
   );
 }

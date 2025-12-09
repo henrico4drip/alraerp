@@ -418,7 +418,7 @@ export default function Payments() {
     })
     const msg = `Olá${installment.customer_name ? ` ${installment.customer_name.split(' ')[0]}` : ''}!\nSegue boleto PIX da parcela ${installment.installment_index}/${installment.installments_total}.\nValor: R$ ${Number(installment.installment_amount).toFixed(2)}\nVencimento: ${dueStr}\nChave PIX: ${effectiveSettings?.pix_key || ''}\nCódigo copia-e-cola:\n${payload}`
     if (!phoneWithCountry) {
-      try { navigator.clipboard.writeText(msg) } catch {}
+      try { navigator.clipboard.writeText(msg) } catch { }
       alert('Cliente sem telefone válido. Mensagem copiada para a área de transferência.')
       return
     }
@@ -511,7 +511,7 @@ export default function Payments() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" data-tutorial="payments-main">
 
         {/* Calendar Section (Left Side) */}
         <div className="lg:col-span-4 space-y-4">

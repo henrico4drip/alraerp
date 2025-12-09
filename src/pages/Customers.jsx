@@ -196,6 +196,7 @@ export default function Customers() {
             <Button onClick={() => setShowExportDialog(true)} className="rounded-xl bg-slate-600 hover:bg-slate-700">Exportar</Button>
             <Button
               onClick={() => handleOpenDialog()}
+              data-tutorial="new-customer-btn"
               className="bg-pink-600 hover:bg-pink-700 rounded-xl"
             >
               <Plus className="w-4 h-4 mr-2" />
