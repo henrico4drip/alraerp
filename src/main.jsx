@@ -33,7 +33,7 @@ const queryClient = new QueryClient()
 // Persist TanStack Query cache to localStorage for instant first paint between reloads
 const localStoragePersister = {
   persistClient: async (client) => {
-    try { window.localStorage.setItem('tanstack-query', JSON.stringify(client)) } catch {}
+    try { window.localStorage.setItem('tanstack-query', JSON.stringify(client)) } catch { }
   },
   restoreClient: async () => {
     try {
@@ -44,7 +44,7 @@ const localStoragePersister = {
     }
   },
   removeClient: async () => {
-    try { window.localStorage.removeItem('tanstack-query') } catch {}
+    try { window.localStorage.removeItem('tanstack-query') } catch { }
   },
 }
 
@@ -59,7 +59,7 @@ base44.entities.Settings.list().then(r => {
     const raw = window.localStorage.getItem('settings')
     const arr = raw ? JSON.parse(raw) : []
     queryClient.setQueryData(['settings'], Array.isArray(arr) ? arr : [])
-  } catch {}
+  } catch { }
 })
 
 function RequireAuth({ children }) {
@@ -69,16 +69,25 @@ function RequireAuth({ children }) {
   return children
 }
 
+import SubscriptionLockOverlay from './components/SubscriptionLockOverlay'
+
 function RequireSubscription({ children }) {
   const { user } = useAuth()
   const [allowed, setAllowed] = useState(null)
-  const location = useLocation()
 
+  // Efeito original de verificação (mantido, mas sem o Navigate no corpo do componente)
   useEffect(() => {
     let cancelled = false
     const run = async () => {
+      // (Lógica original de verificação permanece idêntica, apenas setando setAllowed)
       if (!user?.email) { setAllowed(false); return }
       const email = String(user.email || '').toLowerCase()
+      // ... (código existente de verificação de admins, trial, stripe) ...
+      // Para brevidade do diff, vou colar a lógica inteira abaixo no replacement, 
+      // mas precisamos ter cuidado pra não perder nada. 
+      // Como o replace tool pede TargetContent exato, vamos substituir a função inteira 
+      // ou parte dela. 
+
       const builtinAdmins = ['admin@erp.local', 'henrico.pierdona@gmail.com']
       const envAdmins = String(import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
       const adminEmails = Array.from(new Set([...builtinAdmins, ...envAdmins]))
@@ -92,12 +101,12 @@ function RequireSubscription({ children }) {
         const trialUntil = trialUntilRaw ? new Date(trialUntilRaw).getTime() : 0
         const now = Date.now()
         if (status === 'success') {
-          try { window.localStorage.setItem('subscribed', 'true') } catch {}
+          try { window.localStorage.setItem('subscribed', 'true') } catch { }
           setAllowed(true); return
         }
         if (localSub === 'true') { setAllowed(true); return }
         if (trialUntil > now) { setAllowed(true); return }
-      } catch {}
+      } catch { }
       try {
         const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
         let ok = false
@@ -105,14 +114,14 @@ function RequireSubscription({ children }) {
           const res = await fetch(`${API}/subscription-status?email=${encodeURIComponent(email)}`)
           const json = await res.json()
           ok = Boolean(json?.active)
-        } catch {}
+        } catch { }
         if (!ok) {
           try {
             const alt = `${window.location.origin}/subscription-status?email=${encodeURIComponent(email)}`
             const res2 = await fetch(alt)
             const json2 = await res2.json()
             ok = Boolean(json2?.active)
-          } catch {}
+          } catch { }
         }
         if (!cancelled) setAllowed(ok)
       } catch {
@@ -125,18 +134,32 @@ function RequireSubscription({ children }) {
           if (trialUntil && trialUntil > Date.now()) {
             if (!cancelled) setAllowed(true)
           }
-        } catch {}
+        } catch { }
       }
     }
     run()
     return () => { cancelled = true }
   }, [user])
 
-  if (allowed === null) return null
+  if (allowed === null) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
+
   if (!allowed) {
-    if (location.pathname === '/dashboard') return children
-    return <Navigate to="/trial" replace />
+    // ESTADO DE BLOQUEIO: Blur no app + Overlay
+    return (
+      <div className="relative w-full min-h-screen bg-gray-100 overflow-hidden">
+        {/* Camada do App (Borrada e Inacessível) */}
+        <div className="absolute inset-0 filter blur-[8px] opacity-50 pointer-events-none select-none transform scale-105 z-0">
+          {children}
+        </div>
+
+        {/* Overlay de Bloqueio */}
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <SubscriptionLockOverlay />
+        </div>
+      </div>
+    )
   }
+
   return children
 }
 
@@ -226,7 +249,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 )
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {})
+  navigator.serviceWorker.register('/sw.js').catch(() => { })
 } else if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {})
+  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => { })
 }
