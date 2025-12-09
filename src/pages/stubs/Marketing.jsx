@@ -32,74 +32,75 @@ export default function Marketing(){
 
   return (
     <div className="p-4 w-full">
-      <div className="max-w-4xl mx-auto">
-        {/* Card de aviso com efeito glass */}
+      <div className="max-w-6xl mx-auto">
         <div className="mb-6">
-          <div
-            className="relative rounded-3xl p-[2px] ring-1 ring-white/30"
-          >
-            <div
-              className="rounded-3xl backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] px-8 py-10 sm:px-12 sm:py-12 bg-transparent"
-              style={{ background: 'linear-gradient(180deg, rgba(52,144,199,0.20) 0%, rgba(255,255,255,0.00) 70%)' }}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/70 rounded-xl flex items-center justify-center text-white/90">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M13 3l-2 2 6 6 2-2-6-6zm-9 9l-1 6 6-1 9-9-5-5-9 9z"/></svg>
-                </div>
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-semibold text-white">Marketing em construção</h2>
-                  <p className="text-white/80 text-sm sm:text-base mt-1">Estamos preparando recursos de fidelização, campanhas e relatórios.</p>
-                </div>
+          <h1 className="text-2xl font-semibold text-gray-900">Marketing</h1>
+          <p className="text-sm text-gray-500">Indicadores e ações de engajamento</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#3490c7]/10 text-[#3490c7] flex items-center justify-center">
+                <Zap className="w-5 h-5" />
               </div>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-white">
-                <div className="rounded-xl bg-white/20 px-4 py-3 text-white">• Cashback e pontos</div>
-                <div className="rounded-xl bg-white/20 px-4 py-3 text-white">• Campanhas e cupons</div>
-                <div className="rounded-xl bg-white/20 px-4 py-3 text-white">• Relatórios de engajamento</div>
-              </div>
+              <div className="text-xs text-gray-500">Cashback ativo</div>
             </div>
+            <div className="mt-3 text-2xl font-bold text-gray-900">{settings?.[0]?.cashback_percentage ?? 0}%</div>
+            <div className="mt-1 text-xs text-gray-500">Percentual configurado</div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#3490c7]/10 text-[#3490c7] flex items-center justify-center">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div className="text-xs text-gray-500">Receita do mês</div>
+            </div>
+            <div className="mt-3 text-2xl font-bold text-gray-900">{monthlyTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 })}</div>
+            <div className="mt-1 text-xs text-gray-500">Vendas geradas</div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#3490c7]/10 text-[#3490c7] flex items-center justify-center">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div className="text-xs text-gray-500">Retenção</div>
+            </div>
+            <div className="mt-3 text-2xl font-bold text-gray-900">{retentionPercent}%</div>
+            <div className="mt-1 text-xs text-gray-500">Clientes recorrentes</div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#3490c7]/10 text-[#3490c7] flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z"/></svg>
+              </div>
+              <div className="text-xs text-gray-500">Clientes únicos</div>
+            </div>
+            <div className="mt-3 text-2xl font-bold text-gray-900">{monthUniqueCustomers}</div>
+            <div className="mt-1 text-xs text-gray-500">No período</div>
           </div>
         </div>
-        <div className="pt-2">
-          <div
-            className="relative w-full rounded-2xl shadow-md"
-            style={{
-              background: 'linear-gradient(135deg, #6d28d9 0%, #3490c7 100%)',
-              color: 'white',
-              padding: 'clamp(20px, 4vw, 40px) clamp(22px, 4vw, 44px)',
-              minHeight: 'clamp(240px, 32vw, 420px)'
-            }}
-          >
-            <div className="flex items-start gap-2">
-              <Zap className="w-6 h-6 opacity-90" />
-              <div className="font-extrabold tracking-tight" style={{ fontSize: 'clamp(18px, 2.6vw, 26px)' }}>
-                Cashback Ativo ({settings?.[0]?.cashback_percentage ?? 0}%)
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-3">
-              <DollarSign className="w-5 h-5" />
-              <div className="font-bold" style={{ fontSize: 'clamp(16px, 2vw, 20px)' }}>
-                {monthlyTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 })}
-              </div>
-              <div className="text-white/90" style={{ fontSize: 'clamp(12px, 1.8vw, 14px)' }}>
-                vendas geradas este mês
-              </div>
-            </div>
-            <div className="mt-2 flex items-center gap-3">
-              <TrendingUp className="w-5 h-5" />
-              <div className="text-white" style={{ fontSize: 'clamp(12px, 1.8vw, 14px)' }}>
-                +{retentionPercent}% retenção de clientes
-              </div>
-            </div>
-            <div className="mt-3 text-right">
-              <Link to={createPageUrl('Reports')} className="text-white/90 underline text-[12px]">Ver Relatório</Link>
-            </div>
 
-            {/* Conteúdo base */}
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">Campanhas</div>
+              <div className="text-xs text-gray-500">Crie ações de engajamento</div>
+            </div>
+            <Link to={createPageUrl('Reports')} className="inline-flex items-center justify-center h-9 px-3 text-sm rounded-xl bg-[#3490c7] text-white hover:bg-[#2c8ac2]">Ver Relatórios</Link>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">Cupons</div>
+              <div className="text-xs text-gray-500">Configure descontos e vantagens</div>
+            </div>
+            <button className="h-9 px-3 text-sm rounded-xl border border-gray-200 hover:bg-gray-50">Configurar</button>
           </div>
         </div>
       </div>
-
-      {/* Outros itens de Marketing viriam aqui abaixo */}
     </div>
   )
 }

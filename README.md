@@ -1,85 +1,57 @@
-# ERP Frontend
+# React + TypeScript + Vite
 
-Aplicação ERP com integração Stripe (assinaturas e pagamentos únicos) e Supabase para autenticação/dados.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Requisitos
-- Node.js 18+
-- NPM ou Yarn
-- Stripe (chaves `pk_*` e `sk_*`)
-- Supabase (URL e ANON KEY)
+Currently, two official plugins are available:
 
-## Configuração
-Crie um arquivo `.env` na raiz seguindo `.env.example` e configure suas chaves:
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-```
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_SECRET_KEY=sk_live_...
-APP_URL=http://localhost:5174
-VITE_ADMIN_EMAILS=seu-admin@dominio.com
-VITE_TEST_EMAILS=qa@dominio.com
-```
+## Expanding the ESLint configuration
 
-> Nota: o arquivo `.env` está ignorado pelo git via `.gitignore` para evitar expor segredos.
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## Desenvolvimento
-Frontend:
-```
-npm install
-npm run dev -- --port 5174
-```
-Backend Stripe:
-```
-node server/index.js
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
 ```
 
-Acesse `http://localhost:5174`.
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-## Deploy (Produção)
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-### Frontend (Vercel)
-- Framework: Vite (React)
-- Build: `npm run build`
-- Output: `dist`
-- Variáveis de ambiente:
-  - `VITE_API_URL` → URL pública do backend (Render)
-  - `VITE_SUPABASE_URL`
-  - `VITE_SUPABASE_ANON_KEY`
-  - `VITE_STRIPE_PUBLISHABLE_KEY`
-
-### Backend (Render)
-- Serviço Web apontando para `server/index.js`
-- Build: `npm ci`
-- Start: `node server/index.js`
-- Health check: `GET /health`
-- Variáveis de ambiente:
-  - `STRIPE_SECRET_KEY`
-  - `APP_URL` → URL pública do frontend (Vercel)
-
-### Integração
-- O frontend consome o backend via `VITE_API_URL`:
-  - Status de assinatura: `GET /subscription-status?email=...`
-  - Checkout recorrente: `POST /create-checkout-session`
-  - Pagamento avulso (Pix/Boleto/Cartão): `POST /create-payment-session`
-
-### PWA
-- Manifesto: `public/manifest.webmanifest`
-- `index.html` inclui `theme-color` e `<link rel="manifest">`
-- Botão "Instalar" no cabeçalho aparece quando disponível e some em modo app
-
-## Segurança
-- Nunca commite suas chaves no repositório.
-- Ative webhooks no backend para atualizar status de pagamentos em produção.
-
-## Variáveis (Desenvolvimento)
-Crie `.env.local` com:
-
+export default tseslint.config({
+  extends: [
+    // other configs...
+    // Enable lint rules for React
+    reactX.configs['recommended-typescript'],
+    // Enable lint rules for React DOM
+    reactDom.configs.recommended,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
 ```
-VITE_API_URL=http://localhost:4242
-```
-
-Backend local em `4242` (`node server/index.js`) e frontend em `5174` (`npm run dev`).
-
-## Licença
-Sem licença definida. Solicite se desejar publicar como open-source.

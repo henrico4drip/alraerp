@@ -45,6 +45,7 @@ export default function Sales() {
   const [editForm, setEditForm] = useState({ customer_name: '', payment_method: '', total_amount: 0 });
   const [showConfirmDeleteSale, setShowConfirmDeleteSale] = useState(false);
   const [confirmDeleteSaleId, setConfirmDeleteSaleId] = useState(null);
+  const [confirmDeleteSaleObj, setConfirmDeleteSaleObj] = useState(null);
 
   const handleOpenInvoice = (sale) => { setInvoiceSale(sale); setShowInvoice(true); };
   const handleOpenEdit = (sale) => {
@@ -64,8 +65,35 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: (id) => base44.entities.Sale.delete(id),
-    onSuccess: () => { queryClient.invalidateQueries(['sales']); setShowConfirmDeleteSale(false); setConfirmDeleteSaleId(null); }
+    onSuccess: () => { queryClient.invalidateQueries(['sales']); setShowConfirmDeleteSale(false); setConfirmDeleteSaleId(null); setConfirmDeleteSaleObj(null); }
   });
+
+  const updateCustomerMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Customer.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries(['customers']); }
+  });
+
+  const handleDeleteSale = async () => {
+    const sale = confirmDeleteSaleObj;
+    if (sale && sale.customer_id) {
+      try {
+        const customers = await base44.entities.Customer.list();
+        const customer = customers.find((c) => c.id === sale.customer_id);
+        if (customer) {
+          const current = Number(customer.cashback_balance || 0);
+          const used = Number(sale.cashback_used || 0);
+          const earned = Number(sale.cashback_earned || 0);
+          const newBalance = Math.max(0, Number((current + used - earned).toFixed(2)));
+          await updateCustomerMutation.mutateAsync({ id: customer.id, data: { cashback_balance: newBalance } });
+        }
+      } catch {}
+    }
+    if (sale) {
+      deleteSaleMutation.mutate(sale.id);
+    } else if (confirmDeleteSaleId != null) {
+      deleteSaleMutation.mutate(confirmDeleteSaleId);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-full">
@@ -146,7 +174,7 @@ export default function Sales() {
                       <Button variant="secondary" size="icon" className="h-6 w-6 rounded bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenEdit(sale)}>
                         <Pencil className="w-3 h-3" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-6 w-6 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setShowConfirmDeleteSale(true); }}>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setConfirmDeleteSaleObj(sale); setShowConfirmDeleteSale(true); }}>
                         <Trash2 className="w-3.5 h-3.5 text-red-500" />
                       </Button>
                     </div>
@@ -174,7 +202,7 @@ export default function Sales() {
                     <Button variant="secondary" size="icon" className="h-7 w-7 rounded bg-blue-50 text-blue-600 border border-blue-200" onClick={() => handleOpenEdit(sale)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setShowConfirmDeleteSale(true); }}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setConfirmDeleteSaleObj(sale); setShowConfirmDeleteSale(true); }}>
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>
@@ -275,7 +303,7 @@ export default function Sales() {
           confirmText="Excluir"
           cancelText="Cancelar"
           destructive
-          onConfirm={() => { if (confirmDeleteSaleId != null) deleteSaleMutation.mutate(confirmDeleteSaleId) }}
+          onConfirm={handleDeleteSale}
         />
       </div>
     </div>

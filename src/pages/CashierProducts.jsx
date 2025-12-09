@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, ShoppingCart, Minus, Trash2, Package } from "lucide-react";
+import { Plus, ShoppingCart, Minus, Trash2, Package, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCashier } from "@/context/CashierContext";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -20,6 +20,16 @@ export default function CashierProducts() {
   const { cart, addToCart, updateQuantity, removeFromCart, calculateTotal } = useCashier();
   const [showNewProductDialog, setShowNewProductDialog] = useState(false);
   const [newProductForm, setNewProductForm] = useState({
+    name: "",
+    barcode: "",
+    price: "",
+    cost: "",
+    stock: "",
+    category: "",
+  });
+  const [showEditProductDialog, setShowEditProductDialog] = useState(false);
+  const [editProductId, setEditProductId] = useState(null);
+  const [editProductForm, setEditProductForm] = useState({
     name: "",
     barcode: "",
     price: "",
@@ -77,6 +87,15 @@ export default function CashierProducts() {
       queryClient.invalidateQueries(["products"]);
       setShowNewProductDialog(false);
       setNewProductForm({ name: "", barcode: "", price: "", cost: "", stock: "", category: "" });
+    },
+  });
+
+  const updateProductMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Product.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["products"]);
+      setShowEditProductDialog(false);
+      setEditProductId(null);
     },
   });
 
@@ -247,15 +266,38 @@ export default function CashierProducts() {
                             const base = products.find(p => p.id === item.product_id)
                             const orig = base?.price
                             const cur = item.unit_price
+                            const openEdit = () => {
+                              if (!base) return
+                              setEditProductId(base.id)
+                              setEditProductForm({
+                                name: base.name || "",
+                                barcode: base.barcode || "",
+                                price: String(base.price ?? ""),
+                                cost: String(base.cost ?? ""),
+                                stock: String(base.stock ?? ""),
+                                category: base.category || "",
+                              })
+                              setShowEditProductDialog(true)
+                            }
                             if (orig && cur < orig) {
                               return (
-                                <div className="mt-0.5">
+                                <div className="mt-0.5 flex items-center gap-1">
                                   <span className="text-[11px] line-through text-gray-500 mr-2">R$ {Number(orig).toFixed(2)}</span>
                                   <span className="text-xs font-semibold text-green-600">R$ {Number(cur).toFixed(2)}</span>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 rounded-lg ml-1" onClick={openEdit} aria-label="Editar produto">
+                                    <Pencil className="w-3 h-3" />
+                                  </Button>
                                 </div>
                               )
                             }
-                            return <p className="text-xs text-gray-500 mt-0.5">R$ {Number(cur).toFixed(2)}</p>
+                            return (
+                              <div className="mt-0.5 flex items-center gap-1">
+                                <span className="text-xs text-gray-500">R$ {Number(cur).toFixed(2)}</span>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 rounded-lg ml-1" onClick={openEdit} aria-label="Editar produto">
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            )
                           })()}
                         </div>
                         <div className="flex items-center gap-1">
@@ -391,6 +433,70 @@ export default function CashierProducts() {
               <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl">
                 Criar Produto
               </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditProductDialog} onOpenChange={setShowEditProductDialog}>
+        <DialogContent className="max-w-[90vw] sm:max-w-3xl lg:max-w-4xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Produto</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!editProductId) return
+              const payload = {
+                name: editProductForm.name,
+                barcode: editProductForm.barcode,
+                price: parseFloat(editProductForm.price) || 0,
+                promo_price: editProductForm.promo_price ? parseFloat(editProductForm.promo_price) : undefined,
+                cost: parseFloat(editProductForm.cost) || 0,
+                stock: parseInt(editProductForm.stock || 0, 10),
+                category: editProductForm.category || undefined,
+              }
+              updateProductMutation.mutate({ id: editProductId, data: payload })
+            }}
+            className="space-y-3"
+          >
+            <div>
+              <Label className="text-sm text-gray-700">Nome</Label>
+              <Input value={editProductForm.name} onChange={(e) => setEditProductForm({ ...editProductForm, name: e.target.value })} className="rounded-xl border-gray-200" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-sm text-gray-700">Preço</Label>
+                <Input type="number" step="0.01" value={editProductForm.price} onChange={(e) => setEditProductForm({ ...editProductForm, price: e.target.value })} className="rounded-xl border-gray-200" />
+              </div>
+              <div>
+                <Label className="text-sm text-gray-700">Preço Promocional</Label>
+                <Input type="number" step="0.01" value={editProductForm.promo_price} onChange={(e) => setEditProductForm({ ...editProductForm, promo_price: e.target.value })} className="rounded-xl border-gray-200" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-sm text-gray-700">Custo</Label>
+                <Input type="number" step="0.01" value={editProductForm.cost} onChange={(e) => setEditProductForm({ ...editProductForm, cost: e.target.value })} className="rounded-xl border-gray-200" />
+              </div>
+              <div>
+                <Label className="text-sm text-gray-700">Estoque</Label>
+                <Input type="number" value={editProductForm.stock} onChange={(e) => setEditProductForm({ ...editProductForm, stock: e.target.value })} className="rounded-xl border-gray-200" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-sm text-gray-700">Código de barras</Label>
+                <Input value={editProductForm.barcode} onChange={(e) => setEditProductForm({ ...editProductForm, barcode: e.target.value })} className="rounded-xl border-gray-200" />
+              </div>
+              <div>
+                <Label className="text-sm text-gray-700">Categoria</Label>
+                <Input value={editProductForm.category} onChange={(e) => setEditProductForm({ ...editProductForm, category: e.target.value })} className="rounded-xl border-gray-200" />
+              </div>
+            </div>
+            <div className="pt-2 flex gap-2 justify-end">
+              <Button variant="outline" className="rounded-xl" type="button" onClick={() => setShowEditProductDialog(false)}>Cancelar</Button>
+              <Button className="rounded-xl" type="submit">Salvar alterações</Button>
             </div>
           </form>
         </DialogContent>

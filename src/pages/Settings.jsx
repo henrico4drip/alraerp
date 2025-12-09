@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X } from 'lucide-react'
+import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -32,33 +33,23 @@ export default function Settings() {
   const [confirmRemovePaymentMethod, setConfirmRemovePaymentMethod] = useState('')
   const [isLoading, setIsLoading] = useState(true)
 
+  const effective = useEffectiveSettings()
   useEffect(() => {
-    (async () => {
-      try {
-        const list = await base44.entities.Settings.list()
-        if (list.length > 0) {
-          const s = list[0]
-          setSettings(s)
-          setErpName(s.erp_name || '')
-          setCashbackPercentage(typeof s.cashback_percentage === 'number' ? s.cashback_percentage : 5)
-          setCashbackExpirationDays(typeof s.cashback_expiration_days === 'number' ? s.cashback_expiration_days : 30)
-          setPaymentMethods(Array.isArray(s.payment_methods) ? s.payment_methods : [])
-          setPixKey(s.pix_key || '')
-          setCompanyCnpj(s.company_cnpj || '')
-          setCompanyAddress(s.company_address || '')
-          setCompanyCity(s.company_city || '')
-          setCompanyState(s.company_state || '')
-          setCompanyZip(s.company_zip || '')
-          setContactEmail(s.contact_email || '')
-        }
-      } catch (err) {
-        console.error('Falha ao carregar configurações:', err)
-        alert(`Falha ao carregar configurações: ${err?.message || 'erro desconhecido'}`)
-      } finally {
-        setIsLoading(false)
-      }
-    })()
-  }, [])
+    if (!effective) return
+    setSettings(effective)
+    setErpName(effective.erp_name || '')
+    setCashbackPercentage(typeof effective.cashback_percentage === 'number' ? effective.cashback_percentage : 5)
+    setCashbackExpirationDays(typeof effective.cashback_expiration_days === 'number' ? effective.cashback_expiration_days : 30)
+    setPaymentMethods(Array.isArray(effective.payment_methods) ? effective.payment_methods : [])
+    setPixKey(effective.pix_key || '')
+    setCompanyCnpj(effective.company_cnpj || '')
+    setCompanyAddress(effective.company_address || '')
+    setCompanyCity(effective.company_city || '')
+    setCompanyState(effective.company_state || '')
+    setCompanyZip(effective.company_zip || '')
+    setContactEmail(effective.contact_email || '')
+    setIsLoading(false)
+  }, [effective])
 
   const addPaymentMethod = () => {
     if (!newPaymentMethod.trim()) return
@@ -89,9 +80,11 @@ export default function Settings() {
       if (settings) {
         const updated = await base44.entities.Settings.update(settings.id, payload)
         setSettings(updated)
+        try { localStorage.setItem('settings', JSON.stringify([updated])) } catch {}
       } else {
         const created = await base44.entities.Settings.create(payload)
         setSettings(created)
+        try { localStorage.setItem('settings', JSON.stringify([created])) } catch {}
       }
       alert('Configurações salvas!')
     } catch (err) {

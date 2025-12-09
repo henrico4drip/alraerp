@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useRef } from 'react'
 import { startOfDay, endOfDay, isWithinInterval, isSameDay, isAfter, isBefore, addMonths, subMonths, format, isValid } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,6 +6,9 @@ import { base44 } from '@/api/base44Client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Banknote } from 'lucide-react'
+import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 
 const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -75,13 +78,8 @@ export default function Payments() {
   const queryClient = useQueryClient()
   const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list('-created_date'), initialData: [] })
   const { data: customers = [] } = useQuery({ queryKey: ['customers'], queryFn: () => base44.entities.Customer.list('-created_date'), initialData: [] })
-  const { data: settings = null } = useQuery({
-    queryKey: ['settings'],
-    queryFn: async () => { const list = await base44.entities.Settings.list(); return list.length > 0 ? list[0] : null },
-    initialData: null,
-  })
-
-  const hasPixConfigured = Boolean(settings?.pix_key)
+  const effectiveSettings = useEffectiveSettings()
+  const hasPixConfigured = Boolean(effectiveSettings?.pix_key)
 
   const customerById = useMemo(() => {
     const m = new Map()
@@ -106,6 +104,7 @@ export default function Payments() {
   // Estado do pop-up de boletos
   const [showBoletoDialog, setShowBoletoDialog] = useState(false)
   const [boletoPagesHtml, setBoletoPagesHtml] = useState('')
+  const boletoRef = useRef(null)
 
 
   // --- DATA PROCESSING ---
@@ -390,6 +389,43 @@ export default function Payments() {
   }
 
   // Reuse existing PIX helper functions logic
+  const renderPixQrSrc = (amount, txid) => {
+    const payload = buildPixEmvPayload({
+      key: effectiveSettings?.pix_key || '',
+      amount,
+      name: effectiveSettings?.erp_name || effectiveSettings?.company_name || 'LOJA',
+      city: effectiveSettings?.company_city || 'CIDADE',
+      txid,
+      description: `Parcela ${txid}`,
+    })
+    const data = encodeURIComponent(payload)
+    return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${data}`
+  }
+
+  const handleOpenWhatsapp = (installment) => {
+    const phoneRaw = installment?.customer_phone || ''
+    const digits = String(phoneRaw).replace(/\D/g, '')
+    const phoneWithCountry = digits ? `55${digits}` : ''
+    const dueStr = isValid(new Date(installment.due_date)) ? new Date(installment.due_date).toLocaleDateString('pt-BR') : ''
+    const txid = `${installment.sale_id}-${String(installment.installment_index).padStart(2, '0')}`
+    const payload = buildPixEmvPayload({
+      key: effectiveSettings?.pix_key || '',
+      amount: installment.installment_amount,
+      name: effectiveSettings?.erp_name || effectiveSettings?.company_name || 'LOJA',
+      city: effectiveSettings?.company_city || 'CIDADE',
+      txid,
+      description: `Parcela ${installment.installment_index}/${installment.installments_total}`,
+    })
+    const msg = `Olá${installment.customer_name ? ` ${installment.customer_name.split(' ')[0]}` : ''}!\nSegue boleto PIX da parcela ${installment.installment_index}/${installment.installments_total}.\nValor: R$ ${Number(installment.installment_amount).toFixed(2)}\nVencimento: ${dueStr}\nChave PIX: ${effectiveSettings?.pix_key || ''}\nCódigo copia-e-cola:\n${payload}`
+    if (!phoneWithCountry) {
+      try { navigator.clipboard.writeText(msg) } catch {}
+      alert('Cliente sem telefone válido. Mensagem copiada para a área de transferência.')
+      return
+    }
+    const url = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(msg)}`
+    window.open(url, '_blank')
+  }
+
   const handleGenerateBoletoPix = (installment) => {
     if (!hasPixConfigured) {
       alert('Configure sua chave PIX em Configurações para gerar o boleto/QR.')
@@ -402,11 +438,11 @@ export default function Payments() {
       const qrSrc = renderPixQrSrc(it.amount, txid)
       const amount = Number(it.amount || 0).toFixed(2)
       const dateStr = d.toLocaleDateString('pt-BR')
-      const brandTitle = sanitizeEmvText(settings?.erp_name || 'LOJA', 25)
-      const brandCnpj = settings?.company_cnpj || 'CNPJ não cadastrado'
-      const brandAddr = [settings?.company_address, settings?.company_zip, settings?.company_city, settings?.company_state].filter(Boolean).join(' - ')
+      const brandTitle = sanitizeEmvText(effectiveSettings?.erp_name || 'LOJA', 25)
+      const brandCnpj = effectiveSettings?.company_cnpj || 'CNPJ não cadastrado'
+      const brandAddr = [effectiveSettings?.company_address, effectiveSettings?.company_zip, effectiveSettings?.company_city, effectiveSettings?.company_state].filter(Boolean).join(' - ')
 
-      return `<div class="receipt"><div class="receipt__grid"><div class="receipt__left"><div class="hdr">${brandTitle}</div><div class="sub">${brandCnpj}</div><div class="sub">${brandAddr || 'Endereço não cadastrado'}</div><div class="kv"><span class="k">Cliente</span><span class="v">${installment.customer_name || ''}</span></div><div class="kv"><span class="k">Parcela</span><span class="v">${it.index}/${installment.installments_total}</span></div><div class="kv"><span class="k">Vencimento</span><span class="v">${dateStr}</span></div><div class="kv"><span class="k">Valor</span><span class="v">R$ ${amount}</span></div></div><div class="receipt__right"><img src="${qrSrc}" alt="QR PIX" class="qr"/><div class="contact">${settings?.contact_email || 'email@loja.com'}</div></div></div></div>`
+      return `<div class="receipt"><div class="receipt__grid"><div class="receipt__left"><div class="hdr">${brandTitle}</div><div class="sub">${brandCnpj}</div><div class="sub">${brandAddr || 'Endereço não cadastrado'}</div><div class="kv"><span class="k">Cliente</span><span class="v">${installment.customer_name || ''}</span></div><div class="kv"><span class="k">Parcela</span><span class="v">${it.index}/${installment.installments_total}</span></div><div class="kv"><span class="k">Vencimento</span><span class="v">${dateStr}</span></div><div class="kv"><span class="k">Valor</span><span class="v">R$ ${amount}</span></div></div><div class="receipt__right"><img src="${qrSrc}" alt="QR PIX" class="qr" crossorigin="anonymous"/><div class="contact">${effectiveSettings?.contact_email || 'email@loja.com'}</div></div></div></div>`
     }
     const pages = schedule.map(buildReceipt).join('\n')
     const style = `<style>.receipts { max-height: 70vh; overflow-y: auto; overflow-x: hidden; padding-right: 6px; } .receipt { border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 10px; background: #fff; max-width: 100%; } .receipt__grid { display: grid; grid-template-columns: minmax(0,1fr) 180px; gap: 10px; padding: 10px; align-items: start; } .receipt__left { display: flex; flex-direction: column; gap: 6px; } .hdr { font-weight: 700; color: #111827; } .sub { font-size: 12px; color: #374151; } .kv { display: grid; grid-template-columns: 100px 1fr; gap: 6px; } .k { color: #374151; font-weight: 600; } .v { font-weight: 600; } .receipt__right { display: flex; flex-direction: column; align-items: center; gap: 6px; } .qr { width: 160px; height: 160px; border: 1px solid #e5e7eb; border-radius: 8px; object-fit: contain; } .contact { font-family: monospace; color: #111827; text-align: center; font-size: 12px; } </style>`
@@ -425,19 +461,30 @@ export default function Payments() {
     setTimeout(() => URL.revokeObjectURL(url), 2000)
   }
 
-  const handlePrintPdf = () => {
-    const styleTag = boletoPagesHtml.match(/<style>[\s\S]*<\/style>/)?.[0] || '<style></style>'
-    const innerCss = styleTag.replace(/^<style>/, '').replace(/<\/style>$/, '')
-    const extraCss = `@page { size: A4; margin: 12mm; } body { margin: 0; } .receipts { max-height: none !important; overflow: visible !important; padding-right: 0 !important; } .receipt { break-inside: avoid; page-break-inside: avoid; }`
-    const finalStyle = `<style>${innerCss}\n${extraCss}</style>`
-    const content = boletoPagesHtml.replace(/<style>[\s\S]*<\/style>/, '')
-    const doc = `<!doctype html><html><head><meta charset="utf-8"/><title>Boletos PIX</title>${finalStyle}</head><body>${content}</body></html>`
-    const win = window.open('', '_blank')
-    if (win) {
-      win.document.write(doc)
-      win.document.close()
-      win.focus()
-      setTimeout(() => { try { win.print() } finally { win.close() } }, 200)
+  const handleDownloadPdf = async () => {
+    const node = boletoRef.current
+    if (!node) return
+    try {
+      const canvas = await html2canvas(node, { scale: 2, useCORS: true, allowTaint: false })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = 210 - 24
+      const pageHeight = 297 - 24
+      const imgWidth = pageWidth
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      let position = 12
+      pdf.addImage(imgData, 'PNG', 12, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+      while (heightLeft > 0) {
+        pdf.addPage()
+        position = 12 - (imgHeight - heightLeft)
+        pdf.addImage(imgData, 'PNG', 12, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+      pdf.save('boletos_pix.pdf')
+    } catch (e) {
+      alert('Falha ao gerar PDF. Tente usar "Baixar HTML" e imprimir em PDF.')
     }
   }
 
@@ -482,8 +529,8 @@ export default function Payments() {
 
             {/* Weekdays */}
             <div className="grid grid-cols-7 mb-2">
-              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(d => (
-                <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">{d}</div>
+              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                <div key={`weekday-${i}`} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">{d}</div>
               ))}
             </div>
 
@@ -616,9 +663,9 @@ export default function Payments() {
       <Dialog open={showBoletoDialog} onOpenChange={setShowBoletoDialog}>
         <DialogContent className="max-w-4xl w-[90vw]">
           <DialogHeader><DialogTitle>Boletos PIX</DialogTitle></DialogHeader>
-          <div dangerouslySetInnerHTML={{ __html: boletoPagesHtml }} />
+          <div ref={boletoRef} dangerouslySetInnerHTML={{ __html: boletoPagesHtml }} />
           <div className="flex justify-end gap-2 mt-4">
-            <Button onClick={handlePrintPdf} className="rounded-xl">Baixar PDF</Button>
+            <Button onClick={handleDownloadPdf} className="rounded-xl">Baixar PDF</Button>
             <Button onClick={handleDownloadHtml} className="rounded-xl" variant="secondary">Baixar HTML</Button>
           </div>
         </DialogContent>
@@ -705,7 +752,7 @@ export default function Payments() {
             ) : (
               openInstallmentsList.map((inst) => (
                 <div
-                  key={inst.index}
+                  key={`${inst.sale_id}-${inst.index}`}
                   className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer shadow-sm transition-all"
                   onClick={() => {
                     handleOpenAbate(inst)

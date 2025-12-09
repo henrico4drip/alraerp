@@ -52,8 +52,14 @@ persistQueryClient({ queryClient, persister: localStoragePersister, maxAge: 1000
 
 // Prefetch Settings to hydrate cache early (logo loads fast on Dashboard)
 base44.entities.Settings.list().then(r => {
-  const first = r?.[0] || null
-  queryClient.setQueryData(['settings'], first)
+  const arr = Array.isArray(r) ? r : []
+  queryClient.setQueryData(['settings'], arr)
+}).catch(() => {
+  try {
+    const raw = window.localStorage.getItem('settings')
+    const arr = raw ? JSON.parse(raw) : []
+    queryClient.setQueryData(['settings'], Array.isArray(arr) ? arr : [])
+  } catch {}
 })
 
 function RequireAuth({ children }) {

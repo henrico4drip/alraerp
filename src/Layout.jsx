@@ -27,17 +27,75 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from '@/api/supabaseClient'
+import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import Onboarding from '@/components/Onboarding'
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [settings, setSettings] = useState(null);
+  const effective = useEffectiveSettings();
+  useEffect(() => { setSettings(effective) }, [effective])
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [showAgendaDialog, setShowAgendaDialog] = useState(false);
   const [agendaItems, setAgendaItems] = useState([]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from('agenda').select('*').order('date', { ascending: true }).order('time', { ascending: true })
+        if (Array.isArray(data)) {
+          setAgendaItems(data.map(it => ({
+            id: it.id,
+            date: it.date,
+            title: it.title,
+            desc: it.desc || '',
+            time: it.time || '',
+            priority: it.priority || 'Média',
+            category: it.category || 'Outro',
+            done: Boolean(it.done),
+          })))
+        }
+      } catch {}
+    })()
+  }, [])
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const seeded = window.localStorage.getItem('seed_defaults_done') === 'true'
+        if (seeded) return
+        const [products, customers] = await Promise.all([
+          base44.entities.Product.list('-created_date'),
+          base44.entities.Customer.list(),
+        ])
+        if (!products || products.length === 0) {
+          try {
+            await base44.entities.Product.create({
+              name: 'Produto Exemplo',
+              barcode: 'EXEMPLO001',
+              price: 49.9,
+              cost: 30,
+              stock: 10,
+              category: 'Exemplos',
+            })
+          } catch {}
+        }
+        if (!customers || customers.length === 0) {
+          try {
+            await base44.entities.Customer.create({
+              name: 'Cliente Exemplo',
+              phone: '(11) 99999-0000',
+              email: 'exemplo@cliente.com',
+            })
+          } catch {}
+        }
+        try { window.localStorage.setItem('seed_defaults_done', 'true') } catch {}
+      } catch {}
+    })()
+  }, [])
   const [selectedDate, setSelectedDate] = useState(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
@@ -82,17 +140,7 @@ export default function Layout({ children, currentPageName }) {
       setKeepBottomNavForEntry(false);
     }
   }, [location.pathname]);
-  const fetchSettings = async () => {
-    try {
-      const settingsList = await base44.entities.Settings.list();
-      if (settingsList.length > 0) {
-        setSettings(settingsList[0]);
-      }
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-    }
-  };
-  fetchSettings();
+  
 
   useEffect(() => {
     const media = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(display-mode: standalone)') : null;
@@ -406,7 +454,7 @@ export default function Layout({ children, currentPageName }) {
                   <h2 className="text-2xl font-bold text-gray-900 capitalize">
                     {selectedDate
                       ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })
-                      : 'Selecione uma data'}
+                      : 'Próximos 7 dias'}
                   </h2>
                   <p className="text-gray-500 text-sm mt-0.5">
                     {selectedDate
@@ -425,11 +473,28 @@ export default function Layout({ children, currentPageName }) {
 
               {/* Lista Scrollável */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {selectedDate && agendaItems.filter(item => item.date === selectedDate).length > 0 ? (
-                  agendaItems
-                    .filter(item => item.date === selectedDate)
-                    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
-                    .map(item => (
+                {(() => {
+                  const now = new Date()
+                  const start = new Date(now)
+                  start.setHours(0,0,0,0)
+                  const end = new Date(start)
+                  end.setDate(end.getDate() + 7)
+                  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000)
+                  const baseList = selectedDate
+                    ? agendaItems.filter(item => item.date === selectedDate)
+                    : agendaItems.filter(item => {
+                        const d = new Date((item.date || '') + 'T00:00:00')
+                        return d >= start && d <= end
+                      })
+                  const list = baseList.filter(item => !(item.done && item.done_at && new Date(item.done_at) < fiveMinAgo))
+                  list.sort((a, b) => {
+                    const da = new Date((a.date || '') + 'T00:00:00')
+                    const db = new Date((b.date || '') + 'T00:00:00')
+                    const diff = da - db
+                    if (diff !== 0) return diff
+                    return (a.time || '').localeCompare(b.time || '')
+                  })
+                  return list.map(item => (
                       <div key={item.id} className="group flex gap-4 relative">
                         {/* Coluna Horário */}
                         <div className="w-14 text-right pt-1">
@@ -480,14 +545,21 @@ export default function Layout({ children, currentPageName }) {
                                 ✎
                               </button>
                               <button
-                                onClick={() => setAgendaItems(prev => prev.map(i => i.id === item.id ? { ...i, done: !i.done } : i))}
+                                onClick={async () => {
+                                  const newDone = !item.done
+                                  setAgendaItems(prev => prev.map(i => i.id === item.id ? { ...i, done: newDone } : i))
+                                  try { await supabase.from('agenda').update({ done: newDone }).eq('id', item.id) } catch {}
+                                }}
                                 className={`opacity-0 group-hover:opacity-100 transition-opacity ${item.done ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-700'} p-1`}
                                 title={item.done ? 'Desmarcar' : 'Concluir'}
                               >
                                 <Check className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => setAgendaItems(prev => prev.filter(i => i.id !== item.id))}
+                                onClick={async () => {
+                                  setAgendaItems(prev => prev.filter(i => i.id !== item.id))
+                                  try { await supabase.from('agenda').delete().eq('id', item.id) } catch {}
+                                }}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-1"
                                 title="Excluir"
                               >
@@ -498,7 +570,8 @@ export default function Layout({ children, currentPageName }) {
                         </div>
                       </div>
                     ))
-                ) : (
+                })()}
+                {(!selectedDate && agendaItems.length === 0) && (
                   <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
                     <CalendarDays className="w-16 h-16 mb-4 text-gray-300" strokeWidth={1} />
                     <p className="text-sm">Sem compromissos</p>
@@ -534,21 +607,21 @@ export default function Layout({ children, currentPageName }) {
                 })}
               </DialogTitle>
             </DialogHeader>
-            {/* Existing tasks for selected date */}
-            {selectedDate && agendaItems.filter(item => item.date === selectedDate).length > 0 && (
+            {/* Existing tasks for selected date or all when none selected */}
+            {(selectedDate ? agendaItems.filter(item => item.date === selectedDate) : agendaItems).length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Tarefas existentes:</h4>
                 <div className="space-y-2">
-                  {agendaItems
-                    .filter(item => item.date === selectedDate)
+                  {(selectedDate ? agendaItems.filter(item => item.date === selectedDate) : agendaItems)
                     .map(item => (
                       <div key={item.id} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                         <span className="text-sm text-gray-700">{item.title}</span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
+                          onClick={async () => {
                             setAgendaItems(prev => prev.filter(i => i.id !== item.id));
+                            try { await supabase.from('agenda').delete().eq('id', item.id) } catch {}
                           }}
                           className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
                         >
@@ -561,22 +634,39 @@ export default function Layout({ children, currentPageName }) {
             )}
             {/* Add new task (form completo) */}
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (!taskTitle.trim() || !selectedDate) return;
-
-                const newItem = {
-                  id: Date.now(),
-                  date: selectedDate,
+                if (!taskTitle.trim()) return;
+                const payload = {
+                  user_id: user?.id,
+                  date: selectedDate || new Date().toISOString().split('T')[0],
                   title: taskTitle.trim(),
                   desc: taskDesc.trim(),
                   time: taskTime,
                   priority: taskPriority,
                   category: taskCategory,
                   done: false,
-                };
-                setAgendaItems(prev => [...prev, newItem]);
-
+                }
+                try {
+                  const { data } = await supabase.from('agenda').insert(payload).select('*').limit(1)
+                  const inserted = Array.isArray(data) && data[0] ? data[0] : null
+                  if (inserted) {
+                    setAgendaItems(prev => [...prev, {
+                      id: inserted.id,
+                      date: inserted.date,
+                      title: inserted.title,
+                      desc: inserted.desc || '',
+                      time: inserted.time || '',
+                      priority: inserted.priority || 'Média',
+                      category: inserted.category || 'Outro',
+                      done: Boolean(inserted.done),
+                    }])
+                  } else {
+                    setAgendaItems(prev => [...prev, { id: Date.now(), ...payload }])
+                  }
+                } catch {
+                  setAgendaItems(prev => [...prev, { id: Date.now(), ...payload }])
+                }
                 setTaskTitle("");
                 setTaskDesc("");
                 setTaskTime("");
@@ -633,6 +723,11 @@ export default function Layout({ children, currentPageName }) {
                     <option>Reunião</option>
                     <option>Chamada</option>
                     <option>Entrega</option>
+                    <option>Financeiro</option>
+                    <option>Fornecedor</option>
+                    <option>Cliente</option>
+                    <option>Marketing</option>
+                    <option>Operacional</option>
                   </select>
                 </div>
               </div>
@@ -675,17 +770,18 @@ export default function Layout({ children, currentPageName }) {
               <DialogTitle>Editar tarefa</DialogTitle>
             </DialogHeader>
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 if (!editingTaskId) return;
-                setAgendaItems(prev => prev.map(i => i.id === editingTaskId ? {
-                  ...i,
+                const update = {
                   title: editTaskTitle.trim(),
                   desc: editTaskDesc.trim(),
                   time: editTaskTime,
                   priority: editTaskPriority,
                   category: editTaskCategory,
-                } : i));
+                }
+                setAgendaItems(prev => prev.map(i => i.id === editingTaskId ? { ...i, ...update } : i));
+                try { await supabase.from('agenda').update(update).eq('id', editingTaskId) } catch {}
                 setShowEditTaskDialog(false);
                 setEditingTaskId(null);
               }}
