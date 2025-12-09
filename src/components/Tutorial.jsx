@@ -122,37 +122,54 @@ export default function Tutorial() {
 
         const rect = targetRef.current.getBoundingClientRect()
         const cardWidth = 400
-        const cardHeight = 250
+        const cardHeight = 300
         const spacing = 20
+        const viewportWidth = window.innerWidth
+        const viewportHeight = window.innerHeight
 
-        let style = { position: 'fixed' }
+        let style = { position: 'fixed', maxWidth: '400px' }
+        let left = 0
+        let top = 0
 
         switch (stepData.position) {
             case 'top':
-                style.left = `${rect.left + rect.width / 2}px`
-                style.top = `${rect.top - cardHeight - spacing}px`
+                left = rect.left + rect.width / 2
+                top = rect.top - cardHeight - spacing
                 style.transform = 'translateX(-50%)'
                 break
             case 'bottom':
-                style.left = `${rect.left + rect.width / 2}px`
-                style.top = `${rect.bottom + spacing}px`
+                left = rect.left + rect.width / 2
+                top = rect.bottom + spacing
                 style.transform = 'translateX(-50%)'
                 break
             case 'left':
-                style.left = `${rect.left - cardWidth - spacing}px`
-                style.top = `${rect.top + rect.height / 2}px`
+                left = rect.left - cardWidth - spacing
+                top = rect.top + rect.height / 2
                 style.transform = 'translateY(-50%)'
                 break
             case 'right':
-                style.left = `${rect.right + spacing}px`
-                style.top = `${rect.top + rect.height / 2}px`
+                left = rect.right + spacing
+                top = rect.top + rect.height / 2
                 style.transform = 'translateY(-50%)'
                 break
             default:
-                style.top = '50%'
-                style.left = '50%'
-                style.transform = 'translate(-50%, -50%)'
+                return {
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    maxWidth: '400px',
+                    width: 'calc(100vw - 40px)'
+                }
         }
+
+        // Constrain to viewport boundaries
+        if (left < 20) left = 20
+        if (left + cardWidth > viewportWidth - 20) left = viewportWidth - cardWidth - 20
+        if (top < 20) top = 20
+        if (top + cardHeight > viewportHeight - 20) top = viewportHeight - cardHeight - 20
+
+        style.left = `${left}px`
+        style.top = `${top}px`
 
         return style
     }
