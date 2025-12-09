@@ -8,6 +8,15 @@ dotenv.config()
 const app = express()
 app.use(cors())
 
+// Middleware para JSON em todas as rotas, EXCETO webhook que precisa de raw body
+app.use((req, res, next) => {
+  if (req.originalUrl === '/stripe/webhook') {
+    next()
+  } else {
+    express.json()(req, res, next)
+  }
+})
+
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const PUBLISHABLE_KEY = process.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
@@ -286,4 +295,5 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), (req, res
 })
 
 // Enable JSON body parsing for other routes
-app.use(express.json())
+// Enable JSON body parsing for other routes (Moved to top)
+// app.use(express.json())
