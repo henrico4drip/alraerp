@@ -29,7 +29,6 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from '@/api/supabaseClient'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
-import Onboarding from '@/components/Onboarding'
 import Tutorial from '@/components/Tutorial'
 
 export default function Layout({ children, currentPageName }) {
@@ -863,9 +862,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Tutorial System */}
       <Tutorial />
-
-      {/* Onboarding */}
-      <Onboarding settings={settings} />
     </div>
   );
 }
+```
