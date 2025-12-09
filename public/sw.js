@@ -1,4 +1,4 @@
-const VERSION = 'v3-refresh-icons';
+const VERSION = 'v4-png-icons';
 
 self.addEventListener('install', () => {
   self.skipWaiting()
