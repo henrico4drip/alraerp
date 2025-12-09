@@ -121,36 +121,31 @@ export default function Tutorial() {
         }
 
         const rect = targetRef.current.getBoundingClientRect()
-        const cardWidth = 400
+        const cardWidth = Math.min(400, window.innerWidth - 40)
         const cardHeight = 300
         const spacing = 20
         const viewportWidth = window.innerWidth
         const viewportHeight = window.innerHeight
 
-        let style = { position: 'fixed', maxWidth: '400px' }
         let left = 0
         let top = 0
 
         switch (stepData.position) {
             case 'top':
-                left = rect.left + rect.width / 2
+                left = rect.left + (rect.width / 2) - (cardWidth / 2)
                 top = rect.top - cardHeight - spacing
-                style.transform = 'translateX(-50%)'
                 break
             case 'bottom':
-                left = rect.left + rect.width / 2
+                left = rect.left + (rect.width / 2) - (cardWidth / 2)
                 top = rect.bottom + spacing
-                style.transform = 'translateX(-50%)'
                 break
             case 'left':
                 left = rect.left - cardWidth - spacing
-                top = rect.top + rect.height / 2
-                style.transform = 'translateY(-50%)'
+                top = rect.top + (rect.height / 2) - (cardHeight / 2)
                 break
             case 'right':
                 left = rect.right + spacing
-                top = rect.top + rect.height / 2
-                style.transform = 'translateY(-50%)'
+                top = rect.top + (rect.height / 2) - (cardHeight / 2)
                 break
             default:
                 return {
@@ -162,16 +157,18 @@ export default function Tutorial() {
                 }
         }
 
-        // Constrain to viewport boundaries
-        if (left < 20) left = 20
-        if (left + cardWidth > viewportWidth - 20) left = viewportWidth - cardWidth - 20
-        if (top < 20) top = 20
-        if (top + cardHeight > viewportHeight - 20) top = viewportHeight - cardHeight - 20
+        // Constrain to viewport boundaries with padding
+        const padding = 20
+        left = Math.max(padding, Math.min(left, viewportWidth - cardWidth - padding))
+        top = Math.max(padding, Math.min(top, viewportHeight - cardHeight - padding))
 
-        style.left = `${left}px`
-        style.top = `${top}px`
-
-        return style
+        return {
+            position: 'fixed',
+            left: `${left}px`,
+            top: `${top}px`,
+            maxWidth: `${cardWidth}px`,
+            width: `${cardWidth}px`
+        }
     }
 
     return (
