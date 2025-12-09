@@ -14,11 +14,10 @@ export const tutorialSteps = [
         id: 'settings-nav',
         page: 'Dashboard',
         title: 'Acesse as Configurações',
-        description: 'Clique no ícone de engrenagem no menu lateral para acessar as configurações da sua loja.',
+        description: 'Primeiro, vamos configurar os dados da sua loja. Clique em Opções (Configurações).',
         target: '[data-tutorial="settings-link"]',
-        position: 'right',
-        action: null,
-        waitForClick: true
+        position: 'bottom',
+        action: 'navigate-settings'
     },
     {
         id: 'store-name',
@@ -42,11 +41,10 @@ export const tutorialSteps = [
         id: 'inventory-nav',
         page: 'Settings',
         title: 'Vamos Cadastrar Produtos',
-        description: 'Clique em "Estoque" no menu lateral para acessar o gerenciamento de produtos.',
-        target: '[data-tutorial="inventory-link"]',
-        position: 'right',
-        action: null,
-        waitForClick: true
+        description: 'Agora vamos adicionar produtos. Toque em ESTOQUE no rodapé.',
+        target: '[data-tutorial="inventory-bottom-link"]',
+        position: 'top',
+        action: 'navigate-inventory'
     },
     {
         id: 'add-product',
@@ -61,11 +59,10 @@ export const tutorialSteps = [
         id: 'customers-nav',
         page: 'Inventory',
         title: 'Cadastre seus Clientes',
-        description: 'Clique em "Clientes" no menu lateral para acessar o cadastro de clientes.',
-        target: '[data-tutorial="customers-link"]',
-        position: 'right',
-        action: null,
-        waitForClick: true
+        description: 'Toque em CLIENTES no rodapé para registrar clientes.',
+        target: '[data-tutorial="customers-bottom-link"]',
+        position: 'top',
+        action: 'navigate-customers'
     },
     {
         id: 'add-customer',
@@ -80,11 +77,10 @@ export const tutorialSteps = [
         id: 'cashier-nav',
         page: 'Customers',
         title: 'Hora de Vender!',
-        description: 'Clique em "Caixa" no menu lateral para acessar o ponto de venda.',
-        target: '[data-tutorial="cashier-link"]',
-        position: 'right',
-        action: null,
-        waitForClick: true
+        description: 'Vamos fazer sua primeira venda. Toque em CAIXA no rodapé.',
+        target: '[data-tutorial="cashier-bottom-link"]',
+        position: 'top',
+        action: 'navigate-cashier'
     },
     {
         id: 'make-sale',
@@ -95,34 +91,50 @@ export const tutorialSteps = [
         position: 'top',
         action: null
     },
-    {
-        id: 'payments-nav',
-        page: 'Cashier',
-        title: 'Gerencie Pagamentos',
-        description: 'Clique em "Pagamentos" no menu lateral para acessar o gerenciamento de pagamentos.',
-        target: '[data-tutorial="payments-link"]',
-        position: 'right',
-        action: null,
-        waitForClick: true
-    },
-    {
-        id: 'payment-features',
-        page: 'Payments',
-        title: 'Recursos de Pagamento',
-        description: 'Aqui você gera QR codes PIX, envia lembretes por WhatsApp e acompanha o status de cada parcela.',
-        target: '[data-tutorial="payments-main"]',
-        position: 'top',
-        action: null
-    },
+  {
+    id: 'dashboard-return',
+    page: 'Dashboard',
+    title: 'Voltar ao Dashboard',
+    description: 'Clique no logo da alra ou no nome da sua loja para voltar.',
+    target: '[data-tutorial="dashboard-link"], [data-tutorial="dashboard-logo"]',
+    position: 'bottom',
+    action: null
+  },
+  {
+    id: 'dashboard-payments-button',
+    page: 'Dashboard',
+    title: 'Abrir Pagamentos pela Dashboard',
+    description: 'Agora toque no botão PAGAMENTOS ao centro para seguir.',
+    target: '[data-tutorial="dashboard-payments-button"]',
+    position: 'bottom',
+    action: 'navigate-payments'
+  },
+  {
+    id: 'payment-features',
+    page: 'Payments',
+    title: 'Recursos de Pagamento',
+    description: 'Gere QR PIX, envie cobrança por WhatsApp, edite/exclua parcelas, abata pagamentos e baixe PDF/HTML dos boletos.',
+    target: '[data-tutorial="payments-main"]',
+    position: 'top',
+    action: null
+  },
+  {
+    id: 'dashboard-metrics',
+    page: 'Dashboard',
+    title: 'Acompanhe suas Métricas',
+    description: 'Toque no botão FATURAMENTO para ver indicadores e relatórios do seu negócio.',
+    target: '[data-tutorial="dashboard-billing-button"]',
+    position: 'bottom',
+    action: 'navigate-dashboard'
+  },
     {
         id: 'dashboard-nav',
         page: 'Payments',
         title: 'Veja seus Resultados',
-        description: 'Clique em "Dashboard" no menu lateral para ver suas métricas e relatórios.',
+        description: 'Por fim, acompanhe suas métricas no Dashboard. Clique no logo da alra ou no nome da sua loja.',
         target: '[data-tutorial="dashboard-link"]',
-        position: 'right',
-        action: null,
-        waitForClick: true
+        position: 'bottom',
+        action: 'navigate-dashboard'
     },
     {
         id: 'complete',

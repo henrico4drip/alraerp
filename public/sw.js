@@ -1,9 +1,21 @@
+const VERSION = 'v2-robust-tutorial';
+
 self.addEventListener('install', () => {
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim())
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      // Clear any old caches
+      caches.keys().then((keyList) => {
+        return Promise.all(keyList.map((key) => {
+          return caches.delete(key);
+        }));
+      })
+    ])
+  )
 })
 
 self.addEventListener('fetch', (event) => {

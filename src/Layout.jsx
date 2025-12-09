@@ -21,6 +21,7 @@ import {
   Home,
   Calendar,
   CalendarDays,
+  Wallet,
   Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -173,6 +174,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Vendas", path: createPageUrl("Sales"), icon: TrendingUp },
     { name: "Clientes", path: createPageUrl("Customers"), icon: Users, tutorialId: "customers-link" },
     { name: "Estoque", path: createPageUrl("Inventory"), icon: Package, tutorialId: "inventory-link" },
+    { name: "Pagamentos", path: createPageUrl("Payments"), icon: Wallet, tutorialId: "payments-link" },
     { name: "Relatórios", path: createPageUrl("Reports"), icon: BarChart3 },
     { name: "Marketing", path: createPageUrl("Marketing"), icon: Megaphone },
     { name: "Configurações", path: createPageUrl("Settings"), icon: SettingsIcon, tutorialId: "settings-link" },
@@ -227,11 +229,11 @@ export default function Layout({ children, currentPageName }) {
                     key={item.name}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    data-tutorial={item.tutorialId}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
-                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                      : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                        : 'text-gray-700 hover:bg-gray-50'
                       }`}
+                    data-tutorial={item.tutorialId}
                   >
                     <Icon className="w-5 h-5" />
                     {item.name}
@@ -263,6 +265,7 @@ export default function Layout({ children, currentPageName }) {
               <Link
                 to={createPageUrl("Dashboard")}
                 className="px-2 sm:px-3 py-1.5 rounded-lg bg-white/20 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
+                data-tutorial="dashboard-link"
               >
                 <Store className="w-5 h-5" /> <span>{settings?.erp_name?.toUpperCase() || "MINHA LOJA"}</span>
               </Link>
@@ -298,6 +301,7 @@ export default function Layout({ children, currentPageName }) {
                 <Link
                   to={createPageUrl("Settings")}
                   className={`px-2 sm:px-3 py-1.5 rounded-lg ${isSettings ? 'bg-white/30' : 'bg-white/20 hover:bg-white/30'} text-white text-sm uppercase font-normal inline-flex items-center gap-2`}
+                  data-tutorial="settings-link"
                 >
                   <SettingsIcon className="w-5 h-5" /> <span className="hidden sm:inline">OPÇÕES</span>
                 </Link>
@@ -845,6 +849,11 @@ export default function Layout({ children, currentPageName }) {
                     onClick={() => { if (item.name === 'CAIXA') { try { sessionStorage.setItem('animateCashierEntry', 'true'); } catch { } } }}
                     className={`relative flex flex-col items-center justify-center h-[64px] sm:h-[56px] px-1 sm:px-2 transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                       }`}
+                    data-tutorial={
+                      item.name === 'ESTOQUE' ? 'inventory-bottom-link' :
+                      item.name === 'CLIENTES' ? 'customers-bottom-link' :
+                      item.name === 'CAIXA' ? 'cashier-bottom-link' : undefined
+                    }
                   >
                     {item.name === 'MARKETING' && (
                       <span className="absolute -top-1 left-1/2 -translate-x-1/2 bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 text-[10px] rounded-full shadow-sm">em breve</span>

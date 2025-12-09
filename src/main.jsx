@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import './index.css'
@@ -72,6 +72,7 @@ function RequireAuth({ children }) {
 function RequireSubscription({ children }) {
   const { user } = useAuth()
   const [allowed, setAllowed] = useState(null)
+  const location = useLocation()
 
   useEffect(() => {
     let cancelled = false
@@ -132,7 +133,10 @@ function RequireSubscription({ children }) {
   }, [user])
 
   if (allowed === null) return null
-  if (!allowed) return <Navigate to="/trial" replace />
+  if (!allowed) {
+    if (location.pathname === '/dashboard') return children
+    return <Navigate to="/trial" replace />
+  }
   return children
 }
 

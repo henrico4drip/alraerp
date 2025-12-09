@@ -1,6 +1,9 @@
+import dotenv from 'dotenv'
 import express from 'express'
 import cors from 'cors'
 import Stripe from 'stripe'
+
+dotenv.config()
 
 const app = express()
 app.use(cors())
@@ -8,7 +11,7 @@ app.use(cors())
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const PUBLISHABLE_KEY = process.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
-const APP_URL = process.env.APP_URL || ''
+const APP_URL = process.env.APP_URL || 'https://alraerp.com.br'
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 
 function getFrontendOrigin(req) {
@@ -68,7 +71,7 @@ app.post('/create-checkout-session', async (req, res) => {
       client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan } : { plan },
       success_url: `${FRONTEND}/dashboard?status=success`,
-      cancel_url: `${FRONTEND}/billing?status=cancel`,
+      cancel_url: `${FRONTEND}/settings`,
     })
 
     res.json({ id: session.id, url: session.url })
@@ -152,7 +155,7 @@ app.post('/create-payment-session', async (req, res) => {
       client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan } : { plan },
       success_url: `${FRONTEND}/dashboard?status=success`,
-      cancel_url: `${FRONTEND}/billing?status=cancel`,
+      cancel_url: `${FRONTEND}/settings`,
     })
 
     res.json({ id: session.id, url: session.url })
@@ -192,7 +195,7 @@ app.post('/create-trial-session', async (req, res) => {
       client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan, trial: '7d' } : { plan, trial: '7d' },
       success_url: `${FRONTEND}/dashboard?status=success`,
-      cancel_url: `${FRONTEND}/billing?status=cancel`,
+      cancel_url: `${FRONTEND}/settings`,
     })
 
     res.json({ id: session.id, url: session.url })

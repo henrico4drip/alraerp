@@ -74,6 +74,8 @@ const buildPixEmvPayload = ({ key, amount, name, city, txid, description }) => {
   return partial + crcHeader + crc
 }
 
+const asPaymentsArray = (p) => Array.isArray(p) ? p : (p ? [p] : [])
+
 export default function Payments() {
   const queryClient = useQueryClient()
   const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list('-created_date'), initialData: [] })
@@ -113,8 +115,7 @@ export default function Payments() {
     if (!Array.isArray(sales)) return []
     for (const s of sales) {
       if (!s) continue
-      const payments = Array.isArray(s.payments) ? s.payments : []
-      const carnePayments = payments.filter((p) => p && p.method === 'Carnê' && Array.isArray(p.schedule))
+      const carnePayments = asPaymentsArray(s.payments).filter((p) => p.method === 'Carnê' && Array.isArray(p.schedule))
       for (const p of carnePayments) {
         const schedule = Array.isArray(p.schedule) ? p.schedule : []
         const cust = s.customer_id ? customerById.get(s.customer_id) : null
@@ -182,7 +183,7 @@ export default function Payments() {
     if (!selectedSaleForList) return []
     const result = []
     const s = selectedSaleForList
-    const carnePayments = (s.payments || []).filter((p) => p.method === 'Carnê' && Array.isArray(p.schedule))
+    const carnePayments = asPaymentsArray(s.payments).filter((p) => p.method === 'Carnê' && Array.isArray(p.schedule))
 
     for (const p of carnePayments) {
       const schedule = Array.isArray(p.schedule) ? p.schedule : []
@@ -281,7 +282,7 @@ export default function Payments() {
     const sale = sales.find(s => s.id === targetAbateInstallment.sale_id)
     if (!sale) return
 
-    const newPayments = (sale.payments || []).map(p => {
+    const newPayments = asPaymentsArray(sale.payments).map(p => {
       if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
         const newSchedule = p.schedule.map(item => {
           if (item.index === targetAbateInstallment.installment_index) {
@@ -323,7 +324,7 @@ export default function Payments() {
     const isFullPayment = Math.abs(amountToPay - currentAmount) < 0.01 || abateType === 'full'
     const finalPayValue = isFullPayment ? currentAmount : amountToPay
 
-    const newPayments = (sale.payments || []).map(p => {
+    const newPayments = asPaymentsArray(sale.payments).map(p => {
       if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
         let newSchedule = [...p.schedule]
 
@@ -381,7 +382,7 @@ export default function Payments() {
     const sale = sales.find(s => s.id === inst.sale_id)
     if (!sale) return
 
-    const newPayments = (sale.payments || []).map(p => {
+    const newPayments = asPaymentsArray(sale.payments).map(p => {
       if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
         const newSchedule = p.schedule.filter(item => item.index !== inst.installment_index)
         return { ...p, schedule: newSchedule }

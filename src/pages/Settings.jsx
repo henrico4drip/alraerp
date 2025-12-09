@@ -102,10 +102,12 @@ export default function Settings() {
         return
       }
       const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
+      const SITE = 'https://alraerp.com.br'
+      const returnUrl = `${SITE}/settings`
       const res = await fetch(`${API}/create-portal-session-by-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: effectiveEmail }),
+        body: JSON.stringify({ email: effectiveEmail, returnUrl }),
       })
       const json = await res.json()
       if (json?.url) {
@@ -124,10 +126,13 @@ export default function Settings() {
     try {
       setUpgradeBusy(true)
       const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
+      const SITE = 'https://alraerp.com.br'
+      const successUrl = `${SITE}/settings?status=success`
+      const cancelUrl = `${SITE}/settings`
       const res = await fetch(`${API}/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'annual', user_id: user?.id || undefined }),
+        body: JSON.stringify({ plan: 'annual', user_id: user?.id || undefined, successUrl, cancelUrl }),
       })
       const json = await res.json()
       if (json?.url) {
