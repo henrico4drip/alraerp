@@ -58,7 +58,7 @@ export default function Layout({ children, currentPageName }) {
             done: Boolean(it.done),
           })))
         }
-      } catch {}
+      } catch { }
     })()
   }, [])
 
@@ -81,7 +81,7 @@ export default function Layout({ children, currentPageName }) {
               stock: 10,
               category: 'Exemplos',
             })
-          } catch {}
+          } catch { }
         }
         if (!customers || customers.length === 0) {
           try {
@@ -90,10 +90,10 @@ export default function Layout({ children, currentPageName }) {
               phone: '(11) 99999-0000',
               email: 'exemplo@cliente.com',
             })
-          } catch {}
+          } catch { }
         }
-        try { window.localStorage.setItem('seed_defaults_done', 'true') } catch {}
-      } catch {}
+        try { window.localStorage.setItem('seed_defaults_done', 'true') } catch { }
+      } catch { }
     })()
   }, [])
   const [selectedDate, setSelectedDate] = useState(null);
@@ -140,7 +140,7 @@ export default function Layout({ children, currentPageName }) {
       setKeepBottomNavForEntry(false);
     }
   }, [location.pathname]);
-  
+
 
   useEffect(() => {
     const media = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(display-mode: standalone)') : null;
@@ -228,8 +228,8 @@ export default function Layout({ children, currentPageName }) {
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
-                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                        : 'text-gray-700 hover:bg-gray-50'
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      : 'text-gray-700 hover:bg-gray-50'
                       }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -476,16 +476,16 @@ export default function Layout({ children, currentPageName }) {
                 {(() => {
                   const now = new Date()
                   const start = new Date(now)
-                  start.setHours(0,0,0,0)
+                  start.setHours(0, 0, 0, 0)
                   const end = new Date(start)
                   end.setDate(end.getDate() + 7)
                   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000)
                   const baseList = selectedDate
                     ? agendaItems.filter(item => item.date === selectedDate)
                     : agendaItems.filter(item => {
-                        const d = new Date((item.date || '') + 'T00:00:00')
-                        return d >= start && d <= end
-                      })
+                      const d = new Date((item.date || '') + 'T00:00:00')
+                      return d >= start && d <= end
+                    })
                   const list = baseList.filter(item => !(item.done && item.done_at && new Date(item.done_at) < fiveMinAgo))
                   list.sort((a, b) => {
                     const da = new Date((a.date || '') + 'T00:00:00')
@@ -495,81 +495,81 @@ export default function Layout({ children, currentPageName }) {
                     return (a.time || '').localeCompare(b.time || '')
                   })
                   return list.map(item => (
-                      <div key={item.id} className="group flex gap-4 relative">
-                        {/* Coluna Horário */}
-                        <div className="w-14 text-right pt-1">
-                          <span className="text-xs font-semibold text-gray-900">{item.time || 'Dia todo'}</span>
-                        </div>
+                    <div key={item.id} className="group flex gap-4 relative">
+                      {/* Coluna Horário */}
+                      <div className="w-14 text-right pt-1">
+                        <span className="text-xs font-semibold text-gray-900">{item.time || 'Dia todo'}</span>
+                      </div>
 
-                        {/* Linha Vertical Decorativa */}
-                        <div className="w-[2px] bg-gray-200 relative">
-                          <div className={`absolute top-2 -left-[3px] w-2 h-2 rounded-full border-2 border-white 
+                      {/* Linha Vertical Decorativa */}
+                      <div className="w-[2px] bg-gray-200 relative">
+                        <div className={`absolute top-2 -left-[3px] w-2 h-2 rounded-full border-2 border-white 
                             ${item.category === 'Reunião' ? 'bg-purple-500' :
-                              item.category === 'Entrega' ? 'bg-green-500' :
-                                item.category === 'Chamada' ? 'bg-blue-500' : 'bg-orange-500'} 
+                            item.category === 'Entrega' ? 'bg-green-500' :
+                              item.category === 'Chamada' ? 'bg-blue-500' : 'bg-orange-500'} 
                           `}></div>
-                        </div>
+                      </div>
 
-                        {/* Card do Evento */}
-                        <div className={`flex-1 bg-white p-3 rounded-xl border ${item.done ? 'border-green-200 bg-green-50' : 'border-gray-100'} shadow-sm transition-shadow hover:shadow-md mb-2`}>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className={`font-semibold text-sm ${item.done ? 'text-green-700 line-through' : 'text-gray-900'}`}>{item.title}</h4>
-                              {item.desc && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.desc}</p>}
-                              <div className="mt-2 flex gap-2">
-                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-medium">
-                                  {item.category || 'Geral'}
-                                </span>
-                                {item.time && (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-medium">{item.time}</span>
-                                )}
-                                {item.priority === 'Alta' && (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-50 text-red-600 font-medium">! Alta Prioridade</span>
-                                )}
-                              </div>
+                      {/* Card do Evento */}
+                      <div className={`flex-1 bg-white p-3 rounded-xl border ${item.done ? 'border-green-200 bg-green-50' : 'border-gray-100'} shadow-sm transition-shadow hover:shadow-md mb-2`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className={`font-semibold text-sm ${item.done ? 'text-green-700 line-through' : 'text-gray-900'}`}>{item.title}</h4>
+                            {item.desc && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.desc}</p>}
+                            <div className="mt-2 flex gap-2">
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-medium">
+                                {item.category || 'Geral'}
+                              </span>
+                              {item.time && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-medium">{item.time}</span>
+                              )}
+                              {item.priority === 'Alta' && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-50 text-red-600 font-medium">! Alta Prioridade</span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setEditingTaskId(item.id);
-                                  setEditTaskTitle(item.title || "");
-                                  setEditTaskDesc(item.desc || "");
-                                  setEditTaskTime(item.time || "");
-                                  setEditTaskPriority(item.priority || "Média");
-                                  setEditTaskCategory(item.category || "Outro");
-                                  setShowEditTaskDialog(true);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-700 p-1"
-                                title="Editar"
-                              >
-                                ✎
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  const newDone = !item.done
-                                  setAgendaItems(prev => prev.map(i => i.id === item.id ? { ...i, done: newDone } : i))
-                                  try { await supabase.from('agenda').update({ done: newDone }).eq('id', item.id) } catch {}
-                                }}
-                                className={`opacity-0 group-hover:opacity-100 transition-opacity ${item.done ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-700'} p-1`}
-                                title={item.done ? 'Desmarcar' : 'Concluir'}
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  setAgendaItems(prev => prev.filter(i => i.id !== item.id))
-                                  try { await supabase.from('agenda').delete().eq('id', item.id) } catch {}
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-1"
-                                title="Excluir"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingTaskId(item.id);
+                                setEditTaskTitle(item.title || "");
+                                setEditTaskDesc(item.desc || "");
+                                setEditTaskTime(item.time || "");
+                                setEditTaskPriority(item.priority || "Média");
+                                setEditTaskCategory(item.category || "Outro");
+                                setShowEditTaskDialog(true);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-700 p-1"
+                              title="Editar"
+                            >
+                              ✎
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const newDone = !item.done
+                                setAgendaItems(prev => prev.map(i => i.id === item.id ? { ...i, done: newDone } : i))
+                                try { await supabase.from('agenda').update({ done: newDone }).eq('id', item.id) } catch { }
+                              }}
+                              className={`opacity-0 group-hover:opacity-100 transition-opacity ${item.done ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-700'} p-1`}
+                              title={item.done ? 'Desmarcar' : 'Concluir'}
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                setAgendaItems(prev => prev.filter(i => i.id !== item.id))
+                                try { await supabase.from('agenda').delete().eq('id', item.id) } catch { }
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-1"
+                              title="Excluir"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       </div>
-                    ))
+                    </div>
+                  ))
                 })()}
                 {(!selectedDate && agendaItems.length === 0) && (
                   <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
@@ -621,7 +621,7 @@ export default function Layout({ children, currentPageName }) {
                           size="sm"
                           onClick={async () => {
                             setAgendaItems(prev => prev.filter(i => i.id !== item.id));
-                            try { await supabase.from('agenda').delete().eq('id', item.id) } catch {}
+                            try { await supabase.from('agenda').delete().eq('id', item.id) } catch { }
                           }}
                           className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
                         >
@@ -781,7 +781,7 @@ export default function Layout({ children, currentPageName }) {
                   category: editTaskCategory,
                 }
                 setAgendaItems(prev => prev.map(i => i.id === editingTaskId ? { ...i, ...update } : i));
-                try { await supabase.from('agenda').update(update).eq('id', editingTaskId) } catch {}
+                try { await supabase.from('agenda').update(update).eq('id', editingTaskId) } catch { }
                 setShowEditTaskDialog(false);
                 setEditingTaskId(null);
               }}
