@@ -23,7 +23,7 @@ function getFrontendOrigin(req) {
     try {
       const u = new URL(referer)
       return `${u.protocol}//${u.host}`
-    } catch (_) {}
+    } catch (_) { }
   }
   return 'http://localhost:5174'
 }
@@ -71,7 +71,7 @@ app.post('/create-checkout-session', async (req, res) => {
       client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan } : { plan },
       success_url: `${FRONTEND}/dashboard?status=success`,
-      cancel_url: `${FRONTEND}/settings`,
+      cancel_url: `${FRONTEND}/`,
     })
 
     res.json({ id: session.id, url: session.url })
@@ -155,7 +155,7 @@ app.post('/create-payment-session', async (req, res) => {
       client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan } : { plan },
       success_url: `${FRONTEND}/dashboard?status=success`,
-      cancel_url: `${FRONTEND}/settings`,
+      cancel_url: `${FRONTEND}/`,
     })
 
     res.json({ id: session.id, url: session.url })
@@ -195,7 +195,7 @@ app.post('/create-trial-session', async (req, res) => {
       client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan, trial: '7d' } : { plan, trial: '7d' },
       success_url: `${FRONTEND}/dashboard?status=success`,
-      cancel_url: `${FRONTEND}/settings`,
+      cancel_url: `${FRONTEND}/`,
     })
 
     res.json({ id: session.id, url: session.url })
@@ -216,12 +216,12 @@ app.get('/subscription-status', async (req, res) => {
     try {
       const list = await stripe.customers.list({ email, limit: 1 })
       customer = list?.data?.[0] || null
-    } catch (e) {}
+    } catch (e) { }
     if (!customer) {
       try {
         const search = await stripe.customers.search({ query: `email:'${email}'` })
         customer = search?.data?.[0] || null
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (!customer) return res.json({ active: false, customerFound: false })
