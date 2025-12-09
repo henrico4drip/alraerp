@@ -365,7 +365,6 @@ export default function Layout({ children, currentPageName }) {
             </DialogContent>
           </Dialog>
         )}
-        <Onboarding settings={settings} />
 
         {/* Main Content */}
         <main className={isDashboard ? 'flex-1 flex items-center justify-center min-h-[calc(100vh-112px-64px)] pb-20' : 'flex-1 pb-20'}>
