@@ -14,10 +14,11 @@ export const tutorialSteps = [
         id: 'settings-nav',
         page: 'Dashboard',
         title: 'Acesse as Configurações',
-        description: 'Primeiro, vamos configurar os dados da sua loja. Clique no ícone de engrenagem no menu lateral.',
+        description: 'Clique no ícone de engrenagem no menu lateral para acessar as configurações da sua loja.',
         target: '[data-tutorial="settings-link"]',
         position: 'right',
-        action: 'navigate-settings'
+        action: null,
+        waitForClick: true
     },
     {
         id: 'store-name',
@@ -41,10 +42,11 @@ export const tutorialSteps = [
         id: 'inventory-nav',
         page: 'Settings',
         title: 'Vamos Cadastrar Produtos',
-        description: 'Agora vamos adicionar produtos ao seu estoque. Clique em "Estoque" no menu lateral.',
+        description: 'Clique em "Estoque" no menu lateral para acessar o gerenciamento de produtos.',
         target: '[data-tutorial="inventory-link"]',
         position: 'right',
-        action: 'navigate-inventory'
+        action: null,
+        waitForClick: true
     },
     {
         id: 'add-product',
@@ -59,10 +61,11 @@ export const tutorialSteps = [
         id: 'customers-nav',
         page: 'Inventory',
         title: 'Cadastre seus Clientes',
-        description: 'Agora vamos registrar clientes para rastrear cashback e histórico. Clique em "Clientes".',
+        description: 'Clique em "Clientes" no menu lateral para acessar o cadastro de clientes.',
         target: '[data-tutorial="customers-link"]',
         position: 'right',
-        action: 'navigate-customers'
+        action: null,
+        waitForClick: true
     },
     {
         id: 'add-customer',
@@ -77,10 +80,11 @@ export const tutorialSteps = [
         id: 'cashier-nav',
         page: 'Customers',
         title: 'Hora de Vender!',
-        description: 'Vamos fazer sua primeira venda. Clique em "Caixa" no menu lateral.',
+        description: 'Clique em "Caixa" no menu lateral para acessar o ponto de venda.',
         target: '[data-tutorial="cashier-link"]',
         position: 'right',
-        action: 'navigate-cashier'
+        action: null,
+        waitForClick: true
     },
     {
         id: 'make-sale',
@@ -95,10 +99,11 @@ export const tutorialSteps = [
         id: 'payments-nav',
         page: 'Cashier',
         title: 'Gerencie Pagamentos',
-        description: 'Acompanhe parcelas e envie cobranças via WhatsApp. Clique em "Pagamentos".',
+        description: 'Clique em "Pagamentos" no menu lateral para acessar o gerenciamento de pagamentos.',
         target: '[data-tutorial="payments-link"]',
         position: 'right',
-        action: 'navigate-payments'
+        action: null,
+        waitForClick: true
     },
     {
         id: 'payment-features',
@@ -113,10 +118,11 @@ export const tutorialSteps = [
         id: 'dashboard-nav',
         page: 'Payments',
         title: 'Veja seus Resultados',
-        description: 'Por fim, acompanhe suas métricas no Dashboard. Clique em "Dashboard".',
+        description: 'Clique em "Dashboard" no menu lateral para ver suas métricas e relatórios.',
         target: '[data-tutorial="dashboard-link"]',
         position: 'right',
-        action: 'navigate-dashboard'
+        action: null,
+        waitForClick: true
     },
     {
         id: 'complete',

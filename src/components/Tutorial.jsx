@@ -56,7 +56,7 @@ export default function Tutorial() {
         return () => clearTimeout(timer)
     }, [stepData?.action, navigate])
 
-    // Find and scroll to target element
+    // Find and scroll to target element, add click listener if waitForClick
     useEffect(() => {
         if (!stepData || !stepData.target) {
             targetRef.current = null
@@ -69,13 +69,30 @@ export default function Tutorial() {
                 targetRef.current = element
                 // Scroll element into view
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+                // Add click listener if this step waits for user click
+                if (stepData.waitForClick) {
+                    const handleClick = () => {
+                        // Small delay to allow navigation to complete
+                        setTimeout(() => {
+                            nextStep()
+                        }, 300)
+                    }
+
+                    element.addEventListener('click', handleClick, { once: true })
+
+                    // Cleanup function
+                    return () => {
+                        element.removeEventListener('click', handleClick)
+                    }
+                }
             }
         }
 
         // Try to find element with delay to ensure DOM is ready
         const timer = setTimeout(findTarget, 500)
         return () => clearTimeout(timer)
-    }, [stepData?.target, location.pathname])
+    }, [stepData?.target, stepData?.waitForClick, location.pathname, nextStep])
 
     // Check if we're on the correct page for current step
     const isOnCorrectPage = () => {
@@ -246,13 +263,21 @@ export default function Tutorial() {
                             <ChevronLeft className="w-4 h-4" />
                             Voltar
                         </button>
-                        <button
-                            onClick={handleNext}
-                            className="flex items-center gap-2 px-6 py-2 rounded-xl bg-[#3490c7] hover:bg-[#2980b9] text-white font-medium transition-colors shadow-lg shadow-blue-500/30"
-                        >
-                            {isLastStep() ? 'Concluir' : 'Próximo'}
-                            {!isLastStep() && <ChevronRight className="w-4 h-4" />}
-                        </button>
+                        {!stepData.waitForClick && (
+                            <button
+                                onClick={handleNext}
+                                className="flex items-center gap-2 px-6 py-2 rounded-xl bg-[#3490c7] hover:bg-[#2980b9] text-white font-medium transition-colors shadow-lg shadow-blue-500/30"
+                            >
+                                {isLastStep() ? 'Concluir' : 'Próximo'}
+                                {!isLastStep() && <ChevronRight className="w-4 h-4" />}
+                            </button>
+                        )}
+                        {stepData.waitForClick && (
+                            <div className="flex items-center gap-2 px-6 py-2 rounded-xl bg-blue-50 text-[#3490c7] font-medium">
+                                <span className="animate-pulse">👆</span>
+                                Clique no item destacado
+                            </div>
+                        )}
                     </div>
                 </div>
 
