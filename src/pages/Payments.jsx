@@ -110,12 +110,16 @@ export default function Payments() {
   // --- DATA PROCESSING ---
   const openCarnes = useMemo(() => {
     const result = []
+    if (!Array.isArray(sales)) return []
     for (const s of sales) {
-      const carnePayments = (s.payments || []).filter((p) => p.method === 'Carnê' && Array.isArray(p.schedule))
+      if (!s) continue
+      const payments = Array.isArray(s.payments) ? s.payments : []
+      const carnePayments = payments.filter((p) => p && p.method === 'Carnê' && Array.isArray(p.schedule))
       for (const p of carnePayments) {
         const schedule = Array.isArray(p.schedule) ? p.schedule : []
         const cust = s.customer_id ? customerById.get(s.customer_id) : null
         for (const inst of schedule) {
+          if (!inst) continue
           const due = new Date(inst.due_date)
           const isOpen = inst.status !== 'paid'
           // Validate date to avoid crashes
