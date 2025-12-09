@@ -1,4 +1,4 @@
-const VERSION = 'v4-png-icons';
+const VERSION = 'v5-force-icon-update-now';
 
 self.addEventListener('install', () => {
   self.skipWaiting()
