@@ -1,4 +1,4 @@
-const VERSION = 'v2-robust-tutorial';
+const VERSION = 'v3-refresh-icons';
 
 self.addEventListener('install', () => {
   self.skipWaiting()
