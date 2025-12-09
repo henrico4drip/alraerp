@@ -58,15 +58,20 @@ app.post('/create-checkout-session', async (req, res) => {
       payment_method_types,
       customer_email: user_email || undefined,
       line_items: [
-        {
-          price_data: {
-            currency: 'brl',
-            unit_amount: amount,
-            product_data: { name: productName },
-            recurring: { interval },
+        isAnnual
+          ? {
+            price: 'price_1SXQhgEaiAbeHruTt44ggRQH',
+            quantity: 1,
+          }
+          : {
+            price_data: {
+              currency: 'brl',
+              unit_amount: 4790,
+              product_data: { name: 'ERP Plano Mensal' },
+              recurring: { interval: 'month' },
+            },
+            quantity: 1,
           },
-          quantity: 1,
-        },
       ],
       client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan } : { plan },
@@ -181,15 +186,20 @@ app.post('/create-trial-session', async (req, res) => {
       payment_method_types: ['card'],
       customer_email: user_email || undefined,
       line_items: [
-        {
-          price_data: {
-            currency: 'brl',
-            unit_amount: amount,
-            product_data: { name: productName },
-            recurring: { interval },
+        isAnnual
+          ? {
+            price: 'price_1SXQhgEaiAbeHruTt44ggRQH',
+            quantity: 1,
+          }
+          : {
+            price_data: {
+              currency: 'brl',
+              unit_amount: 4790,
+              product_data: { name: 'ERP Plano Mensal (Trial 7 dias)' },
+              recurring: { interval: 'month' },
+            },
+            quantity: 1,
           },
-          quantity: 1,
-        },
       ],
       subscription_data: { trial_period_days: 7 },
       client_reference_id: user_id || undefined,
