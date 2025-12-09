@@ -159,11 +159,6 @@ export default function Tutorial() {
 
     return (
         <>
-            {/* Backdrop overlay */}
-            <div
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9998] transition-opacity duration-300 pointer-events-none"
-            />
-
             {/* Spotlight on target element */}
             {targetRef.current && (
                 <div
