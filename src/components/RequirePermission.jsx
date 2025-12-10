@@ -4,6 +4,14 @@ import { ShieldAlert } from 'lucide-react'
 export default function RequirePermission({ permission, children }) {
     const { currentProfile } = useProfile()
 
+    console.log('[RequirePermission]', {
+        permission,
+        currentProfile,
+        role: currentProfile?.role,
+        permissions: currentProfile?.permissions,
+        hasPermission: currentProfile?.permissions?.[permission]
+    })
+
     // Admin tem acesso total
     if (currentProfile?.role === 'admin' || currentProfile?.permissions?.all) {
         return children
