@@ -37,6 +37,8 @@ export default function Settings() {
   const [companyZip, setCompanyZip] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const [newPaymentMethod, setNewPaymentMethod] = useState('')
+  const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
+  const [methodToRemove, setMethodToRemove] = useState(null)
 
   useEffect(() => {
     loadStaff()
