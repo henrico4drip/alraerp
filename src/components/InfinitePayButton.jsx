@@ -43,29 +43,39 @@ export default function InfinitePayButton({
         setLoading(true)
 
         try {
-            // Check if Web Bluetooth is supported
-            if (!navigator.bluetooth) {
-                throw new Error('Bluetooth não está disponível neste navegador.')
+            // Check if WebUSB is supported
+            if (!navigator.usb) {
+                throw new Error('Conexão USB não está disponível neste navegador. Use Chrome/Edge.')
             }
 
-            // Request Bluetooth Device
-            // Note: In a real integration, filters would be specific to the manufacturer (e.g., PAX, Gertec)
-            const selectedDevice = await navigator.bluetooth.requestDevice({
-                acceptAllDevices: true,
-                optionalServices: ['battery_service'] // Required to access generic services if acceptAllDevices is true
-            })
+            // Request USB Device
+            // Note: In a real production integration, 'filters' MUST be specified with vendorId to secure access
+            console.log('Solicitando dispositivo USB...')
+            const selectedDevice = await navigator.usb.requestDevice({ filters: [] })
 
             setDevice(selectedDevice)
 
-            // Connect to GATT Server (Simulated handshake)
-            if (selectedDevice.gatt) {
-                await selectedDevice.gatt.connect()
+            // Connect to USB Device
+            await selectedDevice.open()
+
+            // Select configuration (usually 1 for simple devices)
+            if (selectedDevice.configuration === null) {
+                await selectedDevice.selectConfiguration(1)
             }
 
-            // Simulate Payment Processing time
+            // Claim interface (exclusive access)
+            // Interface 0 is typically the main communications interface, but varies by manufacturer
+            // We use a try-catch block here because claiming interfaces is specific to the device hardware
+            try {
+                await selectedDevice.claimInterface(0)
+            } catch (err) {
+                console.warn('Could not claim interface 0. Trying to proceed anyway as some devices auto-claim.', err)
+            }
+
+            // Simulate Payment Processing time after connection
             setShowInstructions(true)
 
-            // Simulate success after 5 seconds (Time to insert card and type PIN)
+            // Simulate success after 5 seconds
             setTimeout(() => {
                 if (onSuccess) {
                     onSuccess({ amount, orderId })
@@ -75,8 +85,8 @@ export default function InfinitePayButton({
         } catch (error) {
             console.error('Payment error:', error)
             // If user cancelled manually, don't alert loudly
-            if (error.name !== 'NotFoundError' && error.message !== 'User cancelled the requestDevice() chooser.') {
-                alert('Erro na conexão Bluetooth: ' + error.message)
+            if (error.name !== 'NotFoundError' && !error.message.includes('No device selected')) {
+                alert('Erro na conexão USB: ' + error.message)
             }
             if (onError) {
                 onError(error)
