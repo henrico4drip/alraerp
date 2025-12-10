@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X, Users } from 'lucide-react'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 export default function Settings() {
   // ... existing state
