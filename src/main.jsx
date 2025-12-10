@@ -28,6 +28,7 @@ import { CashierProvider } from './context/CashierContext'
 import Payments from './pages/Payments'
 import LandingPage from './pages/Landing'
 import Support from './pages/Support'
+import PaymentCallback from './pages/PaymentCallback'
 import { base44 } from './api/base44Client'
 import { useProfile, ProfileProvider } from './context/ProfileContext'
 
@@ -183,6 +184,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/select-profile" element={<RequireAuth><SelectProfilePage /></RequireAuth>} />
+              <Route path="/payment-callback" element={<PaymentCallback />} />
               <Route
                 path="/"
                 element={<LandingPage />}
