@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X, Users } from 'lucide-react'
-// ... (imports)
+import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 
 export default function Settings() {
   // ... existing state
