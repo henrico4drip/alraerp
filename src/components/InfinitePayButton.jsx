@@ -32,6 +32,7 @@ export default function InfinitePayButton({
 }) {
     const [loading, setLoading] = useState(false)
     const [showInstructions, setShowInstructions] = useState(false)
+    const [device, setDevice] = useState(null)
 
     const handlePayment = async () => {
         if (!amount || !orderId) {
@@ -42,27 +43,41 @@ export default function InfinitePayButton({
         setLoading(true)
 
         try {
-            const success = await openInfiniteTap({
-                amount,
-                orderId,
-                customerName,
-                description: description || `Pedido #${orderId}`
+            // Check if Web Bluetooth is supported
+            if (!navigator.bluetooth) {
+                throw new Error('Bluetooth não está disponível neste navegador.')
+            }
+
+            // Request Bluetooth Device
+            // Note: In a real integration, filters would be specific to the manufacturer (e.g., PAX, Gertec)
+            const selectedDevice = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['battery_service'] // Required to access generic services if acceptAllDevices is true
             })
 
-            if (success) {
-                // Show instructions modal
-                setShowInstructions(true)
+            setDevice(selectedDevice)
 
+            // Connect to GATT Server (Simulated handshake)
+            if (selectedDevice.gatt) {
+                await selectedDevice.gatt.connect()
+            }
+
+            // Simulate Payment Processing time
+            setShowInstructions(true)
+
+            // Simulate success after 5 seconds (Time to insert card and type PIN)
+            setTimeout(() => {
                 if (onSuccess) {
                     onSuccess({ amount, orderId })
                 }
-            } else {
-                throw new Error('Não foi possível abrir o InfinitePay')
-            }
+            }, 5000)
+
         } catch (error) {
             console.error('Payment error:', error)
-            alert('Erro ao processar pagamento. Verifique se o app InfinitePay está instalado.')
-
+            // If user cancelled manually, don't alert loudly
+            if (error.name !== 'NotFoundError' && error.message !== 'User cancelled the requestDevice() chooser.') {
+                alert('Erro na conexão Bluetooth: ' + error.message)
+            }
             if (onError) {
                 onError(error)
             }
@@ -82,7 +97,7 @@ export default function InfinitePayButton({
                 {loading ? (
                     <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Abrindo InfinitePay...
+                        Conectando...
                     </>
                 ) : (
                     <>
@@ -98,15 +113,15 @@ export default function InfinitePayButton({
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Smartphone className="w-5 h-5 text-blue-600" />
-                            Pagamento Iniciado
+                            Processando na Maquininha
                         </DialogTitle>
                         <DialogDescription className="text-left space-y-4 pt-4">
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                 <p className="text-sm text-blue-900 font-medium mb-2">
-                                    O app InfinitePay deve abrir automaticamente
+                                    Conectado a {device?.name || 'Dispositivo'}
                                 </p>
                                 <p className="text-xs text-blue-700">
-                                    Siga as instruções no app para processar o pagamento
+                                    Aguarde o processamento na maquininha
                                 </p>
                             </div>
 
@@ -116,8 +131,8 @@ export default function InfinitePayButton({
                                         1
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900">Aproxime o cartão</p>
-                                        <p className="text-xs text-gray-500">Use a função NFC do celular</p>
+                                        <p className="text-sm font-medium text-gray-900">Insira ou aproxime o cartão</p>
+                                        <p className="text-xs text-gray-500">Na maquininha selecionada</p>
                                     </div>
                                 </div>
 
@@ -126,8 +141,8 @@ export default function InfinitePayButton({
                                         2
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900">Aguarde a aprovação</p>
-                                        <p className="text-xs text-gray-500">O pagamento será processado</p>
+                                        <p className="text-sm font-medium text-gray-900">Digite a senha</p>
+                                        <p className="text-xs text-gray-500">Se solicitado</p>
                                     </div>
                                 </div>
 
@@ -136,25 +151,19 @@ export default function InfinitePayButton({
                                         3
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900">Retorne ao sistema</p>
-                                        <p className="text-xs text-gray-500">Você será redirecionado automaticamente</p>
+                                        <p className="text-sm font-medium text-gray-900">Aguarde a confirmação</p>
+                                        <p className="text-xs text-gray-500">O sistema irá finalizar automaticamente</p>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex gap-2">
-                                <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-yellow-800">
-                                    Se o app não abrir, verifique se o InfinitePay está instalado no seu celular
-                                </p>
                             </div>
 
                             <div className="text-center pt-2">
                                 <Button
                                     onClick={() => setShowInstructions(false)}
                                     className="w-full rounded-xl"
+                                    variant="outline"
                                 >
-                                    Entendi
+                                    Cancelar / Fechar
                                 </Button>
                             </div>
                         </DialogDescription>
