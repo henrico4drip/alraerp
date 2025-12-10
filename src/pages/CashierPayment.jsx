@@ -896,6 +896,16 @@ export default function CashierPayment() {
               <div className="space-y-3">
                 <Receipt sale={lastSale} settings={settings} />
                 <div className="flex gap-2 pt-2 flex-wrap">
+                  <InfinitePayButton
+                    amount={lastSale.total_amount - (lastSale.discount_amount || 0) - (lastSale.cashback_used || 0)}
+                    orderId={lastSale.id || `VENDA-${Date.now()}`}
+                    customerName={lastSale.customer_name || 'Cliente Avulso'}
+                    description={`Venda ${lastSale.sale_number || ''}`}
+                    variant="outline"
+                    className="rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 border-0"
+                  >
+                    Maquininha
+                  </InfinitePayButton>
                   <Button className="rounded-lg" onClick={() => printReceipt(lastSale)}>Imprimir/Salvar</Button>
                   <Button className="rounded-lg bg-green-600 hover:bg-green-700 text-white" onClick={handleSendCashbackWhatsApp}>Enviar cashback por WhatsApp</Button>
                   <Button variant="outline" className="rounded-lg" onClick={() => setShowReceiptDialog(false)}>Fechar</Button>
