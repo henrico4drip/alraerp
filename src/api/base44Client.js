@@ -45,14 +45,23 @@ async function getCurrentUserId() {
   try {
     if (supabase) {
       const { data: { session } } = await supabase.auth.getSession()
-      return session?.user?.id || null
+      const userId = session?.user?.id || null
+      console.log('[base44] getCurrentUserId from Supabase:', userId)
+      return userId
     }
-  } catch { }
+  } catch (err) {
+    console.error('[base44] Error getting Supabase session:', err)
+  }
   try {
     const raw = localStorage.getItem('session')
     const sess = raw ? JSON.parse(raw) : null
-    return sess?.user?.id || null
-  } catch { return null }
+    const userId = sess?.user?.id || null
+    console.log('[base44] getCurrentUserId from localStorage:', userId)
+    return userId
+  } catch (err) {
+    console.error('[base44] Error getting localStorage session:', err)
+    return null
+  }
 }
 
 function normalizeNumber(v, { defaultValue = 0 } = {}) {
@@ -95,11 +104,26 @@ function makeRepo(table) {
     },
     create: async (obj) => {
       const userId = await getCurrentUserId()
+      console.log('[base44] Creating in table:', table, 'with userId:', userId)
       if (!userId) throw new Error('No user session')
       const normalized = normalizePayload(table, obj)
-      const item = { id: obj.id || genId(), created_date: new Date().toISOString(), ...normalized, user_id: userId }
+
+      // For staff_profiles, let Supabase generate the UUID (don't provide id)
+      // For other tables, use the simple genId
+      let item
+      if (table === 'staff_profiles') {
+        item = { ...normalized, user_id: userId }
+      } else {
+        item = { id: obj.id || genId(), created_date: new Date().toISOString(), ...normalized, user_id: userId }
+      }
+
+      console.log('[base44] Item to insert:', item)
       const { data, error } = await supabase.from(table).insert(item).select().single()
-      if (error) throw error
+      if (error) {
+        console.error('[base44] Insert error:', error)
+        throw error
+      }
+      console.log('[base44] Insert success:', data)
       return data
     },
     update: async (id, patch) => {

@@ -19,6 +19,8 @@ import Settings from './pages/Settings'
 import Billing from './pages/Billing'
 import Login from './pages/Login'
 import TrialOffer from './pages/TrialOffer'
+// Force cache invalidation - v2
+import SelectProfilePage from './pages/SelectProfile'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import CashierProducts from './pages/CashierProducts'
 import CashierPayment from './pages/CashierPayment'
@@ -27,6 +29,7 @@ import Payments from './pages/Payments'
 import LandingPage from './pages/Landing'
 import Support from './pages/Support'
 import { base44 } from './api/base44Client'
+import { useProfile, ProfileProvider } from './context/ProfileContext'
 
 const queryClient = new QueryClient()
 
@@ -163,7 +166,13 @@ function RequireSubscription({ children }) {
   return children
 }
 
-import { ProfileProvider } from './context/ProfileContext'
+function RequireProfile({ children }) {
+  const { currentProfile, loading } = useProfile()
+  console.log('RequireProfile:', { currentProfile, loading })
+  if (loading) return <div className="flex items-center justify-center min-h-screen text-xl font-bold text-gray-500">Carregando Perfil...</div>
+  if (!currentProfile) return <Navigate to="/select-profile" replace />
+  return children
+}
 
 function App() {
   return (
@@ -173,7 +182,7 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/select-profile" element={<RequireAuth><SelectProfile /></RequireAuth>} />
+              <Route path="/select-profile" element={<RequireAuth><SelectProfilePage /></RequireAuth>} />
               <Route
                 path="/"
                 element={<LandingPage />}
@@ -206,10 +215,7 @@ function App() {
                 path="/sales"
                 element={<RequireAuth><RequireSubscription><Layout currentPageName="Sales"><Sales /></Layout></RequireSubscription></RequireAuth>}
               />
-              <Route
-                path="/dashboard"
-                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Dashboard"><Dashboard /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
-              />
+
               <Route
                 path="/customers"
                 element={<RequireAuth><RequireSubscription><Layout currentPageName="Customers"><Customers /></Layout></RequireSubscription></RequireAuth>}
@@ -257,8 +263,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 )
 
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => { })
-} else if ('serviceWorker' in navigator) {
+// FORCE UNREGISTER SERVICE WORKER TO CLEAR CACHE
+if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => { })
 }

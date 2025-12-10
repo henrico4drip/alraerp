@@ -11,6 +11,7 @@ export function ProfileProvider({ children }) {
 
     // Initial load from session storage only if same user is logged in
     useEffect(() => {
+        console.log('ProfileContext Effect:', { user })
         if (!user) {
             setCurrentProfile(null);
             setLoading(false);
@@ -19,20 +20,46 @@ export function ProfileProvider({ children }) {
         }
 
         const storedProfileId = sessionStorage.getItem('active_profile_id');
-        if (storedProfileId) {
-            // Validate if this profile actually belongs to the user and fetch fresh permissions
-            base44.entities.Staff.list().then(profiles => {
+        console.log('Stored Profile:', storedProfileId)
+
+        // Load profiles to check if any exist
+        base44.entities.Staff.list().then(async profiles => {
+            console.log('Fetched Profiles:', profiles)
+
+            // First-time setup: no profiles exist, create admin automatically
+            if (profiles.length === 0) {
+                try {
+                    console.log('No profiles found, creating admin automatically...');
+                    const newAdmin = await base44.entities.Staff.create({
+                        name: 'Administrador',
+                        pin: '0000',
+                        role: 'admin',
+                        permissions: { all: true }
+                    });
+                    console.log('Admin created automatically:', newAdmin);
+                    setCurrentProfile(newAdmin);
+                    sessionStorage.setItem('active_profile_id', newAdmin.id);
+                } catch (err) {
+                    console.error('Error creating admin automatically:', err);
+                }
+                setLoading(false);
+                return;
+            }
+
+            // If there's a stored profile, validate it
+            if (storedProfileId) {
                 const found = profiles.find(p => p.id === storedProfileId);
                 if (found) {
                     setCurrentProfile(found);
                 } else {
                     sessionStorage.removeItem('active_profile_id');
                 }
-                setLoading(false);
-            }).catch(() => setLoading(false));
-        } else {
+            }
             setLoading(false);
-        }
+        }).catch(err => {
+            console.error('Profile Load Error:', err)
+            setLoading(false)
+        });
     }, [user]);
 
     const loginProfile = async (profileId, pin) => {

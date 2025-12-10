@@ -23,9 +23,10 @@ export default function SelectProfile() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
-    const [isFirstRun, setIsFirstRun] = useState(false);
+
 
     useEffect(() => {
+        console.log('[SelectProfile] useEffect:', { user, currentProfile });
         if (!user) {
             navigate('/login');
             return;
@@ -33,6 +34,7 @@ export default function SelectProfile() {
 
         // If already has profile selected, go to dashboard
         if (currentProfile) {
+            console.log('[SelectProfile] Already has profile, going to dashboard');
             navigate('/dashboard');
             return;
         }
@@ -42,33 +44,12 @@ export default function SelectProfile() {
 
     const loadProfiles = async () => {
         try {
+            console.log('[SelectProfile] Loading profiles...');
             const list = await base44.entities.Staff.list();
-            if (list.length === 0) {
-                setIsFirstRun(true);
-                // Auto create admin logic could be here, or we force them to "Setup"
-                // Let's offer a "Setup Admin" button if empty
-            } else {
-                setProfiles(list);
-            }
+            console.log('[SelectProfile] Profiles loaded:', list);
+            setProfiles(list);
         } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleCreateAdmin = async () => {
-        try {
-            setLoading(true);
-            await base44.entities.Staff.create({
-                name: 'Administrador',
-                pin: '0000', // Default PIN, ask to change later
-                role: 'admin',
-                permissions: { all: true }
-            });
-            await loadProfiles();
-        } catch (err) {
-            setError('Erro ao criar admin inicial.');
+            console.error('[SelectProfile] Error loading profiles:', err);
         } finally {
             setLoading(false);
         }
@@ -97,30 +78,6 @@ export default function SelectProfile() {
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
-    }
-
-    if (isFirstRun) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500 p-4">
-                <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-md w-full text-center space-y-6">
-                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto text-blue-600">
-                        <ShieldCheck className="w-10 h-10" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Configuração Inicial</h1>
-                        <p className="text-gray-500 mt-2">Parece que é sua primeira vez usando o novo sistema de usuários. Vamos criar um perfil de Administrador para você.</p>
-                    </div>
-                    <div className="bg-blue-50 p-4 rounded-xl text-left border border-blue-100">
-                        <p className="text-sm font-semibold text-blue-900">Credenciais Padrão:</p>
-                        <p className="text-sm text-blue-700 mt-1">Nome: <strong>Administrador</strong></p>
-                        <p className="text-sm text-blue-700">PIN: <strong>0000</strong></p>
-                    </div>
-                    <Button onClick={handleCreateAdmin} className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-lg">
-                        Criar Perfil Admin
-                    </Button>
-                </div>
-            </div>
-        )
     }
 
     return (
