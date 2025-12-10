@@ -39,6 +39,7 @@ export default function Settings() {
   const [newPaymentMethod, setNewPaymentMethod] = useState('')
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
   const [methodToRemove, setMethodToRemove] = useState(null)
+  const [portalBusy, setPortalBusy] = useState(false)
 
   useEffect(() => {
     loadStaff()
