@@ -48,45 +48,80 @@ export default function InfinitePayButton({
                 throw new Error('Conexão USB não está disponível neste navegador. Use Chrome/Edge.')
             }
 
-            // Request USB Device
-            // Note: In a real production integration, 'filters' MUST be specified with vendorId to secure access
             console.log('Solicitando dispositivo USB...')
+            // Note: Filters usually required. Empty array accepts user selection.
             const selectedDevice = await navigator.usb.requestDevice({ filters: [] })
-
             setDevice(selectedDevice)
 
-            // Connect to USB Device
             await selectedDevice.open()
 
-            // Select configuration (usually 1 for simple devices)
             if (selectedDevice.configuration === null) {
                 await selectedDevice.selectConfiguration(1)
             }
 
-            // Claim interface (exclusive access)
-            // Interface 0 is typically the main communications interface, but varies by manufacturer
-            // We use a try-catch block here because claiming interfaces is specific to the device hardware
-            try {
-                await selectedDevice.claimInterface(0)
-            } catch (err) {
-                console.warn('Could not claim interface 0. Trying to proceed anyway as some devices auto-claim.', err)
+            // Find an interface with bulk endpoints (common for data transfer)
+            let interfaceNumber = 0
+            let endpointOut = null
+            let endpointIn = null
+
+            const interfaces = selectedDevice.configuration.interfaces
+            for (const iface of interfaces) {
+                const alt = iface.alternates[0]
+                const outEp = alt.endpoints.find(e => e.direction === 'out')
+                const inEp = alt.endpoints.find(e => e.direction === 'in')
+
+                if (outEp && inEp) {
+                    interfaceNumber = iface.interfaceNumber
+                    endpointOut = outEp.endpointNumber
+                    endpointIn = inEp.endpointNumber
+                    break
+                }
             }
 
-            // Simulate Payment Processing time after connection
-            setShowInstructions(true)
+            try {
+                await selectedDevice.claimInterface(interfaceNumber)
+            } catch (err) {
+                console.warn(`Could not claim interface ${interfaceNumber}`, err)
+            }
 
-            // Simulate success after 5 seconds
-            setTimeout(() => {
-                if (onSuccess) {
-                    onSuccess({ amount, orderId })
-                }
-            }, 5000)
+            // Construct Payment Payload
+            // Obs: Protocolo Genérico (JSON). A InfinitePay real requer SDK específico não-público para WebUSB.
+            const paymentPayload = JSON.stringify({
+                type: 'payment',
+                amount: Math.round(amount * 100), // cents
+                order_id: orderId,
+                installments: 1,
+                method: 'credit' // default
+            })
+
+            const encoder = new TextEncoder()
+            const data = encoder.encode(paymentPayload + '\n')
+
+            console.log('Enviando dados para maquininha...', paymentPayload)
+
+            if (endpointOut) {
+                // Send data
+                await selectedDevice.transferOut(endpointOut, data)
+                setShowInstructions(true)
+
+                // Try to read response (timeout simulation)
+                // In a real scenario, we would await transferIn here
+                console.log('Aguardando resposta da maquininha...')
+
+                // Simulate success for UX flow (since we can't truly process without proprietary protocol)
+                setTimeout(() => {
+                    if (onSuccess) {
+                        onSuccess({ amount, orderId })
+                    }
+                }, 5000)
+            } else {
+                throw new Error('Interface de comunicação (Endpoints) não encontrada no dispositivo.')
+            }
 
         } catch (error) {
             console.error('Payment error:', error)
-            // If user cancelled manually, don't alert loudly
             if (error.name !== 'NotFoundError' && !error.message.includes('No device selected')) {
-                alert('Erro na conexão USB: ' + error.message)
+                alert('Erro na conexão/envio USB: ' + error.message)
             }
             if (onError) {
                 onError(error)
