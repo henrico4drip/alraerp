@@ -199,7 +199,7 @@ function App() {
               />
               <Route
                 path="/dashboard2"
-                element={<RequireAuth><RequireSubscription><Dashboard2 /></RequireSubscription></RequireAuth>}
+                element={<RequireAuth><RequireSubscription><RequireProfile><Dashboard2 /></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route
                 path="/cashier"
@@ -215,24 +215,24 @@ function App() {
               />
               <Route
                 path="/sales"
-                element={<RequireAuth><RequireSubscription><Layout currentPageName="Sales"><Sales /></Layout></RequireSubscription></RequireAuth>}
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Sales"><Sales /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
 
               <Route
                 path="/customers"
-                element={<RequireAuth><RequireSubscription><Layout currentPageName="Customers"><Customers /></Layout></RequireSubscription></RequireAuth>}
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Customers"><Customers /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route
                 path="/inventory"
-                element={<RequireAuth><RequireSubscription><Layout currentPageName="Inventory"><Inventory /></Layout></RequireSubscription></RequireAuth>}
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Inventory"><Inventory /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route
                 path="/reports"
-                element={<RequireAuth><RequireSubscription><Layout currentPageName="Reports"><Reports /></Layout></RequireSubscription></RequireAuth>}
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Reports"><Reports /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route
                 path="/marketing"
-                element={<RequireAuth><RequireSubscription><Layout currentPageName="Marketing"><Marketing /></Layout></RequireSubscription></RequireAuth>}
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Marketing"><Marketing /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route
                 path="/settings"
@@ -248,7 +248,7 @@ function App() {
               />
               <Route
                 path="/payments"
-                element={<RequireAuth><RequireSubscription><Layout currentPageName="Payments"><Payments /></Layout></RequireSubscription></RequireAuth>}
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Payments"><Payments /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
