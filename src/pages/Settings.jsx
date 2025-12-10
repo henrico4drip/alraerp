@@ -476,12 +476,12 @@ export default function Settings() {
         open={showConfirmRemovePaymentMethod}
         onOpenChange={setShowConfirmRemovePaymentMethod}
         title="Remover método"
-        description={`Tem certeza que deseja remover "${confirmRemovePaymentMethod}"?`}
+        description={`Tem certeza que deseja remover "${methodToRemove}"?`}
         confirmText="Remover"
         cancelText="Voltar"
         destructive
         onConfirm={() => {
-          if (confirmRemovePaymentMethod) removePaymentMethod(confirmRemovePaymentMethod)
+          if (methodToRemove) removePaymentMethod(methodToRemove)
         }}
       />
 
