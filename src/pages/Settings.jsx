@@ -7,33 +7,62 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X } from 'lucide-react'
-import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
-import SubscriptionLockOverlay from '@/components/SubscriptionLockOverlay'
+import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X, Users } from 'lucide-react'
+// ... (imports)
 
 export default function Settings() {
-  const { user } = useAuth()
-  const [settings, setSettings] = useState(null)
-  const [erpName, setErpName] = useState('')
-  const [cashbackPercentage, setCashbackPercentage] = useState(5)
-  const [cashbackExpirationDays, setCashbackExpirationDays] = useState(30)
-  const [paymentMethods, setPaymentMethods] = useState([])
-  const [newPaymentMethod, setNewPaymentMethod] = useState('')
-  const [pixKey, setPixKey] = useState('')
-
-  // Novos campos do estabelecimento
-  const [companyCnpj, setCompanyCnpj] = useState('')
-  const [companyAddress, setCompanyAddress] = useState('')
-  const [companyCity, setCompanyCity] = useState('')
-  const [companyState, setCompanyState] = useState('')
-  const [companyZip, setCompanyZip] = useState('')
-  const [contactEmail, setContactEmail] = useState('')
-  const [portalBusy, setPortalBusy] = useState(false)
-  const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
-  const [confirmRemovePaymentMethod, setConfirmRemovePaymentMethod] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
+  // ... existing state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+
+  // Staff State
+  const [staffList, setStaffList] = useState([])
+  const [showStaffDialog, setShowStaffDialog] = useState(false)
+  const [editingStaff, setEditingStaff] = useState(null)
+  const [staffForm, setStaffForm] = useState({ name: '', pin: '', role: 'staff', permissions: {} })
+
+  useEffect(() => {
+    loadStaff()
+  }, [])
+
+  const loadStaff = async () => {
+    try {
+      const list = await base44.entities.Staff.list()
+      setStaffList(list)
+    } catch (err) { console.error(err) }
+  }
+
+  const openStaffDialog = (member = null) => {
+    setEditingStaff(member)
+    if (member) {
+      setStaffForm({ ...member })
+    } else {
+      setStaffForm({ name: '', pin: '', role: 'staff', permissions: {} })
+    }
+    setShowStaffDialog(true)
+  }
+
+  const saveStaff = async () => {
+    if (!staffForm.name || !staffForm.pin) return alert('Nome e PIN são obrigatórios')
+    try {
+      if (editingStaff) {
+        await base44.entities.Staff.update(editingStaff.id, staffForm)
+      } else {
+        await base44.entities.Staff.create(staffForm)
+      }
+      setShowStaffDialog(false)
+      loadStaff()
+    } catch (err) { alert('Erro ao salvar') }
+  }
+
+  const deleteStaff = async (id) => {
+    if (!confirm('Remover membro?')) return
+    try {
+      await base44.entities.Staff.delete(id)
+      loadStaff()
+    } catch (err) { alert('Erro ao remover') }
+  }
+
+  // ... existing logic
 
   const effective = useEffectiveSettings()
   useEffect(() => {
@@ -374,6 +403,45 @@ export default function Settings() {
               </CardContent>
             </Card>
 
+            {/* 5. Equipe */}
+            <Card className="shadow-sm border-gray-100 rounded-3xl overflow-hidden">
+              <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                  <Users className="w-5 h-5 text-indigo-500" /> Equipe e Acessos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-gray-500">Gerencie quem tem acesso ao sistema e suas permissões.</p>
+                    <Button onClick={() => openStaffDialog()} size="sm" variant="outline">Adicionar Membro</Button>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {staffList.map(member => (
+                      <div key={member.id} className="flex items-center justify-between p-3 border rounded-xl bg-gray-50/50 hover:bg-white transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${member.role === 'admin' ? 'bg-blue-500' : 'bg-gray-500'}`}>
+                            {member.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{member.name}</p>
+                            <p className="text-xs text-gray-500 uppercase">{member.role}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => openStaffDialog(member)}>Editar</Button>
+                          {staffList.length > 1 && (
+                            <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => deleteStaff(member.id)}>Remover</Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
           </div>
         )}
       </div>
@@ -396,6 +464,68 @@ export default function Settings() {
           if (confirmRemovePaymentMethod) removePaymentMethod(confirmRemovePaymentMethod)
         }}
       />
+
+      {/* Staff Management Dialog */}
+      <Dialog open={showStaffDialog} onOpenChange={setShowStaffDialog}>
+        <DialogContent>
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold">{editingStaff ? 'Editar Membro' : 'Novo Membro'}</h2>
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={staffForm.name} onChange={e => setStaffForm({ ...staffForm, name: e.target.value })} placeholder="Ex: João Caixa" />
+            </div>
+            <div className="space-y-2">
+              <Label>PIN (Senha Numérica)</Label>
+              <Input value={staffForm.pin} onChange={e => setStaffForm({ ...staffForm, pin: e.target.value })} placeholder="Ex: 1234" maxLength={6} />
+            </div>
+            <div className="space-y-2">
+              <Label>Função</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 border p-3 rounded-lg cursor-pointer hover:bg-gray-50">
+                  <input type="radio" name="role" checked={staffForm.role === 'admin'} onChange={() => setStaffForm({ ...staffForm, role: 'admin' })} />
+                  <div>
+                    <span className="font-bold block text-sm">Administrador</span>
+                    <span className="text-xs text-gray-500">Acesso Total</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 border p-3 rounded-lg cursor-pointer hover:bg-gray-50">
+                  <input type="radio" name="role" checked={staffForm.role === 'staff'} onChange={() => setStaffForm({ ...staffForm, role: 'staff' })} />
+                  <div>
+                    <span className="font-bold block text-sm">Funcionário</span>
+                    <span className="text-xs text-gray-500">Acesso Limitado</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {staffForm.role === 'staff' && (
+              <div className="space-y-2 border-t pt-2">
+                <Label>Permissões</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['financial', 'settings', 'inventory', 'reports'].map(perm => (
+                    <label key={perm} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={!!staffForm.permissions[perm]}
+                        onChange={(e) => setStaffForm({
+                          ...staffForm,
+                          permissions: { ...staffForm.permissions, [perm]: e.target.checked }
+                        })}
+                      />
+                      <span className="capitalize">{perm}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowStaffDialog(false)}>Cancelar</Button>
+              <Button onClick={saveStaff}>Salvar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

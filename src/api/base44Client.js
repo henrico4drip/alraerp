@@ -127,6 +127,7 @@ export const base44 = {
     Product: makeRepo('products'),
     Sale: makeRepo('sales'),
     Expense: makeRepo('expenses'),
+    Staff: makeRepo('staff_profiles'),
     User: makeRepo('users'),
   },
   integrations: {

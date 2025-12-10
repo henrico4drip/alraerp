@@ -163,80 +163,89 @@ function RequireSubscription({ children }) {
   return children
 }
 
+import { ProfileProvider } from './context/ProfileContext'
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/"
-              element={<LandingPage />}
-            />
-            <Route
-              path="/support"
-              element={<Support />}
-            />
-            <Route
-              path="/dashboard"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Dashboard"><Dashboard /></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/dashboard2"
-              element={<RequireAuth><RequireSubscription><Dashboard2 /></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/cashier"
-              element={<RequireAuth><Navigate to="/cashier/products" replace /></RequireAuth>}
-            />
-            <Route
-              path="/cashier/products"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Cashier"><CashierProvider><CashierProducts /></CashierProvider></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/cashier/payment"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Cashier"><CashierProvider><CashierPayment /></CashierProvider></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/sales"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Sales"><Sales /></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/customers"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Customers"><Customers /></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/inventory"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Inventory"><Inventory /></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/reports"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Reports"><Reports /></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/marketing"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Marketing"><Marketing /></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/settings"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Settings"><Settings /></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route
-              path="/billing"
-              element={<Billing />}
-            />
-            <Route
-              path="/trial"
-              element={<RequireAuth><TrialOffer /></RequireAuth>}
-            />
-            <Route
-              path="/payments"
-              element={<RequireAuth><RequireSubscription><Layout currentPageName="Payments"><Payments /></Layout></RequireSubscription></RequireAuth>}
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+        <ProfileProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/select-profile" element={<RequireAuth><SelectProfile /></RequireAuth>} />
+              <Route
+                path="/"
+                element={<LandingPage />}
+              />
+              <Route
+                path="/support"
+                element={<Support />}
+              />
+              <Route
+                path="/dashboard"
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Dashboard"><Dashboard /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/dashboard2"
+                element={<RequireAuth><RequireSubscription><Dashboard2 /></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/cashier"
+                element={<RequireAuth><Navigate to="/cashier/products" replace /></RequireAuth>}
+              />
+              <Route
+                path="/cashier/products"
+                element={<RequireAuth><RequireSubscription><Layout currentPageName="Cashier"><CashierProvider><CashierProducts /></CashierProvider></Layout></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/cashier/payment"
+                element={<RequireAuth><RequireSubscription><Layout currentPageName="Cashier"><CashierProvider><CashierPayment /></CashierProvider></Layout></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/sales"
+                element={<RequireAuth><RequireSubscription><Layout currentPageName="Sales"><Sales /></Layout></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/dashboard"
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Dashboard"><Dashboard /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/customers"
+                element={<RequireAuth><RequireSubscription><Layout currentPageName="Customers"><Customers /></Layout></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/inventory"
+                element={<RequireAuth><RequireSubscription><Layout currentPageName="Inventory"><Inventory /></Layout></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/reports"
+                element={<RequireAuth><RequireSubscription><Layout currentPageName="Reports"><Reports /></Layout></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/marketing"
+                element={<RequireAuth><RequireSubscription><Layout currentPageName="Marketing"><Marketing /></Layout></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/settings"
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Settings"><Settings /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/billing"
+                element={<Billing />}
+              />
+              <Route
+                path="/trial"
+                element={<RequireAuth><TrialOffer /></RequireAuth>}
+              />
+              <Route
+                path="/payments"
+                element={<RequireAuth><RequireSubscription><Layout currentPageName="Payments"><Payments /></Layout></RequireSubscription></RequireAuth>}
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </ProfileProvider>
       </AuthProvider>
     </QueryClientProvider>
   )

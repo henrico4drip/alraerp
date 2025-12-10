@@ -31,11 +31,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from '@/api/supabaseClient'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import Tutorial from '@/components/Tutorial'
+import { useProfile } from "@/context/ProfileContext";
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const { currentProfile, logoutProfile } = useProfile();
   const [settings, setSettings] = useState(null);
   const effective = useEffectiveSettings();
   useEffect(() => { setSettings(effective) }, [effective])
@@ -230,8 +232,8 @@ export default function Layout({ children, currentPageName }) {
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
-                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                        : 'text-gray-700 hover:bg-gray-50'
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     data-tutorial={item.tutorialId}
                   >
@@ -310,16 +312,23 @@ export default function Layout({ children, currentPageName }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full"
+                  className={`rounded-full shadow-sm border border-white/20 ${currentProfile?.role === 'admin' ? 'bg-blue-600' : 'bg-gray-600'}`}
                   onClick={() => setAccountOpen((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={accountOpen}
                 >
-                  <UserCircle className="w-6 h-6 text-white" />
+                  {/* Initials */}
+                  <span className="font-bold text-sm text-white">{currentProfile?.name?.charAt(0) || <UserCircle className="w-6 h-6" />}</span>
                 </Button>
 
                 {accountOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 bg-white shadow-lg p-1 z-50">
+                  <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-3 py-2 border-b border-gray-100 mb-1">
+                      <p className="font-bold text-gray-900">{currentProfile?.name}</p>
+                      <p className="text-xs text-gray-500 uppercase">{currentProfile?.role}</p>
+                      <p className="text-xs text-gray-400 mt-1 truncate">{user?.email}</p>
+                    </div>
+
                     <Link
                       to={createPageUrl("Settings")}
                       onClick={() => setAccountOpen(false)}
@@ -328,19 +337,37 @@ export default function Layout({ children, currentPageName }) {
                       <SettingsIcon className="w-4 h-4" />
                       Configurações
                     </Link>
+
+                    {/* Switch Profile Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        logoutProfile();
+                        navigate('/select-profile');
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <Users className="w-4 h-4" />
+                      Trocar Perfil
+                    </button>
+
+                    <div className="border-t border-gray-100 my-1"></div>
+
                     <button
                       type="button"
                       onClick={async () => {
                         setAccountOpen(false);
+                        logoutProfile();
                         try {
                           await logout();
                         } catch { }
                         navigate('/login', { replace: true });
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
                     >
                       <LogOut className="w-4 h-4" />
-                      Sair
+                      Sair Totalmente
                     </button>
                   </div>
                 )}
@@ -851,8 +878,8 @@ export default function Layout({ children, currentPageName }) {
                       }`}
                     data-tutorial={
                       item.name === 'ESTOQUE' ? 'inventory-bottom-link' :
-                      item.name === 'CLIENTES' ? 'customers-bottom-link' :
-                      item.name === 'CAIXA' ? 'cashier-bottom-link' : undefined
+                        item.name === 'CLIENTES' ? 'customers-bottom-link' :
+                          item.name === 'CAIXA' ? 'cashier-bottom-link' : undefined
                     }
                   >
                     {item.name === 'MARKETING' && (
