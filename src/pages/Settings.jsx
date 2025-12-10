@@ -20,6 +20,22 @@ export default function Settings() {
   const [editingStaff, setEditingStaff] = useState(null)
   const [staffForm, setStaffForm] = useState({ name: '', pin: '', role: 'staff', permissions: {} })
 
+  // Settings State
+  const [isLoading, setIsLoading] = useState(true)
+  const [settings, setSettings] = useState(null)
+  const [erpName, setErpName] = useState('')
+  const [cashbackPercentage, setCashbackPercentage] = useState(5)
+  const [cashbackExpirationDays, setCashbackExpirationDays] = useState(30)
+  const [paymentMethods, setPaymentMethods] = useState([])
+  const [pixKey, setPixKey] = useState('')
+  const [companyCnpj, setCompanyCnpj] = useState('')
+  const [companyAddress, setCompanyAddress] = useState('')
+  const [companyCity, setCompanyCity] = useState('')
+  const [companyState, setCompanyState] = useState('')
+  const [companyZip, setCompanyZip] = useState('')
+  const [companyEmail, setCompanyEmail] = useState('')
+  const [newPaymentMethod, setNewPaymentMethod] = useState('')
+
   useEffect(() => {
     loadStaff()
   }, [])
@@ -78,7 +94,7 @@ export default function Settings() {
     setCompanyCity(effective.company_city || '')
     setCompanyState(effective.company_state || '')
     setCompanyZip(effective.company_zip || '')
-    setContactEmail(effective.contact_email || '')
+    setCompanyEmail(effective.contact_email || '')
     setIsLoading(false)
   }, [effective])
 
