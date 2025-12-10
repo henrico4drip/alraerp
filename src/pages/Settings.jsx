@@ -125,7 +125,7 @@ export default function Settings() {
       company_city: companyCity,
       company_state: companyState,
       company_zip: companyZip,
-      contact_email: contactEmail,
+      contact_email: companyEmail,
     }
     try {
       if (settings) {
@@ -147,7 +147,7 @@ export default function Settings() {
   const manageSubscription = async () => {
     try {
       setPortalBusy(true)
-      const effectiveEmail = (user?.email || contactEmail || '').trim()
+      const effectiveEmail = (user?.email || companyEmail || '').trim()
       if (!effectiveEmail) {
         alert('Informe o e‑mail de contato ou faça login para abrir o portal.')
         return
@@ -348,7 +348,7 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label className="text-gray-700">Email de Contato</Label>
                     <div className="relative">
-                      <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="h-11 pr-12 rounded-xl border-gray-200" placeholder="contato@empresa.com" />
+                      <Input value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} className="h-11 pr-12 rounded-xl border-gray-200" placeholder="contato@empresa.com" />
                       <Mail className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
