@@ -129,24 +129,47 @@ export default function Dashboard() {
   };
 
   const actions = [
-    { label: "RESUMO", icon: FileText, link: createPageUrl("Sales"), from: "from-blue-100", to: "to-blue-200", iconColor: "text-blue-600" },
-    { label: "PAGAMENTOS", icon: DollarSign, link: createPageUrl("Payments"), from: "from-emerald-100", to: "to-emerald-200", iconColor: "text-emerald-600" },
-    { label: "+ CLIENTE", icon: Users, link: createPageUrl("Customers"), from: "from-gray-100", to: "to-gray-200", iconColor: "text-gray-700" },
-    { label: "FATURAMENTO", icon: TrendingUp, link: createPageUrl("Reports"), from: "from-indigo-100", to: "to-indigo-200", iconColor: "text-indigo-600" },
+    { label: "RESUMO", icon: FileText, link: createPageUrl("Sales"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-blue-600" },
+    { label: "PAGAMENTOS", icon: DollarSign, link: createPageUrl("Payments"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-green-600" },
+    { label: "+ CLIENTE", icon: Users, link: createPageUrl("Customers"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-gray-600" },
+    { label: "FATURAMENTO", icon: TrendingUp, link: createPageUrl("Reports"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-indigo-600" },
   ];
 
-  const currentSnippet = snippets[snippetIndex] || snippets[0];
+  /* Financial Calculation Logic */
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const monthSales = (sales || []).filter(s => s?.sale_date && new Date(s.sale_date) >= startOfMonth);
+  const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+
+  // 1. Revenue (Faturamento Total do Mês)
+  const monthSales = (sales || []).filter(s => s?.sale_date && new Date(s.sale_date) >= startOfMonth && new Date(s.sale_date) <= endOfMonth);
   const monthlyTotal = monthSales.reduce((acc, s) => acc + Number(s.total_amount || 0), 0);
+
+  // 2. Receivables (A Receber do Mês - Carnê em aberto)
+  const monthReceivables = (sales || []).reduce((acc, s) => {
+    if (!s.payments || !Array.isArray(s.payments)) return acc;
+    const carnePayments = s.payments.filter(p => p.method === 'Carnê' && Array.isArray(p.schedule));
+
+    let saleReceivables = 0;
+    for (const p of carnePayments) {
+      for (const inst of p.schedule) {
+        if (inst.status !== 'paid' && inst.due_date) {
+          const dueDate = new Date(inst.due_date);
+          // Check if due_date is in current month
+          if (dueDate >= startOfMonth && dueDate <= endOfMonth) {
+            saleReceivables += Number(inst.amount || 0);
+          }
+        }
+      }
+    }
+    return acc + saleReceivables;
+  }, 0);
+
+  // 3. Customers Analytics
   const monthCustomerCounts = monthSales.reduce((m, s) => {
     const key = (s.customer_name || 'AVULSO');
     m[key] = (m[key] || 0) + 1;
     return m;
   }, {});
   const monthUniqueCustomers = Object.keys(monthCustomerCounts).length;
-  const monthRepeatCustomers = Object.values(monthCustomerCounts).filter(c => c > 1).length;
-  const retentionPercent = monthUniqueCustomers > 0 ? Math.round((monthRepeatCustomers / monthUniqueCustomers) * 100) : 0;
 
   return (
     <div className="bg-white p-4 w-full">
@@ -180,20 +203,43 @@ export default function Dashboard() {
         </div>
 
         {/* Ações em linha - exatamente 4 ícones */}
-        <div className="flex items-center justify-center gap-6 sm:gap-10 py-2">
-          {actions.map((a) => (
-            <Link key={a.label} to={a.link} data-tutorial={a.label === 'PAGAMENTOS' ? 'dashboard-payments-button' : a.label === 'FATURAMENTO' ? 'dashboard-billing-button' : undefined}>
-              <div className="flex flex-col items-center">
-                <div
-                  className={`rounded-2xl bg-gradient-to-br ${a.from} ${a.to} shadow-sm flex items-center justify-center`}
-                  style={{ width: 'clamp(56px, 8vw, 85px)', height: 'clamp(56px, 8vw, 85px)' }}
-                >
-                  <a.icon className={`${a.iconColor}`} style={{ width: 'clamp(24px, 3vw, 40px)', height: 'clamp(24px, 3vw, 40px)' }} />
+        <div className="flex items-center justify-center gap-5 sm:gap-8 py-2">
+          {actions.map((a) => {
+            let summaryLabel = '';
+            let summaryValue = '';
+
+            if (a.label === 'RESUMO') {
+              summaryLabel = 'Vendas';
+              summaryValue = monthSales.length;
+            } else if (a.label === 'PAGAMENTOS') {
+              summaryLabel = 'A Receber';
+              summaryValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(monthReceivables);
+            } else if (a.label === '+ CLIENTE') {
+              summaryLabel = 'Novos';
+              summaryValue = monthUniqueCustomers;
+            } else if (a.label === 'FATURAMENTO') {
+              summaryLabel = 'Total';
+              summaryValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(monthlyTotal);
+            }
+
+            return (
+              <Link key={a.label} to={a.link} data-tutorial={a.label === 'PAGAMENTOS' ? 'dashboard-payments-button' : a.label === 'FATURAMENTO' ? 'dashboard-billing-button' : undefined}>
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`rounded-2xl bg-gradient-to-br ${a.from} ${a.to} shadow-sm flex flex-col items-center justify-center p-1 text-center`}
+                    style={{ width: 'clamp(56px, 8vw, 85px)', height: 'clamp(56px, 8vw, 85px)' }}
+                  >
+                    <a.icon className={`${a.iconColor} mb-0.5`} style={{ width: 'clamp(16px, 2.5vw, 24px)', height: 'clamp(16px, 2.5vw, 24px)' }} />
+                    <div className="flex flex-col leading-none gap-1">
+                      <span className="text-[7px] sm:text-[9px] font-medium text-gray-600 uppercase tracking-tight">{summaryLabel}</span>
+                      <span className={`text-[9px] sm:text-[11px] font-extrabold ${a.iconColor} truncate max-w-[50px] sm:max-w-[70px]`}>{summaryValue}</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-[10px] sm:text-[12px] font-semibold text-gray-700 tracking-wide">{a.label}</div>
                 </div>
-                <div className="mt-2 text-[10px] sm:text-[12px] font-semibold text-gray-700 tracking-wide">{a.label}</div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
 
         {/* Botão de configurações central */}

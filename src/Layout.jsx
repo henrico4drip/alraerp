@@ -260,23 +260,25 @@ export default function Layout({ children, currentPageName }) {
         {/* Header */}
         <header className="bg-[#3490c7] border-b border-[#3490c7] fixed top-0 left-0 right-0 z-30 shadow-sm w-full overflow-visible">
           <div className="w-full px-1.5 sm:px-4 py-1 sm:py-1.5 flex items-center justify-between text-white">
-            <div className="flex flex-wrap items-center gap-2 md:gap-3">
-              <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline">
-                <span className="text-sm sm:text-base md:text-lg tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.6rem', fontWeight: 300 }}>erp+</span></span>
+            <div className="flex flex-wrap items-center gap-4 md:gap-6">
+              <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline -mt-0.5">
+                <span className="text-base sm:text-lg md:text-xl tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.7em', fontWeight: 300 }}>erp+</span></span>
               </Link>
               <Link
                 to={createPageUrl("Dashboard")}
-                className="px-2 sm:px-3 py-1.5 rounded-lg bg-white/20 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 text-white transition-colors"
+                title={settings?.erp_name || "Minha Loja"}
                 data-tutorial="dashboard-link"
               >
-                <Store className="w-5 h-5" /> <span>{settings?.erp_name?.toUpperCase() || "MINHA LOJA"}</span>
+                <Store className="w-5 h-5" />
               </Link>
               <button
                 type="button"
                 onClick={() => setShowAgendaDialog(true)}
-                className="px-2 sm:px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 text-white transition-colors"
+                title="Agenda"
               >
-                <Calendar className="w-5 h-5" /> <span>AGENDA</span>
+                <Calendar className="w-5 h-5" />
               </button>
 
             </div>
