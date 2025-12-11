@@ -190,6 +190,8 @@ export default function Layout({ children, currentPageName }) {
     { name: "MARKETING", path: createPageUrl("Marketing"), icon: Megaphone },
   ];
 
+
+
   const isDashboard = location.pathname === createPageUrl("Dashboard");
   const isSettings = location.pathname === createPageUrl("Settings");
   // Se não encontrar a rota atual, inicializa com CAIXA (índice 0)
@@ -849,47 +851,87 @@ export default function Layout({ children, currentPageName }) {
           </DialogContent>
         </Dialog>
 
-        {/* Bottom Navigation with Moving Green Highlight */}
-        <nav className="fixed bottom-0 left-0 right-0 z-30">
-          <div className="relative bg-gray-100 border-t border-gray-200 h-[64px] sm:h-[56px]">
-            {/* Destaque verde que acompanha o item ativo */}
-            <div
-              className={`pointer-events-none absolute inset-y-0 rounded-full shadow-lg transition-all duration-500 ease-out z-0 ${bottomNavItems[currentActiveIndex]?.name === 'MARKETING' ? 'bg-blue-500' : 'bg-green-500'}`}
-              style={{
-                width: `${itemPercent - 2}%`,
-                left: `${currentActiveIndex * itemPercent + 1}%`,
-                margin: '6px 0',
-              }}
-            />
+        {/* Standard Bottom Navigation - Hidden on Cashier Route (except during entry animation) */}
+        {(!isCashierRoute || keepBottomNavForEntry) && (
+          <nav className="fixed bottom-0 left-0 right-0 z-30">
+            <div className="relative bg-gray-100 border-t border-gray-200 h-[64px] sm:h-[56px]">
+              {/* Destaque verde/azul que acompanha o item ativo */}
+              <div
+                className={`pointer-events-none absolute inset-y-0 rounded-full shadow-lg transition-all duration-500 ease-out z-0 ${bottomNavItems[currentActiveIndex]?.name === 'MARKETING' ? 'bg-blue-500' : 'bg-green-500'}`}
+                style={{
+                  width: `${itemPercent - 2}%`,
+                  left: `${currentActiveIndex * itemPercent + 1}%`,
+                  margin: '6px 0',
+                }}
+              />
 
-            <div className="grid grid-cols-5 gap-0 relative z-10">
-              {bottomNavItems.map((item, idx) => {
-                const Icon = item.icon;
-                const isActive = idx === currentActiveIndex;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    onClick={() => { if (item.name === 'CAIXA') { try { sessionStorage.setItem('animateCashierEntry', 'true'); } catch { } } }}
-                    className={`relative flex flex-col items-center justify-center h-[64px] sm:h-[56px] px-1 sm:px-2 transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-700 hover:text-gray-900'
-                      }`}
-                    data-tutorial={
-                      item.name === 'ESTOQUE' ? 'inventory-bottom-link' :
-                        item.name === 'CLIENTES' ? 'customers-bottom-link' :
-                          item.name === 'CAIXA' ? 'cashier-bottom-link' : undefined
-                    }
-                  >
-                    {item.name === 'MARKETING' && (
-                      <span className="absolute -top-1 left-1/2 -translate-x-1/2 bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 text-[10px] rounded-full shadow-sm">em breve</span>
-                    )}
-                    <Icon className="w-6 h-6 mb-0 sm:mb-0" />
-                    <span className="hidden sm:inline text-xs font-semibold tracking-wide">{item.name}</span>
-                  </Link>
-                );
-              })}
+              <div className="grid grid-cols-5 gap-0 relative z-10">
+                {bottomNavItems.map((item, idx) => {
+                  const Icon = item.icon;
+                  const isActive = idx === currentActiveIndex;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.path}
+                      onClick={() => { if (item.name === 'CAIXA') { try { sessionStorage.setItem('animateCashierEntry', 'true'); } catch { } } }}
+                      className={`relative flex flex-col items-center justify-center h-[64px] sm:h-[56px] px-1 sm:px-2 transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-700 hover:text-gray-900'
+                        }`}
+                      data-tutorial={
+                        item.name === 'ESTOQUE' ? 'inventory-bottom-link' :
+                          item.name === 'CLIENTES' ? 'customers-bottom-link' :
+                            item.name === 'CAIXA' ? 'cashier-bottom-link' : undefined
+                      }
+                    >
+                      {item.name === 'MARKETING' && (
+                        <span className="absolute -top-1 left-1/2 -translate-x-1/2 bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 text-[10px] rounded-full shadow-sm">em breve</span>
+                      )}
+                      <Icon className="w-6 h-6 mb-0 sm:mb-0" />
+                      <span className="hidden sm:inline text-xs font-semibold tracking-wide">{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
+          </nav>
+        )}
+
+        {/* Cashier "Revolver" Footer */}
+        {(isCashierRoute && !keepBottomNavForEntry) && (
+          <div className="fixed bottom-0 left-0 right-0 z-30 h-[80px] bg-white border-t border-gray-200 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] animate-in slide-in-from-bottom-24 spin-in-3 duration-700 ease-out flex items-center px-4 gap-4 perspective-[1000px]">
+            {/* Left Button (Back) */}
+            <button
+              onClick={() => {
+                if (location.pathname.includes('/payment')) navigate('/cashier/products');
+                else navigate('/dashboard');
+              }}
+              className="flex-1 h-[56px] rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span className="text-xl">‹</span> Voltar
+            </button>
+
+            {/* Right Button (Proceed) with Blue Highlight "Pill" */}
+            <button
+              onClick={() => {
+                if (location.pathname.includes('/payment')) {
+                  // Dispatch event for Payment page to handle submit
+                  window.dispatchEvent(new CustomEvent('cashier-finish-sale'));
+                } else {
+                  navigate('/cashier/payment');
+                }
+              }}
+              className="flex-[2] h-[56px] rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group"
+            >
+              {/* Highlight effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+
+              {location.pathname.includes('/payment') ? (
+                <>Finalizar <Check className="w-6 h-6" /></>
+              ) : (
+                <>Pagamento <span className="text-2xl">›</span></>
+              )}
+            </button>
           </div>
-        </nav>
+        )}
       </div>
 
       {/* Tutorial System */}

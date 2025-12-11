@@ -9,7 +9,7 @@ export function CashierProvider({ children }) {
   const [cashbackToUse, setCashbackToUse] = useState(0);
   const [observations, setObservations] = useState("");
   const [payments, setPayments] = useState([]);
-  const [paymentDraft, setPaymentDraft] = useState({ method: 'Dinheiro', amount: '', installments: 1, firstDueDays: 30 });
+  const [paymentDraft, setPaymentDraft] = useState({ method: '', amount: '', installments: 1, firstDueDays: 30 });
   // Desconto em % (0–100)
   const [discountPercent, setDiscountPercent] = useState(0);
 
@@ -77,7 +77,7 @@ export function CashierProvider({ children }) {
     };
 
     setPayments((prev) => [...prev, payment]);
-    setPaymentDraft({ method: 'Dinheiro', amount: '', installments: 1, firstDueDays: 30 });
+    setPaymentDraft({ method: '', amount: '', installments: 1, firstDueDays: 30 });
   };
 
   const removePayment = (idx) => {
