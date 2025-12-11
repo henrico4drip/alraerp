@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Filter, Plus, FileText, Download, Pencil, Trash2 } from "lucide-react";
+import Receipt from "@/components/Receipt";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -223,44 +224,9 @@ export default function Sales() {
             </DialogHeader>
             {invoiceSale && (
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-gray-500">Número</p>
-                    <p className="text-sm font-semibold text-gray-900">{invoiceSale.sale_number || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Data</p>
-                    <p className="text-sm text-gray-800">{invoiceSale.sale_date ? format(new Date(invoiceSale.sale_date), 'dd/MM/yyyy HH:mm') : '-'}</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Cliente</p>
-                  <p className="text-sm font-semibold text-gray-900">{invoiceSale.customer_name || 'AVULSO'}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-gray-500">Pagamento</p>
-                    <p className="text-sm text-gray-800">{invoiceSale.payment_method || '-'}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Faturado</p>
-                    <p className="text-sm font-semibold text-gray-900">{(invoiceSale.total_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-gray-500">Cashback (%)</p>
-                    <p className="text-sm text-gray-800">{Number(settings?.[0]?.cashback_percentage || 0).toLocaleString('pt-BR')}%</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Cashback ganho</p>
-                    <p className="text-sm font-semibold text-emerald-600">{(((invoiceSale.total_amount || 0) * Number(settings?.[0]?.cashback_percentage || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                </div>
+                <Receipt sale={invoiceSale} settings={settings?.[0] || null} />
                 <div className="pt-3 flex flex-wrap gap-2 justify-end">
                   <Button variant="outline" className="rounded-xl" onClick={() => window.print()}>Imprimir</Button>
-                  <Button variant="outline" className="rounded-xl">Baixar PDF</Button>
-                  <Button variant="outline" className="rounded-xl">Enviar por e-mail</Button>
                   <Button className="rounded-xl" onClick={() => setShowInvoice(false)}>Fechar</Button>
                 </div>
               </div>

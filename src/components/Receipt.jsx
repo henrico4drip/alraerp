@@ -9,6 +9,8 @@ export default function Receipt({ sale, settings }) {
   const cashbackUsed = Number(sale.cashback_used || 0);
   const finalTotal = Number((sale.total_amount || itemsTotal) - discount - cashbackUsed);
   const payments = Array.isArray(sale.payments) ? sale.payments : [];
+  const cashbackPercent = Number(settings?.cashback_percentage || 0);
+  const cashbackEarned = Number(sale.cashback_earned ?? ((sale.total_amount || itemsTotal) * cashbackPercent / 100));
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-3 text-gray-900">
@@ -75,6 +77,12 @@ export default function Receipt({ sale, settings }) {
             <div className="flex justify-between">
               <span>CASHBACK USADO</span>
               <span>- R$ {cashbackUsed.toFixed(2)}</span>
+            </div>
+          )}
+          {cashbackEarned > 0 && (
+            <div className="flex justify-between">
+              <span>CASHBACK GANHO</span>
+              <span className="text-emerald-700 font-medium">+ R$ {cashbackEarned.toFixed(2)}</span>
             </div>
           )}
           <div className="border-t border-gray-200 my-1" />
