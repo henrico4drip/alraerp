@@ -119,11 +119,15 @@ export default function Login() {
       `}</style>
       <div className="login-bg">
         <header className="login-header">
-          <div className="logo">alra <span>erp+</span></div>
+          <Link to="/" className="text-white text-decoration-none">
+            <div className="logo">alra <span>erp+</span></div>
+          </Link>
           <nav className="nav-links">
             <Link to="/support">Suporte</Link>
             <Link to="/billing">Planos</Link>
-            <Link to="/">Voltar</Link>
+            {showSignupForm && (
+              <a href="#" onClick={(e) => { e.preventDefault(); setShowSignupForm(false); }}>Login</a>
+            )}
           </nav>
         </header>
         <div className="login-card">

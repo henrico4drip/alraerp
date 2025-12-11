@@ -13,10 +13,10 @@ export const tutorialSteps = [
     {
         id: 'settings-nav',
         page: 'Dashboard',
-        title: 'Acesse as Configurações',
-        description: 'Primeiro, vamos configurar os dados da sua loja. Clique em Opções (Configurações).',
-        target: '[data-tutorial="settings-link"]',
-        position: 'bottom',
+        title: 'Perfil de Administrador',
+        description: 'Você está no perfil Admin (por isso a inicial "A" no botão acima). O sistema permite vários usuários! Clique nesse botão e vá em "Configurações" para ajustar sua loja.',
+        target: '[data-tutorial="profile-menu-btn"]',
+        position: 'left',
         action: 'navigate-settings'
     },
     {
@@ -91,42 +91,42 @@ export const tutorialSteps = [
         position: 'top',
         action: null
     },
-  {
-    id: 'dashboard-return',
-    page: 'Dashboard',
-    title: 'Voltar ao Dashboard',
-    description: 'Clique no logo da alra ou no nome da sua loja para voltar.',
-    target: '[data-tutorial="dashboard-link"], [data-tutorial="dashboard-logo"]',
-    position: 'bottom',
-    action: null
-  },
-  {
-    id: 'dashboard-payments-button',
-    page: 'Dashboard',
-    title: 'Abrir Pagamentos pela Dashboard',
-    description: 'Agora toque no botão PAGAMENTOS ao centro para seguir.',
-    target: '[data-tutorial="dashboard-payments-button"]',
-    position: 'bottom',
-    action: 'navigate-payments'
-  },
-  {
-    id: 'payment-features',
-    page: 'Payments',
-    title: 'Recursos de Pagamento',
-    description: 'Gere QR PIX, envie cobrança por WhatsApp, edite/exclua parcelas, abata pagamentos e baixe PDF/HTML dos boletos.',
-    target: '[data-tutorial="payments-main"]',
-    position: 'top',
-    action: null
-  },
-  {
-    id: 'dashboard-metrics',
-    page: 'Dashboard',
-    title: 'Acompanhe suas Métricas',
-    description: 'Toque no botão FATURAMENTO para ver indicadores e relatórios do seu negócio.',
-    target: '[data-tutorial="dashboard-billing-button"]',
-    position: 'bottom',
-    action: 'navigate-dashboard'
-  },
+    {
+        id: 'dashboard-return',
+        page: 'Dashboard',
+        title: 'Voltar ao Dashboard',
+        description: 'Clique no logo da alra ou no nome da sua loja para voltar.',
+        target: '[data-tutorial="dashboard-link"], [data-tutorial="dashboard-logo"]',
+        position: 'bottom',
+        action: null
+    },
+    {
+        id: 'dashboard-payments-button',
+        page: 'Dashboard',
+        title: 'Abrir Pagamentos pela Dashboard',
+        description: 'Agora toque no botão PAGAMENTOS ao centro para seguir.',
+        target: '[data-tutorial="dashboard-payments-button"]',
+        position: 'bottom',
+        action: 'navigate-payments'
+    },
+    {
+        id: 'payment-features',
+        page: 'Payments',
+        title: 'Recursos de Pagamento',
+        description: 'Gere QR PIX, envie cobrança por WhatsApp, edite/exclua parcelas, abata pagamentos e baixe PDF/HTML dos boletos.',
+        target: '[data-tutorial="payments-main"]',
+        position: 'top',
+        action: null
+    },
+    {
+        id: 'dashboard-metrics',
+        page: 'Dashboard',
+        title: 'Acompanhe suas Métricas',
+        description: 'Toque no botão FATURAMENTO para ver indicadores e relatórios do seu negócio.',
+        target: '[data-tutorial="dashboard-billing-button"]',
+        position: 'bottom',
+        action: 'navigate-dashboard'
+    },
     {
         id: 'dashboard-nav',
         page: 'Payments',

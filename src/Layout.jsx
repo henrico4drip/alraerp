@@ -312,6 +312,7 @@ export default function Layout({ children, currentPageName }) {
                   onClick={() => setAccountOpen((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={accountOpen}
+                  data-tutorial="profile-menu-btn"
                 >
                   {/* Initials */}
                   <span className="font-bold text-xs text-white">{currentProfile?.name?.charAt(0) || <UserCircle className="w-5 h-5" />}</span>

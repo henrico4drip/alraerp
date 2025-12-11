@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 
 export default function Billing() {
@@ -15,7 +15,7 @@ export default function Billing() {
     if (s) {
       setStatus(s)
       if (s === 'success') {
-        try { window.localStorage.setItem('subscribed', 'true') } catch {}
+        try { window.localStorage.setItem('subscribed', 'true') } catch { }
       }
     }
   }, [])
@@ -93,12 +93,12 @@ export default function Billing() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8" style={styles.gradientBg}>
       <div className="w-full max-w-5xl flex justify-between items-center mb-8 px-2">
-        <div className="logo text-2xl font-bold text-white">alra<span className="text-sm font-light align-top ml-0.5">erp+</span></div>
+        <Link to="/" className="text-white hover:opacity-90 transition-opacity">
+          <div className="logo text-2xl font-bold">alra<span className="text-sm font-light align-top ml-0.5">erp+</span></div>
+        </Link>
         <div className="flex items-center gap-4">
-          {user ? (
+          {user && (
             <button onClick={handleLogout} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Sair da conta</button>
-          ) : (
-            <button onClick={() => navigate('/')} className="text-white/80 hover:text-white text-sm font-medium transition-colors">Voltar</button>
           )}
         </div>
       </div>

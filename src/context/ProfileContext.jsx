@@ -23,6 +23,7 @@ export function ProfileProvider({ children }) {
         console.log('Stored Profile:', storedProfileId)
 
         // Load profiles to check if any exist
+        setLoading(true);
         base44.entities.Staff.list().then(async profiles => {
             console.log('Fetched Profiles:', profiles)
 

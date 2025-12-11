@@ -233,6 +233,12 @@ export default function Tutorial() {
         if (stepData?.id === 'dashboard-nav' && stepData.position === 'bottom') {
             top = rect.bottom - 56
         }
+        // Ajuste específico para o passo de configurações (perfil)
+        if (stepData?.id === 'settings-nav') {
+            // Ajustado para ficar abaixo do menu, mas visível
+            top = rect.bottom + 210
+            left = window.innerWidth - cardWidth - 10
+        }
         left = Math.max(padding, Math.min(left, viewportWidth - cardWidth - padding))
         top = Math.max(padding, Math.min(top, viewportHeight - cardHeight - padding))
 

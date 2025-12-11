@@ -23,6 +23,7 @@ export default function SelectProfile() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
+    const [showHint, setShowHint] = useState(false);
 
 
     useEffect(() => {
@@ -48,6 +49,14 @@ export default function SelectProfile() {
             const list = await base44.entities.Staff.list();
             console.log('[SelectProfile] Profiles loaded:', list);
             setProfiles(list);
+
+            // Show hint only once
+            const hasAdmin = list.some(p => p.name === 'Administrador');
+            const seen = localStorage.getItem('pin_hint_seen') === 'true';
+            if (hasAdmin && !seen) {
+                setShowHint(true);
+                localStorage.setItem('pin_hint_seen', 'true');
+            }
         } catch (err) {
             console.error('[SelectProfile] Error loading profiles:', err);
         } finally {
@@ -86,6 +95,13 @@ export default function SelectProfile() {
                 <div className="text-center mb-10">
                     <h1 className="text-3xl font-bold text-gray-900">Quem está acessando?</h1>
                     <p className="text-gray-500 mt-2">Selecione seu perfil para continuar</p>
+                    {showHint && (
+                        <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-700">
+                            <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 px-4 py-1.5 rounded-full inline-flex items-center gap-2">
+                                <span className="text-lg">💡</span> Dica: O PIN inicial do Administrador é <b>0000</b>
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-center">

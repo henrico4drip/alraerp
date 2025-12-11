@@ -267,5 +267,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 // FORCE UNREGISTER SERVICE WORKER TO CLEAR CACHE
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => { })
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(registration => {
+      console.log('SW registered: ', registration);
+    }).catch(registrationError => {
+      console.log('SW registration failed: ', registrationError);
+    });
+  });
 }

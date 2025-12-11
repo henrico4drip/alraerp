@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Menu, X } from 'lucide-react'
 
 export default function LandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   return (
     <>
       <style>{`
@@ -21,7 +23,7 @@ export default function LandingPage() {
         .btn-cta:hover { transform: translateY(-3px); background-color: #65b025; }
         .hero-image { flex: 1; min-width: 300px; display: flex; justify-content: center; position: relative; }
         .hero-image img { max-width: min(100%, 560px); height: auto; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15)); }
-        .wave-container { position: relative; width: 100%; overflow: hidden; line-height: 0; margin-top: -50px; z-index: 1; opacity: 0.3; }
+        .wave-container { position: relative; width: 100%; overflow: hidden; line-height: 0; margin-top: -30px; z-index: 1; opacity: 0.3; }
         .wave-container svg { position: relative; display: block; width: calc(100% + 1.3px); height: 150px; }
         .wave-container .shape-fill { fill: #FFFFFF; }
         .features-section { padding: 20px 5%; max-width: 1200px; margin: 0 auto; }
@@ -37,8 +39,35 @@ export default function LandingPage() {
         .card h4 { font-size: clamp(1rem, 1.6vw, 1.2rem); margin-bottom: clamp(8px, 1.2vw, 10px); font-weight: 600; }
         .card p { font-size: clamp(0.85rem, 1.2vw, 0.9rem); line-height: 1.5; opacity: 0.8; font-weight: 300; }
         footer { text-align: center; padding: 40px 20px; font-size: 0.8rem; opacity: 0.7; margin-top: 40px; }
-        @media (max-width: 768px) { .hero-text h1 { font-size: 2.5rem; } .hero { flex-direction: column; text-align: center; gap: 24px; padding-top: 16px; } .hero-text { order: 1; } .hero-image { order: 2; } .btn-cta { font-size: 1.05rem; padding: 14px 28px; border-radius: 40px; } .section-header { flex-direction: column; align-items: center; text-align: center; } .nav-links { display: flex; gap: 15px; } .nav-links a { margin-left: 0; font-size: 0.9rem; } }
+        @media (max-width: 768px) { 
+          .hero-text h1 { font-size: 2rem; margin-bottom: 12px; } 
+          .hero-text p { font-size: 0.95rem; margin-bottom: 20px; }
+          .hero { flex-direction: column; text-align: center; gap: 20px; padding-top: 10px; padding-bottom: 20px; } 
+          .hero-text { order: 1; } 
+          .hero-image { order: 2; margin-top: -10px; } 
+          .btn-cta { font-size: 1rem; padding: 12px 24px; border-radius: 40px; width: 100%; max-width: 280px; text-align: center; } 
+          .section-header { flex-direction: column; align-items: center; text-align: center; gap: 10px; } 
+          .nav-links { display: none; } 
+          .mobile-menu-btn { display: block; }
+          .logo { font-size: 1.5rem; }
+        }
+        .mobile-menu-btn { display: none; background: none; border: none; color: white; cursor: pointer; }
+        .mobile-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #3490c7; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .mobile-menu-overlay.open { opacity: 1; pointer-events: auto; }
+        .mobile-menu-overlay a { color: white; text-decoration: none; font-size: 1.5rem; margin: 15px 0; font-weight: 600; }
+        .mobile-menu-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; cursor: pointer; }
       `}</style>
+
+      {/* Mobile Menu Overlay */}
+      <div className={`mobile-menu-overlay ${mobileMenuOpen ? 'open' : ''}`}>
+        <button className="mobile-menu-close" onClick={() => setMobileMenuOpen(false)}>
+          <X className="w-8 h-8" />
+        </button>
+        <Link to="/login?signup=1" onClick={() => setMobileMenuOpen(false)}>Cadastre-se</Link>
+        <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+        <Link to="/billing" onClick={() => setMobileMenuOpen(false)}>Planos</Link>
+        <Link to="/support" onClick={() => setMobileMenuOpen(false)}>Suporte</Link>
+      </div>
       <div className="main-wrapper">
         <header>
           <div className="logo">alra <span style={{ verticalAlign: 'super', fontSize: '0.6rem' }}>erp+</span></div>
@@ -46,8 +75,11 @@ export default function LandingPage() {
             <Link to="/support">Suporte</Link>
             <Link to="/billing">Planos</Link>
             <Link to="/login">Login</Link>
-            <Link to="/login?signup=1" className="btn-link">Cadastre-se</Link>
+            <Link to="/login?signup=1" className="btn-cta" style={{ marginLeft: '20px', padding: '8px 20px', fontSize: '0.9rem', boxShadow: 'none' }}>Cadastre-se</Link>
           </nav>
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
+            <Menu className="w-7 h-7" />
+          </button>
         </header>
         <section className="hero">
           <div className="hero-text">
