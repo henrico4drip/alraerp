@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { createPageUrl } from '@/utils'
 import { Zap, DollarSign, TrendingUp } from 'lucide-react'
 
-export default function Marketing(){
+export default function Marketing() {
   const { data: settings = [] } = useQuery({
     queryKey: ['settings'],
     queryFn: () => base44.entities.Settings.list(),
@@ -75,7 +75,7 @@ export default function Marketing(){
           <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[#3490c7]/10 text-[#3490c7] flex items-center justify-center">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z"/></svg>
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z" /></svg>
               </div>
               <div className="text-xs text-gray-500">Clientes únicos</div>
             </div>
@@ -99,6 +99,15 @@ export default function Marketing(){
             </div>
             <button className="h-9 px-3 text-sm rounded-xl border border-gray-200 hover:bg-gray-50">Configurar</button>
           </div>
+        </div>
+        <div className="mt-8 bg-amber-50 border border-amber-200 rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center text-center shadow-sm">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 text-amber-600 animate-pulse">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-construction"><rect x="2" y="6" width="20" height="8" rx="1" /><path d="M17 14v7" /><path d="M7 14v7" /><path d="M17 3v3" /><path d="M7 3v3" /><path d="M10 14 2.3 6.3" /><path d="m14 6 7.7 7.7" /><path d="m8 6 8 8" /></svg>
+          </div>
+          <h3 className="text-xl font-bold text-amber-900 mb-2">Página em Desenvolvimento</h3>
+          <p className="text-amber-700 max-w-md mx-auto text-sm leading-relaxed">
+            Estamos preparando novidades incríveis para você impulsionar seu negócio. Esta área receberá ferramentas avançadas de marketing em breve!
+          </p>
         </div>
       </div>
     </div>

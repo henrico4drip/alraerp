@@ -259,26 +259,26 @@ export default function Layout({ children, currentPageName }) {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <header className="bg-[#3490c7] border-b border-[#3490c7] fixed top-0 left-0 right-0 z-30 shadow-sm w-full overflow-visible">
-          <div className="w-full px-1.5 sm:px-4 py-1 sm:py-1.5 flex items-center justify-between text-white">
+          <div className="w-full px-1.5 sm:px-4 py-0.5 sm:py-1 flex items-center justify-between text-white">
             <div className="flex flex-wrap items-center gap-4 md:gap-6">
               <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline -mt-0.5">
-                <span className="text-base sm:text-lg md:text-xl tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.7em', fontWeight: 300 }}>erp+</span></span>
+                <span className="text-sm sm:text-base md:text-lg tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.7em', fontWeight: 300 }}>erp+</span></span>
               </Link>
               <Link
                 to={createPageUrl("Dashboard")}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 text-white transition-colors"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
                 title={settings?.erp_name || "Minha Loja"}
                 data-tutorial="dashboard-link"
               >
-                <Store className="w-5 h-5" />
+                <Store className="w-4 h-4" />
               </Link>
               <button
                 type="button"
                 onClick={() => setShowAgendaDialog(true)}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 text-white transition-colors"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
                 title="Agenda"
               >
-                <Calendar className="w-5 h-5" />
+                <Calendar className="w-4 h-4" />
               </button>
 
             </div>
@@ -288,7 +288,7 @@ export default function Layout({ children, currentPageName }) {
                 {(!isStandalone && (installAvailable || swActive)) && (
                   <Button
                     variant="secondary"
-                    className="px-2 sm:px-3 py-1.5 h-7 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm uppercase font-normal inline-flex items-center gap-2"
+                    className="px-2 sm:px-3 py-1 h-6 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs uppercase font-normal inline-flex items-center gap-2"
                     onClick={async () => {
                       if (installPrompt) {
                         await installPrompt.prompt();
@@ -299,7 +299,7 @@ export default function Layout({ children, currentPageName }) {
                       }
                     }}
                   >
-                    <Download className="w-5 h-5" /> <span className="hidden sm:inline">INSTALAR</span>
+                    <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">INSTALAR</span>
                   </Button>
                 )}
 
@@ -308,13 +308,13 @@ export default function Layout({ children, currentPageName }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`rounded-full shadow-sm border border-white/20 ${currentProfile?.role === 'admin' ? 'bg-blue-600' : 'bg-gray-600'}`}
+                  className={`rounded-full shadow-sm border border-white/20 w-8 h-8 ${currentProfile?.role === 'admin' ? 'bg-blue-600' : 'bg-gray-600'}`}
                   onClick={() => setAccountOpen((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={accountOpen}
                 >
                   {/* Initials */}
-                  <span className="font-bold text-sm text-white">{currentProfile?.name?.charAt(0) || <UserCircle className="w-6 h-6" />}</span>
+                  <span className="font-bold text-xs text-white">{currentProfile?.name?.charAt(0) || <UserCircle className="w-5 h-5" />}</span>
                 </Button>
 
                 {accountOpen && (
@@ -372,7 +372,7 @@ export default function Layout({ children, currentPageName }) {
           </div>
         </header>
         {/* Spacer to avoid content being hidden under fixed header */}
-        <div className="h-12 sm:h-14"></div>
+        <div className="h-10 sm:h-12"></div>
         {showInstallHelp && (
           <Dialog open={showInstallHelp} onOpenChange={setShowInstallHelp}>
             <DialogContent className="sm:max-w-[420px] rounded-xl">

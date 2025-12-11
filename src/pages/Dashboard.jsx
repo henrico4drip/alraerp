@@ -227,12 +227,12 @@ export default function Dashboard() {
                 <div className="flex flex-col items-center">
                   <div
                     className={`rounded-2xl bg-gradient-to-br ${a.from} ${a.to} shadow-sm flex flex-col items-center justify-center p-1 text-center`}
-                    style={{ width: 'clamp(56px, 8vw, 85px)', height: 'clamp(56px, 8vw, 85px)' }}
+                    style={{ width: 'clamp(64px, 10vw, 95px)', height: 'clamp(64px, 10vw, 95px)' }}
                   >
-                    <a.icon className={`${a.iconColor} mb-0.5`} style={{ width: 'clamp(16px, 2.5vw, 24px)', height: 'clamp(16px, 2.5vw, 24px)' }} />
+                    <a.icon className={`${a.iconColor} mb-0.5`} style={{ width: 'clamp(20px, 3vw, 28px)', height: 'clamp(20px, 3vw, 28px)' }} />
                     <div className="flex flex-col leading-none gap-1">
                       <span className="text-[7px] sm:text-[9px] font-medium text-gray-600 uppercase tracking-tight">{summaryLabel}</span>
-                      <span className={`text-[9px] sm:text-[11px] font-extrabold ${a.iconColor} truncate max-w-[50px] sm:max-w-[70px]`}>{summaryValue}</span>
+                      <span className={`text-[9px] sm:text-[11px] font-extrabold ${a.iconColor} truncate max-w-[58px] sm:max-w-[80px]`}>{summaryValue}</span>
                     </div>
                   </div>
                   <div className="mt-2 text-[10px] sm:text-[12px] font-semibold text-gray-700 tracking-wide">{a.label}</div>
