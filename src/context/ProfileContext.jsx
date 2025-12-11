@@ -9,17 +9,17 @@ export function ProfileProvider({ children }) {
     const [currentProfile, setCurrentProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Initial load from session storage only if same user is logged in
+    // Initial load from storage
     useEffect(() => {
         console.log('ProfileContext Effect:', { user })
         if (!user) {
             setCurrentProfile(null);
             setLoading(false);
-            sessionStorage.removeItem('active_profile_id');
+            localStorage.removeItem('persisted_profile_id');
             return;
         }
 
-        const storedProfileId = sessionStorage.getItem('active_profile_id');
+        const storedProfileId = localStorage.getItem('persisted_profile_id');
         console.log('Stored Profile:', storedProfileId)
 
         // Load profiles to check if any exist
@@ -38,7 +38,7 @@ export function ProfileProvider({ children }) {
                     });
                     console.log('Admin created automatically:', newAdmin);
                     setCurrentProfile(newAdmin);
-                    sessionStorage.setItem('active_profile_id', newAdmin.id);
+                    localStorage.setItem('persisted_profile_id', newAdmin.id);
                 } catch (err) {
                     console.error('Error creating admin automatically:', err);
                 }
@@ -52,7 +52,7 @@ export function ProfileProvider({ children }) {
                 if (found) {
                     setCurrentProfile(found);
                 } else {
-                    sessionStorage.removeItem('active_profile_id');
+                    localStorage.removeItem('persisted_profile_id');
                 }
             }
             setLoading(false);
@@ -70,13 +70,13 @@ export function ProfileProvider({ children }) {
         if (profile.pin !== pin) throw new Error('PIN incorreto');
 
         setCurrentProfile(profile);
-        sessionStorage.setItem('active_profile_id', profile.id);
+        localStorage.setItem('persisted_profile_id', profile.id);
         return profile;
     };
 
     const logoutProfile = () => {
         setCurrentProfile(null);
-        sessionStorage.removeItem('active_profile_id');
+        localStorage.removeItem('persisted_profile_id');
     };
 
     const isAdmin = () => currentProfile?.role === 'admin';

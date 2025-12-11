@@ -300,13 +300,7 @@ export default function Layout({ children, currentPageName }) {
                     <Download className="w-5 h-5" /> <span className="hidden sm:inline">INSTALAR</span>
                   </Button>
                 )}
-                <Link
-                  to={createPageUrl("Settings")}
-                  className={`px-2 sm:px-3 py-1.5 rounded-lg ${isSettings ? 'bg-white/30' : 'bg-white/20 hover:bg-white/30'} text-white text-sm uppercase font-normal inline-flex items-center gap-2`}
-                  data-tutorial="settings-link"
-                >
-                  <SettingsIcon className="w-5 h-5" /> <span className="hidden sm:inline">OPÇÕES</span>
-                </Link>
+
               </div>
               <div className="relative ml-auto">
                 <Button
