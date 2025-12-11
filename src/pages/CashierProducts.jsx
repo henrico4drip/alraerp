@@ -76,6 +76,15 @@ export default function CashierProducts() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate]);
 
+  // Auto-focus no campo de busca ao carregar a página
+  useEffect(() => {
+    // Pequeno delay para garantir que o componente está montado
+    const timer = setTimeout(() => {
+      searchRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list(),
@@ -155,7 +164,7 @@ export default function CashierProducts() {
                 placeholder="Buscar produto (nome ou código)..."
                 className="w-full h-11 px-4 rounded-2xl bg-white border-gray-200 border-0 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all text-sm"
               />
-              
+
               {searchTerm && (
                 <button
                   onClick={() => { setSearchTerm(''); searchRef.current?.focus(); }}
