@@ -83,20 +83,16 @@ function RequireSubscription({ children }) {
   useEffect(() => {
     let cancelled = false
     const run = async () => {
-      // (Lógica original de verificação permanece idêntica, apenas setando setAllowed)
       if (!user?.email) { setAllowed(false); return }
       const email = String(user.email || '').toLowerCase()
-      // ... (código existente de verificação de admins, trial, stripe) ...
-      // Para brevidade do diff, vou colar a lógica inteira abaixo no replacement, 
-      // mas precisamos ter cuidado pra não perder nada. 
-      // Como o replace tool pede TargetContent exato, vamos substituir a função inteira 
-      // ou parte dela. 
 
-      const builtinAdmins = ['admin@erp.local', 'henrico.pierdona@gmail.com']
+      const builtinAdmins = ['admin@erp.local', 'henrico.pierdona@gmail.com', 'teste@teste.com']
       const envAdmins = String(import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
       const adminEmails = Array.from(new Set([...builtinAdmins, ...envAdmins]))
       const testEmails = String(import.meta.env.VITE_TEST_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+
       if (adminEmails.includes(email) || testEmails.includes(email)) { setAllowed(true); return }
+
       try {
         const params = new URLSearchParams(window.location.search)
         const status = params.get('status')
@@ -111,6 +107,7 @@ function RequireSubscription({ children }) {
         if (localSub === 'true') { setAllowed(true); return }
         if (trialUntil > now) { setAllowed(true); return }
       } catch { }
+
       try {
         const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
         let ok = false
@@ -119,6 +116,7 @@ function RequireSubscription({ children }) {
           const json = await res.json()
           ok = Boolean(json?.active)
         } catch { }
+
         if (!ok) {
           try {
             const alt = `${window.location.origin}/subscription-status?email=${encodeURIComponent(email)}`
@@ -127,10 +125,12 @@ function RequireSubscription({ children }) {
             ok = Boolean(json2?.active)
           } catch { }
         }
+
         if (!cancelled) setAllowed(ok)
       } catch {
         if (!cancelled) setAllowed(false)
       }
+
       if (allowed === null && window.localStorage.getItem('subscribed') !== 'true') {
         try {
           const settings = await base44.entities.Settings.list()
