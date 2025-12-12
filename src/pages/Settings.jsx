@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X, Users, Package } from 'lucide-react'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
+import { useTutorial } from '@/hooks/useTutorial'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import SubscriptionLockOverlay from '@/components/SubscriptionLockOverlay'
 import RequirePermission from '@/components/RequirePermission'
@@ -90,6 +91,12 @@ export default function Settings() {
   }
 
   const effective = useEffectiveSettings()
+  const { restartTutorial, startTutorial } = useTutorial()
+  const handleRestartTutorial = () => {
+    try { localStorage.removeItem('tutorial_completed') } catch {}
+    if (typeof restartTutorial === 'function') restartTutorial()
+    else if (typeof startTutorial === 'function') startTutorial()
+  }
   useEffect(() => {
     if (!effective) return
     setSettings(effective)
@@ -362,6 +369,21 @@ export default function Settings() {
                       ))}
                       {paymentMethods.length === 0 && <span className="text-sm text-gray-400 italic">Nenhum meio extra configurado.</span>}
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Tutorial */}
+              <Card className="shadow-sm border-gray-100 rounded-3xl overflow-hidden">
+                <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                    <Users className="w-5 h-5 text-blue-600" /> Tutorial do Sistema
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">Recomece o passo a passo guiado para aprender os atalhos e fluxos.</p>
+                    <Button onClick={handleRestartTutorial} className="rounded-xl bg-blue-600 hover:bg-blue-700">Reiniciar Tutorial</Button>
                   </div>
                 </CardContent>
               </Card>

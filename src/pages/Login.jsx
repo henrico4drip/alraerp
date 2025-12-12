@@ -151,7 +151,7 @@ export default function Login() {
                 </div>
                 <div className="input-group">
                   <i className="fas fa-phone"></i>
-                  <input type="text" className="input-field" placeholder="Telefone" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
+                  <input type="text" className="input-field" placeholder="Telefone" required value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
                 </div>
                 <div className="input-group">
                   <i className="fas fa-envelope-open"></i>

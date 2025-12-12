@@ -170,6 +170,54 @@ export default function Layout({ children, currentPageName }) {
     return () => { if (navigator.serviceWorker) navigator.serviceWorker.removeEventListener('controllerchange', updateSw); };
   }, []);
 
+  // Sincroniza dados do cadastro (signup_profile) com o Supabase
+  useEffect(() => {
+    const syncSignupProfile = async () => {
+      if (!user) return;
+      const savedProfile = window.localStorage.getItem('signup_profile')
+      if (!savedProfile) return
+
+      try {
+        const profile = JSON.parse(savedProfile)
+
+        // 1. Atualizar user_metadata com telefone para recall
+        if (supabase) {
+          await supabase.auth.updateUser({
+            data: {
+              company_name: profile.companyName,
+              phone: profile.companyPhone,
+              company_phone: profile.companyPhone,
+              segment: profile.companySegment
+            }
+          })
+        }
+
+        // 2. Atualizar config do ERP
+        const settingsPayload = {
+          erp_name: profile.companyName,
+          contact_email: profile.companyEmail,
+        }
+
+        // Tenta salvar via base44 entities
+        try {
+          const existing = await base44.entities.Settings.list()
+          if (existing && existing.length > 0) {
+            await base44.entities.Settings.update(existing[0].id, settingsPayload)
+          } else {
+            await base44.entities.Settings.create(settingsPayload)
+          }
+        } catch (e) { console.warn('Erro ao salvar settings iniciais do signup:', e) }
+
+        // Limpa
+        window.localStorage.removeItem('signup_profile')
+      } catch (err) {
+        console.error('Erro ao sincronizar perfil de cadastro:', err)
+      }
+    }
+
+    syncSignupProfile()
+  }, [user])
+
   const allNavItems = [
     { name: "Dashboard", path: createPageUrl("Dashboard"), icon: LayoutDashboard, tutorialId: "dashboard-link" },
     { name: "Caixa", path: createPageUrl("Cashier"), icon: ShoppingCart, tutorialId: "cashier-link" },
