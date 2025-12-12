@@ -7,14 +7,14 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X, Users } from 'lucide-react'
+import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X, Users, Package } from 'lucide-react'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import SubscriptionLockOverlay from '@/components/SubscriptionLockOverlay'
 import RequirePermission from '@/components/RequirePermission'
 
 export default function Settings() {
-  // ... existing state
+  const { user } = useAuth()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   // Staff State
@@ -41,6 +41,11 @@ export default function Settings() {
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
   const [methodToRemove, setMethodToRemove] = useState(null)
   const [portalBusy, setPortalBusy] = useState(false)
+
+  // Wholesale State
+  const [wholesaleEnabled, setWholesaleEnabled] = useState(false)
+  const [wholesaleType, setWholesaleType] = useState('global') // 'global' | 'item'
+  const [wholesaleMinCount, setWholesaleMinCount] = useState(5)
 
   useEffect(() => {
     loadStaff()
@@ -84,8 +89,6 @@ export default function Settings() {
     } catch (err) { alert('Erro ao remover') }
   }
 
-  // ... existing logic
-
   const effective = useEffectiveSettings()
   useEffect(() => {
     if (!effective) return
@@ -101,6 +104,12 @@ export default function Settings() {
     setCompanyState(effective.company_state || '')
     setCompanyZip(effective.company_zip || '')
     setCompanyEmail(effective.contact_email || '')
+
+    // Wholesale load
+    setWholesaleEnabled(!!effective.wholesale_enabled)
+    setWholesaleType(effective.wholesale_type || 'global')
+    setWholesaleMinCount(typeof effective.wholesale_min_count === 'number' ? effective.wholesale_min_count : 5)
+
     setIsLoading(false)
   }, [effective])
 
@@ -128,6 +137,10 @@ export default function Settings() {
       company_state: companyState,
       company_zip: companyZip,
       contact_email: companyEmail,
+      // Wholesale save
+      wholesale_enabled: wholesaleEnabled,
+      wholesale_type: wholesaleType,
+      wholesale_min_count: Number(wholesaleMinCount) || 1,
     }
     try {
       if (settings) {
@@ -145,6 +158,24 @@ export default function Settings() {
       alert(`Não foi possível salvar: ${err?.message || 'erro desconhecido'}`)
     }
   }
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const patch = {
+          wholesale_enabled: wholesaleEnabled,
+          wholesale_type: wholesaleType,
+          wholesale_min_count: Number(wholesaleMinCount) || 1,
+        }
+        if (settings) {
+          const updated = await base44.entities.Settings.update(settings.id, patch)
+          setSettings(updated)
+          try { localStorage.setItem('settings', JSON.stringify([updated])) } catch {}
+        }
+      } catch {}
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [wholesaleEnabled, wholesaleType, wholesaleMinCount])
 
   const manageSubscription = async () => {
     try {
@@ -332,6 +363,82 @@ export default function Settings() {
                       {paymentMethods.length === 0 && <span className="text-sm text-gray-400 italic">Nenhum meio extra configurado.</span>}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Wholesale Settings (New) */}
+              <Card className="shadow-sm border-gray-100 rounded-3xl overflow-hidden">
+                <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                    <Package className="w-5 h-5 text-amber-600" /> Atacado & Varejo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="wholesaleEnabled"
+                      checked={wholesaleEnabled}
+                      onChange={(e) => setWholesaleEnabled(e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <Label htmlFor="wholesaleEnabled" className="text-base font-medium text-gray-900 cursor-pointer">
+                      Vender em Atacado?
+                    </Label>
+                  </div>
+
+                  {wholesaleEnabled && (
+                    <div className="pl-8 space-y-6 border-l-2 border-gray-100 ml-2 animate-in slide-in-from-top-2">
+                      <div className="space-y-3">
+                        <Label className="text-gray-700 font-semibold">Regra de Ativação do Preço de Atacado</Label>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div
+                            onClick={() => setWholesaleType('global')}
+                            className={`cursor-pointer border-2 rounded-2xl p-4 transition-all hover:bg-gray-50 ${wholesaleType === 'global' ? 'border-blue-500 bg-blue-50/30' : 'border-gray-200'}`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${wholesaleType === 'global' ? 'border-blue-600' : 'border-gray-300'}`}>
+                                {wholesaleType === 'global' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                              </div>
+                              <span className="font-semibold text-gray-900">Misto (Global)</span>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              O cliente paga preço de atacado se levar <strong>{wholesaleMinCount} ou mais unidades</strong> somando qualquer produto do carrinho.
+                            </p>
+                          </div>
+
+                          <div
+                            onClick={() => setWholesaleType('item')}
+                            className={`cursor-pointer border-2 rounded-2xl p-4 transition-all hover:bg-gray-50 ${wholesaleType === 'item' ? 'border-blue-500 bg-blue-50/30' : 'border-gray-200'}`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${wholesaleType === 'item' ? 'border-blue-600' : 'border-gray-300'}`}>
+                                {wholesaleType === 'item' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                              </div>
+                              <span className="font-semibold text-gray-900">Por Item</span>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              O preço de atacado aplica-se apenas aos itens que tiverem <strong>{wholesaleMinCount} ou mais unidades</strong> do mesmo produto.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 max-w-xs">
+                        <Label className="text-gray-700">Quantidade Mínima (X)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={wholesaleMinCount}
+                          onChange={(e) => setWholesaleMinCount(e.target.value)}
+                          className="h-11 rounded-xl border-gray-200"
+                        />
+                        <p className="text-xs text-gray-500">
+                          Quantidade necessária para ativar o preço de atacado conforme a regra acima.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

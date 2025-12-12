@@ -288,7 +288,20 @@ export default function CashierPayment() {
   };
 
   const handleFinalizeSale = async () => {
-    const total = calculateTotal();
+    const minCount = Number(settings?.wholesale_min_count || 0)
+    const totalQty = cart.reduce((s, it) => s + (it.quantity || 0), 0)
+    const effectiveItems = cart.map((item) => {
+      const product = products.find((p) => p.id === item.product_id)
+      const w = product?.wholesale_price
+      const hasW = w !== undefined && w !== null
+      let price = item.unit_price
+      if (settings?.wholesale_enabled && hasW) {
+        if (settings?.wholesale_type === 'global' && totalQty >= minCount) price = Number(w)
+        if (settings?.wholesale_type === 'item' && item.quantity >= minCount) price = Number(w)
+      }
+      return { ...item, unit_price: Number(price), total_price: Number(price) * Number(item.quantity || 0) }
+    })
+    const total = effectiveItems.reduce((sum, it) => sum + (it.total_price || 0), 0)
     const finalTotalLocal = Math.max(0, total - discountAmount() - cashbackToUse);
 
     if (payments.length === 0) {
@@ -328,12 +341,12 @@ export default function CashierPayment() {
         sale_date: saleDateIso,
         customer_id: selectedCustomer?.id || null,
         customer_name: selectedCustomer?.name || null,
-        items: cart.map((item) => ({
+        items: effectiveItems.map((item) => ({
           product_id: item.product_id,
           name: item.product_name,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          total_price: item.unit_price * item.quantity,
+          total_price: item.total_price,
         })),
         total_amount: total,
         discount_amount: discountAmount(),

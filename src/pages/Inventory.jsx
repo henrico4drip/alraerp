@@ -24,6 +24,7 @@ export default function Inventory() {
     name: "",
     barcode: "",
     price: "",
+    wholesale_price: "",
     promo_price: "",
     cost: "",
     stock: "",
@@ -84,6 +85,7 @@ export default function Inventory() {
         name: product.name || "",
         barcode: product.barcode || "",
         price: product.price || "",
+        wholesale_price: product.wholesale_price || "",
         promo_price: product.promo_price || "",
         cost: product.cost || "",
         stock: product.stock || "",
@@ -95,6 +97,7 @@ export default function Inventory() {
         name: "",
         barcode: "",
         price: "",
+        wholesale_price: "",
         promo_price: "",
         cost: "",
         stock: "",
@@ -114,6 +117,7 @@ export default function Inventory() {
     const data = {
       ...formData,
       price: parseFloat(formData.price),
+      wholesale_price: formData.wholesale_price ? parseFloat(formData.wholesale_price) : null,
       promo_price: formData.promo_price ? parseFloat(formData.promo_price) : null,
       cost: parseFloat(formData.cost || 0),
       stock: parseInt(formData.stock || 0),
@@ -364,6 +368,18 @@ export default function Inventory() {
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     required
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="wholesale_price" className="text-sm text-gray-700">Preço de Atacado</Label>
+                  <Input
+                    id="wholesale_price"
+                    type="number"
+                    step="0.01"
+                    value={formData.wholesale_price}
+                    onChange={(e) => setFormData({ ...formData, wholesale_price: e.target.value })}
+                    placeholder="Opcional"
                     className="rounded-xl border-gray-200"
                   />
                 </div>

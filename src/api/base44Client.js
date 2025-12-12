@@ -75,6 +75,7 @@ function normalizePayload(table, obj) {
   const n = { ...obj }
   if (table === 'products') {
     if (n.price !== undefined) n.price = normalizeNumber(n.price)
+    if (n.wholesale_price !== undefined) n.wholesale_price = normalizeNumber(n.wholesale_price)
     if (n.cost !== undefined) n.cost = normalizeNumber(n.cost)
     if (n.stock !== undefined) n.stock = normalizeNumber(n.stock)
   } else if (table === 'sales') {

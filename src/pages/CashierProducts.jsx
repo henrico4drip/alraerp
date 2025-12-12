@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, ShoppingCart, Minus, Trash2, Package, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCashier } from "@/context/CashierContext";
+import { useEffectiveSettings } from "@/hooks/useEffectiveSettings";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -89,6 +90,23 @@ export default function CashierProducts() {
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list(),
   });
+
+  const settings = useEffectiveSettings();
+  const minCount = Number(settings?.wholesale_min_count || 0);
+  const wholesaleType = settings?.wholesale_type || 'global';
+  const wholesaleEnabled = Boolean(settings?.wholesale_enabled);
+  const totalQty = cart.reduce((s, it) => s + (it.quantity || 0), 0);
+  const unitForItem = (item) => {
+    const product = products.find((p) => p.id === item.product_id);
+    const w = product?.wholesale_price;
+    const hasW = typeof w === 'number' && !isNaN(w);
+    if (wholesaleEnabled && hasW) {
+      if (wholesaleType === 'global' && totalQty >= minCount) return Number(w);
+      if (wholesaleType === 'item' && item.quantity >= minCount) return Number(w);
+    }
+    return item.unit_price;
+  };
+  const effectiveTotal = cart.reduce((sum, it) => sum + unitForItem(it) * (it.quantity || 0), 0);
 
   const createProductMutation = useMutation({
     mutationFn: (data) => base44.entities.Product.create(data),
@@ -255,10 +273,10 @@ export default function CashierProducts() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
                       <h4 className="font-semibold text-gray-900 text-sm truncate pr-2">{item.product_name}</h4>
-                      <p className="font-bold text-gray-900 text-sm">R$ {(item.unit_price * item.quantity).toFixed(2)}</p>
+                      <p className="font-bold text-gray-900 text-sm">R$ {(unitForItem(item) * item.quantity).toFixed(2)}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-500">Unit: R$ {item.unit_price.toFixed(2)}</p>
+                      <p className="text-xs text-gray-500">Unit: R$ {unitForItem(item).toFixed(2)}</p>
                       <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
                         <button
                           onClick={() => {
@@ -294,7 +312,7 @@ export default function CashierProducts() {
               <div>
                 <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Total a Pagar</p>
                 <h3 className="text-3xl font-bold text-gray-900 tracking-tight">
-                  R$ {calculateTotal().toFixed(2)}
+                  R$ {effectiveTotal.toFixed(2)}
                 </h3>
               </div>
               {/* <div className="text-right">

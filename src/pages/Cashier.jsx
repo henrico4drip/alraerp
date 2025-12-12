@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useEffectiveSettings } from '@/hooks/useEffectiveSettings';
 import {
   Search,
   Plus,
@@ -16,7 +17,7 @@ import {
   Check,
   UserPlus,
   FileText,
-  Pencil
+  Edit
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -39,47 +40,43 @@ export default function Cashier() {
   const [cashbackToUse, setCashbackToUse] = useState(0);
   const [observations, setObservations] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
-  const [settings, setSettings] = useState(null);
+  const settings = useEffectiveSettings();
+
+  // Customer Dialog
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({
     name: "",
     phone: "",
     email: "",
   });
+
   const [lastSale, setLastSale] = useState(null);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const searchRef = useRef(null);
   const queryClient = useQueryClient();
 
-  const [showNewProductDialog, setShowNewProductDialog] = useState(false);
-  const [newProductForm, setNewProductForm] = useState({
+  // Product Dialog & State
+  const [showProductDialog, setShowProductDialog] = useState(false);
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [productForm, setProductForm] = useState({
     name: "",
     barcode: "",
     price: "",
+    wholesale_price: "",
+    promo_price: "",
     cost: "",
     stock: "",
     category: "",
   });
+
   const [payments, setPayments] = useState([]);
   const [paymentDraft, setPaymentDraft] = useState({ method: "", amount: "", installments: 1 });
+
   // Confirm dialogs states
   const [showConfirmRemoveCartItem, setShowConfirmRemoveCartItem] = useState(false);
   const [confirmRemoveCartItemId, setConfirmRemoveCartItemId] = useState(null);
   const [showConfirmRemovePayment, setShowConfirmRemovePayment] = useState(false);
   const [confirmRemovePaymentIdx, setConfirmRemovePaymentIdx] = useState(null);
-
-  const [editingCartItem, setEditingCartItem] = useState(null);
-  const [newPrice, setNewPrice] = useState("");
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      const settingsList = await base44.entities.Settings.list();
-      if (settingsList.length > 0) {
-        setSettings(settingsList[0]);
-      }
-    };
-    fetchSettings();
-  }, []);
 
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -92,6 +89,77 @@ export default function Cashier() {
     queryFn: () => base44.entities.Customer.list(),
     initialData: [],
   });
+
+  // Debug: Inspecionar produtos carregados para ver se wholesale_price existe
+  useEffect(() => {
+    if (products.length > 0) {
+      console.log('Produtos carregados no Caixa:', products.map(p => ({
+        nome: p.name,
+        preco: p.price,
+        atacado: p.wholesale_price,
+        tipo_atacado: typeof p.wholesale_price
+      })));
+    }
+  }, [products]);
+
+  // --- Simplificação da Lógica de Atacado ---
+  // A lógica é: (Qtd >= Mínimo) E (Tem Preço Atacado) -> Preço Atacado
+  const recalculatePrices = (currentCartItems) => {
+    if (!currentCartItems?.length || !products?.length) return currentCartItems;
+
+    const minCount = Number(settings?.wholesale_min_count) || 1;
+    const isWholesaleEnabled = settings?.wholesale_enabled;
+    const wholesaleType = settings?.wholesale_type || 'global';
+
+    // Calcula quantidade total para regra global
+    const totalCartQty = currentCartItems.reduce((acc, item) => acc + (item.quantity || 0), 0);
+
+    return currentCartItems.map(item => {
+      const product = products.find(p => p.id === item.product_id);
+      if (!product) return item;
+
+      // 1. Preço Base (Venda)
+      let finalPrice = Number(product.price || 0);
+
+      // 2. Verifica Regra de Atacado
+      let applyWholesale = false;
+
+      if (isWholesaleEnabled) {
+        if (wholesaleType === 'global') {
+          // Regra Global: Soma de todos os itens >= Mínimo
+          if (totalCartQty >= minCount) applyWholesale = true;
+        } else {
+          // Regra Por Item: Quantidade DESTE item >= Mínimo
+          if (item.quantity >= minCount) applyWholesale = true;
+        }
+      }
+
+      // Se regra ativa E produto tem preço definido, aplica
+      const wp = Number(product.wholesale_price);
+      if (applyWholesale && wp > 0) {
+        finalPrice = wp;
+      }
+
+      // 3. Preço Promocional (Opcional: se promo for menor que atacado, vence)
+      const promo = Number(product.promo_price);
+      if (promo > 0 && promo < finalPrice) {
+        finalPrice = promo;
+      }
+
+      return { ...item, unit_price: finalPrice };
+    });
+  };
+
+  // Wrapper para garantir atualização do estado
+  const updateCart = (newCart) => {
+    setCart(recalculatePrices(newCart));
+  };
+
+  // Garante que se as configurações ou produtos mudarem, o carrinho atualiza
+  useEffect(() => {
+    setCart(prev => recalculatePrices(prev));
+  }, [settings?.wholesale_enabled, settings?.wholesale_type, settings?.wholesale_min_count, products]);
+  // ---------------------------------
 
   const createSaleMutation = useMutation({
     mutationFn: (saleData) => base44.entities.Sale.create(saleData),
@@ -126,19 +194,52 @@ export default function Cashier() {
     },
   });
 
-  const createProductMutation = useMutation({
-    mutationFn: (data) => base44.entities.Product.create(data),
-    onSuccess: () => {
+  const handleOpenProductDialog = (product = null) => {
+    if (product) {
+      setEditingProductId(product.id);
+      setProductForm({
+        name: product.name || "",
+        barcode: product.barcode || "",
+        price: product.price || "",
+        wholesale_price: product.wholesale_price || "",
+        promo_price: product.promo_price || "",
+        cost: product.cost || "",
+        stock: product.stock || "",
+        category: product.category || "",
+      });
+    } else {
+      setEditingProductId(null);
+      setProductForm({ name: "", barcode: "", price: "", wholesale_price: "", promo_price: "", cost: "", stock: "", category: "" });
+    }
+    setShowProductDialog(true);
+  };
+
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+    const payload = {
+      ...productForm,
+      price: parseFloat(productForm.price),
+      wholesale_price: productForm.wholesale_price ? parseFloat(productForm.wholesale_price) : null,
+      promo_price: productForm.promo_price ? parseFloat(productForm.promo_price) : null,
+      cost: parseFloat(productForm.cost || 0),
+      stock: parseInt(productForm.stock || 0),
+    };
+
+    try {
+      if (editingProductId) {
+        await base44.entities.Product.update(editingProductId, payload);
+      } else {
+        await base44.entities.Product.create(payload);
+      }
       queryClient.invalidateQueries(['products']);
-      setShowNewProductDialog(false);
-      setNewProductForm({ name: "", barcode: "", price: "", cost: "", stock: "", category: "" });
-    },
-  });
+      setShowProductDialog(false);
+    } catch (err) {
+      alert("Erro ao salvar produto");
+    }
+  };
 
   const handleSearchProducts = (value) => {
     setSearchTerm(value);
-
-    // Try to find by barcode first
     const productByBarcode = products.find(p => p.barcode === value);
     if (productByBarcode) {
       addToCart(productByBarcode);
@@ -149,36 +250,36 @@ export default function Cashier() {
 
   const addToCart = (product) => {
     const existingItem = cart.find(item => item.product_id === product.id);
-    const price = Number(product.price || 0);
-    const promo = Number(product.promo_price || 0);
-    const effectivePrice = (product.promo_price && promo < price) ? promo : price;
-
+    let nextCart;
     if (existingItem) {
-      setCart(cart.map(item =>
+      nextCart = cart.map(item =>
         item.product_id === product.id
           ? { ...item, quantity: item.quantity + 1 }
           : item
-      ));
+      );
     } else {
-      setCart([...cart, {
+      nextCart = [...cart, {
         product_id: product.id,
         product_name: product.name,
-        unit_price: effectivePrice,
+        unit_price: product.price, // Will be fixed by updateCart
         quantity: 1
-      }]);
+      }];
     }
+    updateCart(nextCart);
   };
 
   const updateQuantity = (productId, change) => {
-    setCart(cart.map(item =>
+    const nextCart = cart.map(item =>
       item.product_id === productId
         ? { ...item, quantity: Math.max(1, item.quantity + change) }
         : item
-    ).filter(item => item.quantity > 0));
+    ).filter(item => item.quantity > 0);
+    updateCart(nextCart);
   };
 
   const removeFromCart = (productId) => {
-    setCart(cart.filter(item => item.product_id !== productId));
+    const nextCart = cart.filter(item => item.product_id !== productId);
+    updateCart(nextCart);
   };
 
   const calculateTotal = () => {
@@ -236,7 +337,6 @@ export default function Cashier() {
 
     const finalTotal = total - cashbackUsed;
 
-    // Validate payments cover finalTotal
     const sum = sumPayments();
     if (Number(sum.toFixed(2)) < Number(finalTotal.toFixed(2))) {
       alert(`Pagamentos insuficientes. Faltam R$ ${(finalTotal - sum).toFixed(2)}.`);
@@ -308,7 +408,6 @@ export default function Cashier() {
 
     setLastSale(createdSale || saleData);
     setShowReceiptDialog(true);
-
     setCart([]);
     setSelectedCustomer(null);
     setPaymentMethod("");
@@ -462,10 +561,18 @@ export default function Cashier() {
                 </div>
 
                 <div className="mb-3">
-                  <Button onClick={() => setShowNewProductDialog(true)} className="rounded-xl bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={() => handleOpenProductDialog()} className="rounded-xl bg-blue-600 hover:bg-blue-700">
                     <Plus className="w-4 h-4 mr-2" /> Novo Produto
                   </Button>
                 </div>
+
+                {/* DEBUG: Visualizar dados brutos do primeiro produto */}
+                {products.length > 0 && (
+                  <div className="mb-4 p-2 bg-blue-50 text-xs font-mono text-blue-800 rounded border border-blue-200 overflow-auto">
+                    <strong>Debug Produto (Primeiro da lista):</strong>
+                    <pre>{JSON.stringify(products[0], null, 2)}</pre>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-80 overflow-y-auto">
                   {filteredProducts.map((product, index) => (
@@ -484,9 +591,24 @@ export default function Cashier() {
                           />
                         )}
                         <h3 className="font-medium text-sm line-clamp-2 text-gray-900">{product.name}</h3>
-                        <p className="text-green-600 font-semibold mt-1 text-sm">R$ {product.price?.toFixed(2)}</p>
+                        <div className="mt-1 flex flex-col">
+                          <span className="text-green-600 font-semibold text-sm">R$ {product.price?.toFixed(2)}</span>
+
+                          {/* Visualização Forçada do Status de Atacado */}
+                          <div className="text-[10px] bg-gray-100 p-1 rounded mt-1">
+                            <p>Atacado: {product.wholesale_price !== undefined ? product.wholesale_price : 'ND'}</p>
+                            <p>Config Ativo: {settings?.wholesale_enabled ? 'Sim' : 'Não'}</p>
+                            <p>Qtd Ativadora: {settings?.wholesale_min_count}</p>
+                          </div>
+
+                          {Number(product.wholesale_price) > 0 && (
+                            <span className="text-xs text-amber-600 font-bold mt-1 block">
+                              ★ PREÇO ATACADO: R$ {Number(product.wholesale_price).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
                         {product.stock !== undefined && (
-                          <p className="text-xs text-gray-500">Estoque: {product.stock}</p>
+                          <p className="text-xs text-gray-500 mt-1">Estoque: {product.stock}</p>
                         )}
                       </CardContent>
                     </Card>
@@ -809,7 +931,7 @@ export default function Cashier() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="prod-price" className="text-sm text-gray-700">Preço de Venda *</Label>
+                  <Label htmlFor="prod-price" className="text-sm text-gray-700">Preço Venda *</Label>
                   <Input
                     id="prod-price"
                     type="number"
@@ -822,7 +944,22 @@ export default function Cashier() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="prod-promo" className="text-sm text-gray-700">Preço Promocional</Label>
+                  <Label htmlFor="prod-wholesale" className="text-sm text-gray-700">Atacado</Label>
+                  <Input
+                    id="prod-wholesale"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={productForm.wholesale_price}
+                    onChange={(e) => setProductForm({ ...productForm, wholesale_price: e.target.value })}
+                    placeholder="Opcional"
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="prod-promo" className="text-sm text-gray-700">Promocional</Label>
                   <Input
                     id="prod-promo"
                     type="number"
@@ -831,6 +968,17 @@ export default function Cashier() {
                     value={productForm.promo_price}
                     onChange={(e) => setProductForm({ ...productForm, promo_price: e.target.value })}
                     placeholder="Opcional"
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="prod-cost" className="text-sm text-gray-700">Custo</Label>
+                  <Input
+                    id="prod-cost"
+                    type="number"
+                    step="0.01"
+                    value={productForm.cost}
+                    onChange={(e) => setProductForm({ ...productForm, cost: e.target.value })}
                     className="rounded-xl border-gray-200"
                   />
                 </div>
