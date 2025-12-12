@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useEffectiveSettings } from "@/hooks/useEffectiveSettings";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,8 @@ import PrintLabelsModal from "@/components/PrintLabelsModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function Inventory() {
+  const settingsEff = useEffectiveSettings();
+  const wholesaleEnabled = !!settingsEff?.wholesale_enabled;
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState({
@@ -28,6 +31,7 @@ export default function Inventory() {
     promo_price: "",
     cost: "",
     stock: "",
+    wholesale_stock: "",
     category: "",
   });
   const [showConfirmDeleteProduct, setShowConfirmDeleteProduct] = useState(false);
@@ -89,6 +93,7 @@ export default function Inventory() {
         promo_price: product.promo_price || "",
         cost: product.cost || "",
         stock: product.stock || "",
+        wholesale_stock: product.wholesale_stock || "",
         category: product.category || "",
       });
     } else {
@@ -101,6 +106,7 @@ export default function Inventory() {
         promo_price: "",
         cost: "",
         stock: "",
+        wholesale_stock: "",
         category: "",
       });
     }
@@ -121,6 +127,7 @@ export default function Inventory() {
       promo_price: formData.promo_price ? parseFloat(formData.promo_price) : null,
       cost: parseFloat(formData.cost || 0),
       stock: parseInt(formData.stock || 0),
+      wholesale_stock: formData.wholesale_stock !== "" ? parseInt(formData.wholesale_stock || 0) : undefined,
     };
 
     const generateEAN13 = () => {
@@ -371,18 +378,20 @@ export default function Inventory() {
                     className="rounded-xl border-gray-200"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="wholesale_price" className="text-sm text-gray-700">Preço de Atacado</Label>
-                  <Input
-                    id="wholesale_price"
-                    type="number"
-                    step="0.01"
-                    value={formData.wholesale_price}
-                    onChange={(e) => setFormData({ ...formData, wholesale_price: e.target.value })}
-                    placeholder="Opcional"
-                    className="rounded-xl border-gray-200"
-                  />
-                </div>
+                {wholesaleEnabled && (
+                  <div>
+                    <Label htmlFor="wholesale_price" className="text-sm text-gray-700">Preço de Atacado</Label>
+                    <Input
+                      id="wholesale_price"
+                      type="number"
+                      step="0.01"
+                      value={formData.wholesale_price}
+                      onChange={(e) => setFormData({ ...formData, wholesale_price: e.target.value })}
+                      placeholder="Opcional"
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="promo_price" className="text-sm text-gray-700">Preço Promocional</Label>
                   <Input
@@ -419,6 +428,18 @@ export default function Inventory() {
                     className="rounded-xl border-gray-200"
                   />
                 </div>
+                {wholesaleEnabled && (
+                  <div>
+                    <Label htmlFor="wholesale_stock" className="text-sm text-gray-700">Estoque Atacado</Label>
+                    <Input
+                      id="wholesale_stock"
+                      type="number"
+                      value={formData.wholesale_stock}
+                      onChange={(e) => setFormData({ ...formData, wholesale_stock: e.target.value })}
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="category" className="text-sm text-gray-700">Categoria</Label>
                   <Input

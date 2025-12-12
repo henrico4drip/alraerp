@@ -395,6 +395,17 @@ export default function CashierProducts() {
                   className="h-11 rounded-xl border-gray-200 bg-gray-50"
                 />
               </div>
+              {wholesaleEnabled && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-gray-500 uppercase">Estoque Atacado</Label>
+                  <Input
+                    type="number"
+                    value={newProductForm.wholesale_stock}
+                    onChange={(e) => setNewProductForm({ ...newProductForm, wholesale_stock: e.target.value })}
+                    className="h-11 rounded-xl border-gray-200 bg-gray-50"
+                  />
+                </div>
+              )}
               <div className="space-y-1">
                 <Label className="text-xs font-semibold text-gray-500 uppercase">Código de Barras</Label>
                 <Input

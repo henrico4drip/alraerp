@@ -378,15 +378,22 @@ export default function CashierPayment() {
         });
       }
 
-      for (const item of cart) {
+      const minCountUpd = Number(settings?.wholesale_min_count || 0)
+      const totalQtyUpd = effectiveItems.reduce((s, it) => s + (it.quantity || 0), 0)
+      for (const item of effectiveItems) {
         const product = products.find((p) => p.id === item.product_id);
-        if (product) {
-          await updateProductMutation.mutateAsync({
-            id: product.id,
-            data: {
-              stock: (product.stock || 0) - item.quantity,
-            },
-          });
+        if (!product) continue;
+        let useWholesale = false;
+        if (settings?.wholesale_enabled && product?.wholesale_price != null) {
+          if (settings?.wholesale_type === 'global' && totalQtyUpd >= minCountUpd) useWholesale = true;
+          if (settings?.wholesale_type === 'item' && item.quantity >= minCountUpd) useWholesale = true;
+        }
+        if (useWholesale) {
+          const newW = Math.max(0, Number(product.wholesale_stock || 0) - Number(item.quantity || 0));
+          await updateProductMutation.mutateAsync({ id: product.id, data: { wholesale_stock: newW } });
+        } else {
+          const newStock = Math.max(0, Number(product.stock || 0) - Number(item.quantity || 0));
+          await updateProductMutation.mutateAsync({ id: product.id, data: { stock: newStock } });
         }
       }
 
