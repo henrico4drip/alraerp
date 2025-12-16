@@ -17,3 +17,7 @@ export function CardTitle({ children, className = '', ...props }) {
 export function CardContent({ children, className = '', ...props }) {
   return <div className={`p-4 ${className}`} {...props}>{children}</div>
 }
+
+export function CardFooter({ children, className = '', ...props }) {
+  return <div className={`p-4 border-t border-gray-100 ${className}`} {...props}>{children}</div>
+}
