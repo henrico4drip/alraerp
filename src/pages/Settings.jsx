@@ -28,6 +28,7 @@ export default function Settings() {
   const [isLoading, setIsLoading] = useState(true)
   const [settings, setSettings] = useState(null)
   const [erpName, setErpName] = useState('')
+  const [slug, setSlug] = useState('')
   const [cashbackPercentage, setCashbackPercentage] = useState(5)
   const [cashbackExpirationDays, setCashbackExpirationDays] = useState(30)
   const [paymentMethods, setPaymentMethods] = useState([])
@@ -93,7 +94,7 @@ export default function Settings() {
   const effective = useEffectiveSettings()
   const { restartTutorial, startTutorial } = useTutorial()
   const handleRestartTutorial = () => {
-    try { localStorage.removeItem('tutorial_completed') } catch {}
+    try { localStorage.removeItem('tutorial_completed') } catch { }
     if (typeof restartTutorial === 'function') restartTutorial()
     else if (typeof startTutorial === 'function') startTutorial()
   }
@@ -101,6 +102,7 @@ export default function Settings() {
     if (!effective) return
     setSettings(effective)
     setErpName(effective.erp_name || '')
+    setSlug(effective.slug || '')
     setCashbackPercentage(typeof effective.cashback_percentage === 'number' ? effective.cashback_percentage : 5)
     setCashbackExpirationDays(typeof effective.cashback_expiration_days === 'number' ? effective.cashback_expiration_days : 30)
     setPaymentMethods(Array.isArray(effective.payment_methods) ? effective.payment_methods : [])
@@ -134,6 +136,7 @@ export default function Settings() {
   const save = async () => {
     const payload = {
       erp_name: erpName,
+      slug: slug ? slug.toLowerCase().replace(/[^a-z0-9-]/g, '-') : undefined,
       cashback_percentage: Number(cashbackPercentage) || 0,
       cashback_expiration_days: Number(cashbackExpirationDays) || 30,
       payment_methods: paymentMethods,
@@ -177,9 +180,9 @@ export default function Settings() {
         if (settings) {
           const updated = await base44.entities.Settings.update(settings.id, patch)
           setSettings(updated)
-          try { localStorage.setItem('settings', JSON.stringify([updated])) } catch {}
+          try { localStorage.setItem('settings', JSON.stringify([updated])) } catch { }
         }
-      } catch {}
+      } catch { }
     }, 300)
     return () => clearTimeout(timer)
   }, [wholesaleEnabled, wholesaleType, wholesaleMinCount])
@@ -289,6 +292,21 @@ export default function Settings() {
                           className="h-12 rounded-xl text-lg border-gray-200 focus:border-blue-500 bg-white"
                         />
                         <p className="text-xs text-gray-500">Este nome aparecerá no topo do menu e nos comprovantes.</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-gray-700">Link Personalizado da Loja (Slug)</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400 text-sm">alraerp.com.br/</span>
+                          <Input
+                            value={slug}
+                            onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                            placeholder="minha-loja"
+                            className="h-12 rounded-xl text-lg border-gray-200 focus:border-blue-500 bg-white"
+                          />
+                          <span className="text-gray-400 text-sm">/cashback</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Identificador único para o link de consulta de saldo enviado no WhatsApp.</p>
                       </div>
                     </div>
                   </div>

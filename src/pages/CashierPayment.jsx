@@ -449,7 +449,17 @@ export default function CashierPayment() {
 
     const earned = Number(lastSale.cashback_earned || 0).toFixed(2);
     const firstName = customer?.name ? customer.name.split(' ')[0] : "";
-    const msg = `Olá${firstName ? ` ${firstName}` : ""}! Você ganhou R$ ${earned} de cashback nesta compra. Seu saldo total de cashback é R$ ${balance} e vence em ${expDays} dias (até ${expiresStr}). Obrigado!`;
+
+    // Gera link do portal (usa slug se tiver, ou avisa)
+    const storeSlug = settings?.slug;
+    const portalLink = storeSlug ? `https://alraerp.com.br/${storeSlug}/cashback` : '';
+
+    let msg = `Olá${firstName ? ` ${firstName}` : ""}! Você ganhou R$ ${earned} de cashback nesta compra. Seu saldo total de cashback é R$ ${balance} e vence em ${expDays} dias (até ${expiresStr}).`;
+
+    if (portalLink) {
+      msg += ` Confira seu extrato completo em: ${portalLink}`;
+    }
+    msg += ` Obrigado!`;
 
     if (!phoneWithCountry) {
       alert("Cliente sem telefone válido para WhatsApp.");

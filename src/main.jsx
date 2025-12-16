@@ -31,6 +31,7 @@ import Support from './pages/Support'
 import PaymentCallback from './pages/PaymentCallback'
 import { base44 } from './api/base44Client'
 import { useProfile, ProfileProvider } from './context/ProfileContext'
+import CustomerLogin from './pages/CustomerLogin'
 
 const queryClient = new QueryClient()
 
@@ -250,6 +251,7 @@ function App() {
                 path="/payments"
                 element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Payments"><Payments /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
+              <Route path="/:storeSlug/cashback" element={<CustomerLogin />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
