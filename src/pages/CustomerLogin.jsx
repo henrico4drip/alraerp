@@ -22,14 +22,20 @@ export default function CustomerLogin() {
     const [expandedSale, setExpandedSale] = useState(null)
 
     const [storeInfo, setStoreInfo] = useState(null)
+    const [loadingStore, setLoadingStore] = useState(true)
 
     useEffect(() => {
         if (storeSlug) {
+            setLoadingStore(true)
             supabase.rpc('get_store_public_info', { p_slug: storeSlug })
-                .then(({ data }) => {
+                .then(({ data, error }) => {
+                    if (error) console.error('Erro ao buscar loja:', error)
                     if (data && data[0]) setStoreInfo(data[0])
                 })
                 .catch(err => console.error('Erro ao buscar loja:', err))
+                .finally(() => setLoadingStore(false))
+        } else {
+            setLoadingStore(false)
         }
     }, [storeSlug])
 
@@ -248,7 +254,11 @@ export default function CustomerLogin() {
             <div className="relative z-10 w-full max-w-md m-auto p-6">
                 <Card className="w-full shadow-2xl border-0 bg-white/10 backdrop-blur-xl text-white rounded-3xl overflow-hidden ring-1 ring-white/20">
                     <CardHeader className="text-center pb-2 pt-8 border-b border-white/5">
-                        {storeInfo?.logo_url ? (
+                        {loadingStore ? (
+                            <div className="w-20 h-20 bg-white/10 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/10 transform rotate-3 animate-pulse">
+                                <Store className="w-8 h-8 text-white/20" />
+                            </div>
+                        ) : storeInfo?.logo_url ? (
                             <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/20 transform rotate-3 p-1">
                                 <img src={storeInfo.logo_url} alt={storeInfo.store_name} className="w-full h-full object-contain rounded-2xl" />
                             </div>
