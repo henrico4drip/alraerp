@@ -39,6 +39,21 @@ export default function CustomerLogin() {
         }
     }, [storeSlug])
 
+    useEffect(() => {
+        const url = customerData?.logo_url || storeInfo?.logo_url
+        if (!url) return
+        try {
+            let link = document.querySelector('link[rel="icon"]')
+            if (!link) {
+                link = document.createElement('link')
+                link.setAttribute('rel', 'icon')
+                document.head.appendChild(link)
+            }
+            link.setAttribute('href', url)
+            link.setAttribute('type', 'image/png')
+        } catch {}
+    }, [customerData?.logo_url, storeInfo?.logo_url])
+
     const handleLogin = async (e) => {
         e.preventDefault()
         setLoading(true)
