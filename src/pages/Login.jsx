@@ -59,6 +59,30 @@ export default function Login() {
         window.localStorage.setItem('registration_completed', 'true') // Pixel tracking
         const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         window.localStorage.setItem('trial_until', until.toISOString())
+
+        // Persist Trial & Company Info to DB
+        if (res?.user?.id && supabase) {
+          try {
+            const { data: existing } = await supabase.from('settings').select('id').eq('user_id', res.user.id).maybeSingle()
+            const payload = {
+              trial_until: until.toISOString(),
+              erp_name: companyName.trim() || undefined,
+              contact_email: (companyEmail || email).trim(),
+              company_phone: companyPhone.trim() || undefined
+            }
+            if (existing?.id) {
+              await supabase.from('settings').update(payload).eq('id', existing.id)
+            } else {
+              await supabase.from('settings').insert({
+                user_id: res.user.id,
+                created_date: new Date().toISOString(),
+                ...payload
+              })
+            }
+          } catch (dbErr) {
+            console.error('Failed to create settings on signup', dbErr)
+          }
+        }
       } catch { }
       navigate('/dashboard', { replace: true })
     } catch (err) {

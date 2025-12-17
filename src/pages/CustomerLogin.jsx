@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/api/supabaseClient'
+import { base44 } from '@/api/base44Client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,14 +29,18 @@ export default function CustomerLogin() {
         if (storeSlug) {
             setLoadingStore(true)
             supabase.rpc('get_store_public_info', { p_slug: storeSlug })
-                .then(({ data, error }) => {
-                    if (error) console.error('Erro ao buscar loja:', error)
-                    if (data && data[0]) setStoreInfo(data[0])
+                .then(async ({ data, error }) => {
+                    if (!error && data && data[0]) {
+                        setStoreInfo(data[0])
+                    } else {
+                        await fallbackSettings()
+                    }
                 })
-                .catch(err => console.error('Erro ao buscar loja:', err))
+                .catch(async () => { await fallbackSettings() })
                 .finally(() => setLoadingStore(false))
         } else {
             setLoadingStore(false)
+            fallbackSettings()
         }
     }, [storeSlug])
 
@@ -322,3 +327,15 @@ export default function CustomerLogin() {
         </div>
     )
 }
+    const fallbackSettings = async () => {
+        try {
+            const list = await base44.entities.Settings.list()
+            if (Array.isArray(list) && list.length > 0) {
+                const s = list[0]
+                setStoreInfo({
+                    store_name: s.erp_name || 'Portal do Cliente',
+                    logo_url: s.logo_url || null,
+                })
+            }
+        } catch {}
+    }
