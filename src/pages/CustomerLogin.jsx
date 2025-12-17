@@ -261,7 +261,7 @@ export default function CustomerLogin() {
                                 </div>
                             )}
 
-                            <Button type="submit" className="w-full h-14 rounded-xl bg-white text-indigo-900 hover:bg-gray-100 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-black/20 text-lg font-bold transition-all" disabled={loading}>
+                            <Button type="submit" className="w-full h-14 rounded-xl bg-white !text-indigo-900 hover:bg-gray-100 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-black/20 text-lg font-bold transition-all" disabled={loading}>
                                 {loading ? <LoadingSpinner size={24} color="indigo" /> : 'Ver Meus Pontos'}
                                 {!loading && <ArrowRight className="w-5 h-5 ml-2" />}
                             </Button>
