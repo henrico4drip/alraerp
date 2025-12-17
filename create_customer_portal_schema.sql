@@ -65,4 +65,75 @@ END;
 $$;
 
 -- Permissao de execucao
-GRANT EXECUTE ON FUNCTION get_customer_balance TO anon, authenticated, service_role;
+
+-- Função segura para buscar histórico de compras do cliente
+CREATE OR REPLACE FUNCTION get_customer_sales(
+  p_slug text,
+  p_cpf text,
+  p_phone text
+)
+RETURNS TABLE (
+  sale_id text,
+  sale_number text,
+  sale_date timestamptz,
+  total_amount numeric,
+  cashback_earned numeric,
+  cashback_used numeric,
+  items jsonb
+) 
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id text;
+  v_customer_id text;
+BEGIN
+  -- 1. Identificar loja e user_id
+  SELECT s.user_id INTO v_user_id
+  FROM settings s
+  WHERE s.slug = p_slug
+  LIMIT 1;
+
+  IF v_user_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- 2. Identificar customer_id com base no CPF ou Telefone
+  SELECT c.id INTO v_customer_id
+  FROM customers c
+  WHERE c.user_id = v_user_id
+    AND (
+         (p_cpf <> '' AND regexp_replace(c.cpf, '\D','','g') = regexp_replace(p_cpf, '\D','','g'))
+         OR 
+         (p_phone <> '' AND regexp_replace(c.phone, '\D','','g') LIKE '%' || regexp_replace(p_phone, '\D','','g'))
+    )
+    AND CASE 
+      WHEN p_cpf <> '' THEN regexp_replace(c.cpf, '\D','','g') = regexp_replace(p_cpf, '\D','','g')
+      ELSE regexp_replace(c.phone, '\D','','g') LIKE '%' || regexp_replace(p_phone, '\D','','g')
+    END
+  LIMIT 1;
+
+  IF v_customer_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- 3. Retornar vendas desse cliente nessa loja
+  RETURN QUERY
+  SELECT 
+    sa.id,
+    sa.sale_number,
+    sa.sale_date,
+    sa.total_amount,
+    sa.cashback_earned,
+    sa.cashback_used,
+    sa.items
+  FROM sales sa
+  WHERE sa.user_id = v_user_id
+    AND sa.customer_id = v_customer_id
+  ORDER BY sa.sale_date DESC
+  LIMIT 50;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_customer_sales TO anon, authenticated, service_role;
+
