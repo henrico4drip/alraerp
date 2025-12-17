@@ -33,7 +33,7 @@ BEGIN
   -- Alias 's' resolve conflito de nome
   SELECT s.user_id, s.erp_name, s.logo_url INTO v_user_id, v_store_name, v_logo_url
   FROM settings s
-  WHERE s.slug = p_slug
+  WHERE s.slug = lower(p_slug)
   LIMIT 1;
 
   IF v_user_id IS NULL THEN
@@ -91,7 +91,7 @@ BEGIN
   -- 1. Identificar loja e user_id
   SELECT s.user_id INTO v_user_id
   FROM settings s
-  WHERE s.slug = p_slug
+  WHERE s.slug = lower(p_slug)
   LIMIT 1;
 
   IF v_user_id IS NULL THEN
@@ -151,7 +151,7 @@ BEGIN
   RETURN QUERY
   SELECT erp_name, logo_url
   FROM settings
-  WHERE slug = p_slug
+  WHERE slug = lower(p_slug)
   LIMIT 1;
 END;
 $$;
