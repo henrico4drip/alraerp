@@ -137,3 +137,23 @@ $$;
 
 GRANT EXECUTE ON FUNCTION get_customer_sales TO anon, authenticated, service_role;
 
+
+-- Função publica para obter dados basicos da loja (Nome e Logo) pelo Slug
+CREATE OR REPLACE FUNCTION get_store_public_info(p_slug text)
+RETURNS TABLE (
+  store_name text,
+  logo_url text
+) 
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT erp_name, logo_url
+  FROM settings
+  WHERE slug = p_slug
+  LIMIT 1;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_store_public_info TO anon, authenticated, service_role;
