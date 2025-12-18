@@ -15,6 +15,8 @@ import CustomerDialog from "@/components/CustomerDialog";
 import Receipt from "@/components/Receipt";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import InfinitePayButton from "@/components/InfinitePayButton";
+import QRCode from 'qrcode';
+import { Pix } from "@/utils/pix";
 
 export default function CashierPayment() {
   const navigate = useNavigate();
@@ -69,6 +71,9 @@ export default function CashierPayment() {
   const [showConfirmRemovePayment, setShowConfirmRemovePayment] = useState(false);
   const [confirmRemovePaymentIdx, setConfirmRemovePaymentIdx] = useState(null);
   const [editingPaymentIdx, setEditingPaymentIdx] = useState(null);
+  const [showPixDialog, setShowPixDialog] = useState(false);
+  const [pixQrCodeUrl, setPixQrCodeUrl] = useState('');
+  const [pixPayload, setPixPayload] = useState('');
   const amountInputRef = useRef(null);
   useEffect(() => {
     const animatePayment = sessionStorage.getItem('animateCashierPaymentEntry') === 'true';
@@ -189,6 +194,66 @@ export default function CashierPayment() {
     setPaymentDraft({ method: "", amount: 0, installments: 1 })
   }
 
+  const generatePixCode = async () => {
+    if (!settings?.pix_key) return;
+
+    const amount = Number(paymentDraft.amount || 0);
+    if (amount <= 0) return;
+
+    try {
+      const pix = new Pix(
+        settings.pix_key,
+        settings.erp_name || 'AlraERP Store',
+        settings.company_city || 'Cidade',
+        amount,
+        'TX' + Date.now().toString().slice(-10) // Unique TxId
+      );
+
+      const payload = pix.getPayload();
+      setPixPayload(payload);
+
+      const url = await QRCode.toDataURL(payload);
+      setPixQrCodeUrl(url);
+      setShowPixDialog(true);
+    } catch (e) {
+      console.error('Error generating PIX:', e);
+      alert('Erro ao gerar QR Code PIX: ' + e.message);
+      addPayment();
+    }
+  };
+
+  const handleAddPaymentWithPixCheck = () => {
+    if (editingPaymentIdx != null) {
+      commitEditPayment();
+      return;
+    }
+
+    const { method, amount } = paymentDraft;
+    const nm = Number(amount);
+
+    if (!method) {
+      alert('Selecione um método de pagamento.');
+      return;
+    }
+    if (nm <= 0) {
+      alert('Valor inválido.');
+      return;
+    }
+
+    // Intercept PIX
+    if (method === 'PIX' && settings?.pix_key) {
+      if (confirm('Deseja gerar um QR Code PIX para este pagamento?')) {
+        generatePixCode();
+        return;
+      }
+    }
+
+    addPayment();
+  };
+
+
+
+  // ... custom payment
   const addCustomPaymentMethod = async () => {
     const m = (newPaymentMethod || '').trim();
     if (!m) return;
@@ -510,6 +575,44 @@ export default function CashierPayment() {
         </div>
       )}
 
+      {/* PIX QR Code Dialog */}
+      <Dialog open={showPixDialog} onOpenChange={setShowPixDialog}>
+        <DialogContent className="max-w-md bg-white rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold flex flex-col items-center gap-2">
+              <QrCode className="w-8 h-8 text-green-600" />
+              Pagamento via PIX
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-4 space-y-4">
+            <div className="p-4 bg-white border-2 border-dashed border-green-200 rounded-2xl shadow-sm">
+              {pixQrCodeUrl && <img src={pixQrCodeUrl} alt="QR Code PIX" className="w-64 h-64 object-contain" />}
+            </div>
+
+            <div className="text-center space-y-1">
+              <p className="font-bold text-gray-900 text-2xl">R$ {Number(paymentDraft.amount || 0).toFixed(2)}</p>
+              <p className="text-sm text-gray-400">Escaneie o código acima para pagar</p>
+            </div>
+
+            <div className="flex gap-2 w-full">
+              <Button variant="outline" className="flex-1 rounded-xl h-11 border-gray-200" onClick={() => {
+                navigator.clipboard.writeText(pixPayload);
+                alert('Código PIX Copia e Cola copiado!');
+              }}>
+                Copiar Código
+              </Button>
+              <Button className="flex-1 rounded-xl h-11 bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-200" onClick={() => {
+                setShowPixDialog(false);
+                addPayment();
+              }}>
+                <Check className="w-4 h-4 mr-1" />
+                Já Recebi
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex-1 max-w-[1600px] w-full mx-auto flex flex-col lg:flex-row gap-3 sm:gap-4 overflow-hidden">
 
         {/* Left Column: Cart Summary (1/3) */}
@@ -719,7 +822,7 @@ export default function CashierPayment() {
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         if (editingPaymentIdx != null) commitEditPayment();
-                        else addPayment();
+                        else handleAddPaymentWithPixCheck();
                       }
                     }}
                     className="h-9 rounded-xl border-gray-200 text-base font-bold bg-white shadow-sm"
@@ -748,7 +851,7 @@ export default function CashierPayment() {
                   </div>
                 )}
                 <Button
-                  onClick={() => (editingPaymentIdx != null ? commitEditPayment() : addPayment())}
+                  onClick={() => (editingPaymentIdx != null ? commitEditPayment() : handleAddPaymentWithPixCheck())}
                   className="h-9 px-4 rounded-xl bg-gray-900 text-white text-sm font-bold shadow-lg hover:bg-black hover:scale-105 transition-all w-full sm:w-auto flex items-center gap-2"
                 >
                   {editingPaymentIdx != null ? 'Atualizar' : 'Adicionar'}
