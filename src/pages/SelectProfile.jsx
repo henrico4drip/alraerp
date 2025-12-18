@@ -50,6 +50,27 @@ export default function SelectProfile() {
             console.log('[SelectProfile] Profiles loaded:', list);
             setProfiles(list);
 
+            // Auto-login if single admin profile (Streamlined Onboarding)
+            if (list.length === 1 && list[0].role === 'admin') {
+                const admin = list[0];
+                console.log('[SelectProfile] Single admin found, auto-logging in...');
+                // Bypass loginProfile to avoid PIN check here if we trust the session (or we use the default PIN internally)
+                // For safety, we use the known default PIN '0000' or better yet, simple auto-select logic
+                try {
+                    // Try auto-login with context method (assuming we want to enforce PIN logic strictly, we might need a bypass method, 
+                    // but for UX flow "direct to dashboard", let's simulate a click or improved context method)
+                    // ACTUALLY: The Context needs the PIN. 
+                    // Let's check if the PIN is the default '0000'. If so, auto login.
+                    if (admin.pin === '0000') {
+                        await loginProfile(admin.id, '0000');
+                        navigate('/dashboard');
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Auto-login failed:', e);
+                }
+            }
+
             // Show hint only once
             const hasAdmin = list.some(p => p.name === 'Administrador');
             const seen = localStorage.getItem('pin_hint_seen') === 'true';
