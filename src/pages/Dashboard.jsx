@@ -192,13 +192,13 @@ export default function Dashboard() {
                 data-tutorial="dashboard-logo"
               />
               <div>
-                <Button variant="outline" className="rounded-xl" onClick={() => document.getElementById('logoInputDash')?.click()}>Trocar logo</Button>
+                <Button variant="outline" className="rounded-2xl h-12 px-6 bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 shadow-sm" onClick={() => document.getElementById('logoInputDash')?.click()}>Trocar logo</Button>
                 <input id="logoInputDash" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white" onClick={() => document.getElementById('logoInputDash')?.click()}>Inserir logo</Button>
+              <Button variant="outline" className="rounded-2xl h-12 px-8 bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 shadow-sm" onClick={() => document.getElementById('logoInputDash')?.click()}>Inserir logo</Button>
               <input id="logoInputDash" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
             </div>
           )}
