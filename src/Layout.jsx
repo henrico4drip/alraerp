@@ -123,6 +123,26 @@ export default function Layout({ children, currentPageName }) {
   const [editTaskCategory, setEditTaskCategory] = useState("Outro");
   const isCashierRoute = location.pathname.startsWith('/cashier');
   const [keepBottomNavForEntry, setKeepBottomNavForEntry] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  const handleHeaderLogoUpload = async (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    try {
+      setLogoUploading(true)
+      const { file_url } = await base44.integrations.Core.UploadFile({ file })
+      if (settings) {
+        const updated = await base44.entities.Settings.update(settings.id, { logo_url: file_url })
+        setSettings(updated)
+        try { localStorage.setItem('logo_url', file_url) } catch {}
+      } else {
+        const created = await base44.entities.Settings.create({ logo_url: file_url })
+        setSettings(created)
+        try { localStorage.setItem('logo_url', file_url) } catch {}
+      }
+    } catch {}
+    finally { setLogoUploading(false) }
+  }
 
   useEffect(() => {
     // Quando navega para /cashier e existe a flag de animação, mantém o rodapé da dashboard visível
@@ -325,14 +345,15 @@ export default function Layout({ children, currentPageName }) {
               <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline -mt-0.5">
                 <span className="text-sm sm:text-base md:text-lg tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.7em', fontWeight: 300 }}>erp+</span></span>
               </Link>
-              <Link
-                to={createPageUrl("Dashboard")}
-                className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
-                title={settings?.erp_name || "Minha Loja"}
-                data-tutorial="dashboard-link"
+              <input id="headerLogoInput" type="file" accept="image/*" onChange={handleHeaderLogoUpload} className="hidden" />
+              <Button
+                variant="secondary"
+                className="h-7 px-3 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs"
+                onClick={() => document.getElementById('headerLogoInput').click()}
+                disabled={logoUploading}
               >
-                <Store className="w-4 h-4" />
-              </Link>
+                {logoUploading ? 'Enviando...' : 'Inserir Logo'}
+              </Button>
               <button
                 type="button"
                 onClick={() => setShowAgendaDialog(true)}
