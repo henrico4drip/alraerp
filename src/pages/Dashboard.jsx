@@ -52,31 +52,28 @@ export default function Dashboard() {
     initialData: [],
   });
 
+  const { data: settingsList = [] } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => base44.entities.Settings.list(),
+    initialData: [],
+  });
+
   useEffect(() => {
-    const fetchSettings = async () => {
-      const settingsList = await base44.entities.Settings.list();
-      if (settingsList.length > 0) {
-        const s = settingsList[0];
-        setSettings(s);
-        if (s.logo_url) {
-          // Only trigger fade if the URL actually changed
-          setLogoUrl((prev) => {
-            if (prev !== s.logo_url) {
-              setLogoReady(false);
-              try { localStorage.setItem('logo_url', s.logo_url); } catch { }
-              return s.logo_url;
-            }
-            // Same URL: ensure ready if already cached
-            if (imgRef.current && imgRef.current.complete) {
-              setLogoReady(true);
-            }
-            return prev;
-          });
+    if (!Array.isArray(settingsList) || settingsList.length === 0) return;
+    const s = settingsList[0];
+    setSettings(s);
+    if (s?.logo_url) {
+      setLogoUrl((prev) => {
+        if (prev !== s.logo_url) {
+          setLogoReady(false);
+          try { localStorage.setItem('logo_url', s.logo_url); } catch { }
+          return s.logo_url;
         }
-      }
-    };
-    fetchSettings();
-  }, []);
+        if (imgRef.current && imgRef.current.complete) setLogoReady(true);
+        return prev;
+      });
+    }
+  }, [settingsList]);
 
   // When logoUrl changes, if the image is already cached, mark as ready immediately
   useEffect(() => {
@@ -176,10 +173,12 @@ export default function Dashboard() {
       <div className="max-w-4xl mx-auto w-full flex flex-col items-center transform -translate-y-[7px]">
         {/* Logo / Inserção de Logo */}
         <div className="mb-6 flex items-center justify-center">
-          {settings?.logo_url ? (
+          {(() => {
+            const hasLogo = Boolean((settings?.logo_url) || (logoUrl && logoUrl !== '/logo-fallback.svg'));
+            return hasLogo ? (
             <img
               ref={imgRef}
-              src={settings.logo_url}
+              src={(settings?.logo_url) || logoUrl}
               alt="Logo"
               className={`w-auto object-contain transition-opacity duration-300 ${logoReady ? 'opacity-100' : 'opacity-0'}`}
               style={{ height: 'clamp(80px, 12vw, 150px)' }}
@@ -190,12 +189,13 @@ export default function Dashboard() {
               onError={() => setLogoReady(true)}
               data-tutorial="dashboard-logo"
             />
-          ) : (
+            ) : (
             <div className="flex flex-col items-center gap-2">
               <Button variant="outline" className="rounded-2xl h-12 px-8 bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 shadow-sm" onClick={() => document.getElementById('logoInputDash')?.click()}>Inserir logo</Button>
               <input id="logoInputDash" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
             </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Ações em linha - exatamente 4 ícones */}
