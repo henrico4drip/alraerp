@@ -174,32 +174,34 @@ export default function Dashboard() {
   return (
     <div className="bg-white p-4 w-full">
       <div className="max-w-4xl mx-auto w-full flex flex-col items-center transform -translate-y-[7px]">
-        {/* Logo */}
+        {/* Logo / Inserção de Logo */}
         <div className="mb-6 flex items-center justify-center">
-          <div className="relative group">
-            <img
-              ref={imgRef}
-              src={logoUrl}
-              alt="Logo"
-              className={`w-auto object-contain transition-opacity duration-300 ${logoReady ? 'opacity-100' : 'opacity-0'}`}
-              style={{ height: 'clamp(80px, 12vw, 150px)' }}
-              loading="eager"
-              decoding="async"
-              fetchpriority="high"
-              onLoad={() => setLogoReady(true)}
-              onError={() => { setLogoUrl('/logo-fallback.svg'); setLogoReady(true); }}
-              data-tutorial="dashboard-logo"
-            />
-            <label className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center bg-black/30 pointer-events-none group-hover:pointer-events-auto">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                onChange={handleLogoUpload}
-                className="hidden"
+          {settings?.logo_url ? (
+            <div className="flex flex-col items-center gap-2">
+              <img
+                ref={imgRef}
+                src={settings.logo_url}
+                alt="Logo"
+                className={`w-auto object-contain transition-opacity duration-300 ${logoReady ? 'opacity-100' : 'opacity-0'}`}
+                style={{ height: 'clamp(80px, 12vw, 150px)' }}
+                loading="eager"
+                decoding="async"
+                fetchpriority="high"
+                onLoad={() => setLogoReady(true)}
+                onError={() => setLogoReady(true)}
+                data-tutorial="dashboard-logo"
               />
-              <span className="text-white text-xs">Trocar logo</span>
-            </label>
-          </div>
+              <div>
+                <Button variant="outline" className="rounded-xl" onClick={() => document.getElementById('logoInputDash')?.click()}>Trocar logo</Button>
+                <input id="logoInputDash" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white" onClick={() => document.getElementById('logoInputDash')?.click()}>Inserir logo</Button>
+              <input id="logoInputDash" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
+            </div>
+          )}
         </div>
 
         {/* Ações em linha - exatamente 4 ícones */}
