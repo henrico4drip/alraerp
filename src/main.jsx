@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { supabase } from '@/api/supabaseClient'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import './index.css'
@@ -134,11 +135,18 @@ function RequireSubscription({ children }) {
 
       if (allowed === null && window.localStorage.getItem('subscribed') !== 'true') {
         try {
+          // Verifica trial em profiles (por usuário)
+          if (supabase && user?.id) {
+            try {
+              const { data: prof } = await supabase.from('profiles').select('trial_until').eq('user_id', user.id).limit(1).maybeSingle()
+              const trialUntilProf = prof?.trial_until ? new Date(prof.trial_until).getTime() : 0
+              if (trialUntilProf > Date.now()) { if (!cancelled) setAllowed(true); return }
+            } catch {}
+          }
+          // Fallback em settings
           const settings = await base44.entities.Settings.list()
           const trialUntil = settings?.[0]?.trial_until ? new Date(settings[0].trial_until).getTime() : 0
-          if (trialUntil && trialUntil > Date.now()) {
-            if (!cancelled) setAllowed(true)
-          }
+          if (trialUntil && trialUntil > Date.now()) { if (!cancelled) setAllowed(true) }
         } catch { }
       }
     }

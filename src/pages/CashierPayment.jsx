@@ -17,6 +17,17 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import InfinitePayButton from "@/components/InfinitePayButton";
 import QRCode from 'qrcode';
 import { Pix } from "@/utils/pix";
+import { supabase } from "@/api/supabaseClient";
+
+const mapPaymentMethodToCode = (method) => {
+  const norm = method?.toLowerCase() || '';
+  if (norm.includes('pix')) return '17';
+  if (norm.includes('dinheiro')) return '01';
+  if (norm.includes('crédito')) return '03';
+  if (norm.includes('débito')) return '04';
+  if (norm.includes('boleto')) return '15';
+  return '99'; // Outros
+};
 
 export default function CashierPayment() {
   const navigate = useNavigate();
@@ -463,6 +474,88 @@ export default function CashierPayment() {
       }
 
       setLastSale(createdSale || saleData);
+
+      // --- FISCAL EMISSION (NFCe) ---
+      if (settings?.focus_company_id && createdSale?.id) {
+        try {
+          console.log('Iniciando emissão fiscal (NFCe)...');
+          // Prepare Payload for Focus NFe
+          const nfe_payload = {
+            natureza_operacao: 'Venda ao Consumidor',
+            data_emissao: saleData.sale_date,
+            tipo_documento: 1, // 1=Saída
+            finalidade_emissao: 1, // 1=Normal
+            presenca_comprador: 1, // 1=Presencial
+            cnpj_emitente: settings.company_cnpj?.replace(/\D/g, ''),
+            nome_destinatario: saleData.customer_name || undefined, // Optional for NFCe < 10k normally
+            cpf_destinatario: selectedCustomer?.cpf ? selectedCustomer.cpf.replace(/\D/g, '') : undefined,
+            items: saleData.items.map((item, idx) => {
+              // Try to find full product details locally
+              const product = products.find(p => p.id === item.product_id);
+              return {
+                numero_item: idx + 1,
+                codigo_produto: item.product_id,
+                descricao: item.name,
+                base_calculo_icms: item.total_price, // Simplifying for Simples Nacional
+                valor_icms: 0,
+                valor_bruto: item.total_price,
+                quantidade_comercial: item.quantity,
+                quantidade_tributavel: item.quantity,
+                valor_unitario_comercial: item.unit_price,
+                valor_unitario_tributavel: item.unit_price,
+                unidade_comercial: 'UN',
+                unidade_tributavel: 'UN',
+                codigo_ncm: product?.ncm || settings.fiscal_ncm_default || '00000000', // Default fallback
+                cfop: settings.fiscal_cfop_default || '5102',
+                icms_origem: '0',
+                icms_situacao_tributaria: settings.fiscal_regime === '1' ? '102' : '00',
+                // PIS/COFINS defaults for Simples
+                pis_situacao_tributaria: '07',
+                cofins_situacao_tributaria: '07'
+              }
+            }),
+            formas_pagamento: payments.map(p => ({
+              forma_pagamento: mapPaymentMethodToCode(p.method),
+              valor_pagamento: p.amount,
+              troco: 0
+            }))
+          };
+
+          const { data: fiscalRes, error: fiscalErr } = await supabase.functions.invoke('focus-nfe-proxy', {
+            body: {
+              action: 'issue_nfce',
+              payload: {
+                environment: settings.focus_environment || 'homologacao',
+                reference: createdSale.id, // Use Sale ID as Ref
+                nfe_payload
+              }
+            }
+          });
+
+          if (!fiscalErr && fiscalRes?.data) {
+            console.log('Resposta Fiscal:', fiscalRes);
+            // Verify if authorized immediately or processing
+            // Focus returns: { status: "processando_autorizacao", caminho_xml_nota_fiscal: "...", url_danfe: "..." } if success
+            // Or { status: "erro", ... }
+
+            // Update sale with whatever we got
+            const updates = {};
+            if (fiscalRes.data.caminho_danfe) updates.fiscal_doc_url = fiscalRes.data.caminho_danfe; // Check field name in docs, usually 'caminho_danfe' or url_danfe
+            if (fiscalRes.data.url_danfe) updates.fiscal_doc_url = fiscalRes.data.url_danfe;
+            if (fiscalRes.data.status) updates.fiscal_status = fiscalRes.data.status;
+
+            if (Object.keys(updates).length > 0) {
+              await base44.entities.Sale.update(createdSale.id, updates);
+              setLastSale(prev => ({ ...prev, ...updates }));
+            }
+          }
+        } catch (fiscalError) {
+          console.error('Erro na emissão fiscal:', fiscalError);
+          // Don't block the UI flow, just log
+        }
+      }
+      // -----------------------------
+
       setShowReceiptDialog(true);
 
       // Reset shared state for next sale
@@ -475,7 +568,7 @@ export default function CashierPayment() {
       setPaymentDraft({ method: "", amount: "", installments: 1 });
 
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      setTimeout(() => setShowSuccess(false), 5000);
     } catch (err) {
       console.error("Erro ao finalizar venda:", err);
       alert("Falha ao finalizar venda.");
@@ -567,7 +660,12 @@ export default function CashierPayment() {
               Venda finalizada com sucesso!
               {lastSale && (
                 <Button size="sm" variant="outline" className="rounded-lg h-7 bg-white text-green-700 border-green-200 hover:bg-green-50" onClick={() => setShowReceiptDialog(true)}>
-                  <FileText className="w-3 h-3 mr-1" /> Nota
+                  <FileText className="w-3 h-3 mr-1" /> Recibo
+                </Button>
+              )}
+              {lastSale?.fiscal_doc_url && (
+                <Button size="sm" variant="outline" className="rounded-lg h-7 bg-white text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => window.open(lastSale.fiscal_doc_url, '_blank')}>
+                  <QrCode className="w-3 h-3 mr-1" /> Nota Fiscal
                 </Button>
               )}
             </AlertDescription>

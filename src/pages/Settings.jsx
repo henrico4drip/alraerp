@@ -13,6 +13,7 @@ import { useTutorial } from '@/hooks/useTutorial'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import SubscriptionLockOverlay from '@/components/SubscriptionLockOverlay'
 import RequirePermission from '@/components/RequirePermission'
+import FiscalSettings from '@/pages/settings/FiscalSettings'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -39,6 +40,7 @@ export default function Settings() {
   const [companyState, setCompanyState] = useState('')
   const [companyZip, setCompanyZip] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
+  const [companyPhone, setCompanyPhone] = useState('')
   const [newPaymentMethod, setNewPaymentMethod] = useState('')
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
   const [methodToRemove, setMethodToRemove] = useState(null)
@@ -113,6 +115,7 @@ export default function Settings() {
     setCompanyState(effective.company_state || '')
     setCompanyZip(effective.company_zip || '')
     setCompanyEmail(effective.contact_email || '')
+    setCompanyPhone(effective.company_phone || '')
 
     // Wholesale load
     setWholesaleEnabled(!!effective.wholesale_enabled)
@@ -147,6 +150,7 @@ export default function Settings() {
       company_state: companyState,
       company_zip: companyZip,
       contact_email: companyEmail,
+      company_phone: companyPhone,
       // Wholesale save
       wholesale_enabled: wholesaleEnabled,
       wholesale_type: wholesaleType,
@@ -490,10 +494,14 @@ export default function Settings() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label className="text-gray-700">CNPJ</Label>
                       <Input value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} className="h-11 rounded-xl border-gray-200" placeholder="00.000.000/0000-00" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-700">Telefone / WhatsApp</Label>
+                      <Input value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} className="h-11 rounded-xl border-gray-200" placeholder="(00) 00000-0000" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-gray-700">Email de Contato</Label>
@@ -530,6 +538,9 @@ export default function Settings() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* 3.5 Fiscal Integration */}
+              <FiscalSettings />
 
               {/* 4. Assinatura */}
               <Card className="shadow-md border-0 ring-1 ring-gray-100 rounded-3xl overflow-hidden bg-gradient-to-br from-white to-blue-50/30">

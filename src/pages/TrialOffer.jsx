@@ -31,6 +31,9 @@ export default function TrialOffer() {
           } else {
             await supabase.from('settings').insert({ user_id: user.id, trial_until: until.toISOString(), created_date: new Date().toISOString() })
           }
+          try {
+            await supabase.from('profiles').upsert({ user_id: user.id, trial_until: until.toISOString(), email: user.email })
+          } catch {}
         } catch {}
       }
     } catch {}

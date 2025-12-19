@@ -2,10 +2,12 @@ import React, { useState } from 'react'
 import { Crown, Check, ShieldCheck, Zap } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/ui/button'
+import { useNavigate } from 'react-router-dom'
 
 export default function SubscriptionLockOverlay() {
-    const { user } = useAuth()
+    const { user, logout } = useAuth()
     const [loading, setLoading] = useState(false)
+    const navigate = useNavigate()
 
     const handleSubscribe = async (plan) => {
         try {
@@ -136,6 +138,24 @@ export default function SubscriptionLockOverlay() {
                         >
                             {loading ? 'Processando...' : 'Liberar Acesso Agora'}
                         </Button>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Button
+                                variant="outline"
+                                className="rounded-xl"
+                                onClick={() => navigate('/billing')}
+                                disabled={loading}
+                            >
+                                Ver Planos
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="rounded-xl text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={async () => { try { await logout() } catch {} navigate('/login', { replace: true }) }}
+                                disabled={loading}
+                            >
+                                Sair da conta
+                            </Button>
+                        </div>
                         <p className="text-center text-xs text-gray-400 mt-4 flex items-center justify-center gap-1">
                             <ShieldCheck className="w-3 h-3" /> Pagamento 100% seguro via Stripe
                         </p>

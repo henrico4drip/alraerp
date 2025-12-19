@@ -21,6 +21,7 @@ export default function Login() {
   const [showSignupForm, setShowSignupForm] = useState(false)
   const [companyName, setCompanyName] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
+  const [companyCnpj, setCompanyCnpj] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const [companySegment, setCompanySegment] = useState('')
   const location = useLocation()
@@ -53,6 +54,7 @@ export default function Login() {
           companyPhone: companyPhone.trim(),
           companyEmail: (companyEmail || email).trim(),
           companySegment: companySegment.trim(),
+          companyCnpj: companyCnpj.trim(),
           createdAt: new Date().toISOString(),
         }
         window.localStorage.setItem('signup_profile', JSON.stringify(profile))
@@ -64,11 +66,15 @@ export default function Login() {
         if (res?.user?.id && supabase) {
           try {
             const { data: existing } = await supabase.from('settings').select('id').eq('user_id', res.user.id).maybeSingle()
+            if (!companyPhone.trim()) throw new Error('Telefone é obrigatório')
+            if (!companyCnpj.trim()) throw new Error('CNPJ é obrigatório')
+
             const payload = {
               trial_until: until.toISOString(),
               erp_name: companyName.trim() || undefined,
               contact_email: (companyEmail || email).trim(),
-              company_phone: companyPhone.trim() || undefined
+              company_phone: companyPhone.trim(),
+              company_cnpj: companyCnpj.trim()
             }
             if (existing?.id) {
               await supabase.from('settings').update(payload).eq('id', existing.id)
@@ -175,7 +181,11 @@ export default function Login() {
                 </div>
                 <div className="input-group">
                   <i className="fas fa-phone"></i>
-                  <input type="text" className="input-field" placeholder="Telefone" required value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
+                  <input type="text" className="input-field" placeholder="Telefone (Obrigatório)" required value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <i className="fas fa-id-card"></i>
+                  <input type="text" className="input-field" placeholder="CNPJ (Obrigatório)" required value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} />
                 </div>
                 <div className="input-group">
                   <i className="fas fa-envelope-open"></i>

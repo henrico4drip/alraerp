@@ -57,11 +57,13 @@ export function AuthProvider({ children }) {
     if (supabaseClient) {
       const { data, error } = await supabaseClient.auth.signUp({ email, password })
       if (error) throw error
-      if (data?.session?.user) {
-        setUser(data.session.user)
-        return { user: data.session.user, session: data.session }
+      const createdUser = data?.session?.user || data?.user
+      if (createdUser?.id) {
+        try { await supabaseClient.from('profiles').upsert({ user_id: createdUser.id, email }) } catch {}
+        setUser(createdUser)
+        return { user: createdUser, session: data?.session || null }
       }
-      return { user: data?.user, session: null }
+      return { user: null, session: null }
     }
     const users = await base44.entities.User.list()
     const exists = users.some(u => u.email === email)

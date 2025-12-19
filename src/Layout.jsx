@@ -196,15 +196,26 @@ export default function Layout({ children, currentPageName }) {
         const settingsPayload = {
           erp_name: profile.companyName,
           contact_email: profile.companyEmail,
+          company_phone: profile.companyPhone,
+          company_cnpj: profile.companyCnpj,
         }
 
-        // Tenta salvar via base44 entities
+        // Persistir diretamente no Supabase evitando duplicidade
         try {
-          const existing = await base44.entities.Settings.list()
-          if (existing && existing.length > 0) {
-            await base44.entities.Settings.update(existing[0].id, settingsPayload)
+          if (supabase && user?.id) {
+            const { data: existing } = await supabase.from('settings').select('id').eq('user_id', user.id).limit(1).maybeSingle()
+            if (existing?.id) {
+              await supabase.from('settings').update(settingsPayload).eq('id', existing.id)
+            } else {
+              await supabase.from('settings').insert({ user_id: user.id, created_date: new Date().toISOString(), ...settingsPayload })
+            }
           } else {
-            await base44.entities.Settings.create(settingsPayload)
+            const existing = await base44.entities.Settings.list()
+            if (existing && existing.length > 0) {
+              await base44.entities.Settings.update(existing[0].id, settingsPayload)
+            } else {
+              await base44.entities.Settings.create(settingsPayload)
+            }
           }
         } catch (e) { console.warn('Erro ao salvar settings iniciais do signup:', e) }
 
