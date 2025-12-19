@@ -280,7 +280,7 @@ export default function Settings() {
                           className="rounded-xl"
                           onClick={() => document.getElementById('logoInput').click()}
                         >
-                          Enviar logo
+                          Insira seu logo aqui
                         </Button>
                       )}
                       <input id="logoInput" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
