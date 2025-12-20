@@ -266,23 +266,23 @@ export default function Settings() {
                   <div className="flex flex-col md:flex-row gap-8 items-start">
                     <div className="space-y-3">
                       <Label className="text-gray-600 font-medium">Logo da Loja</Label>
-                      {settings?.logo_url ? (
-                        <div className="border border-gray-200 rounded-2xl w-40 h-40 bg-white flex items-center justify-center">
+                      <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl w-40 h-40 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer relative group" onClick={() => document.getElementById('logoInput').click()}>
+                        {settings?.logo_url ? (
                           <img
                             src={settings.logo_url}
                             alt="Logo"
                             className="w-full h-full object-contain p-4"
                           />
+                        ) : (
+                          <div className="text-center p-4">
+                            <ImageIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <span className="text-xs text-gray-400">Adicionar Logo</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity flex items-center justify-center">
+                          <Upload className="w-6 h-6 text-gray-600" />
                         </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          className="rounded-xl"
-                          onClick={() => document.getElementById('logoInput').click()}
-                        >
-                          Insira seu logo aqui
-                        </Button>
-                      )}
+                      </div>
                       <input id="logoInput" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                     </div>
 
