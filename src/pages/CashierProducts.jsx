@@ -148,9 +148,9 @@ export default function CashierProducts() {
       <div className="flex-1 max-w-[1600px] w-full mx-auto flex flex-col lg:flex-row gap-3 sm:gap-4 overflow-hidden">
 
         {/* Left Column: Products (2/3) */}
-        <div className="flex-[1.5] lg:flex-[2] overflow-hidden flex flex-col bg-white rounded-3xl border border-gray-200/60 shadow-sm relative">
+        <div className="flex-[1.5] lg:flex-[2] overflow-hidden flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-gray-200/60 shadow-sm relative">
           {/* Header */}
-          <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white relative z-10">
+          <div className="shrink-0 px-3 sm:px-6 py-2 sm:py-4 border-b border-gray-100 flex items-center justify-between bg-white relative z-10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
                 <Package className="w-5 h-5" />
@@ -168,7 +168,7 @@ export default function CashierProducts() {
           </div>
 
           {/* Search Bar */}
-          <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-gray-100/50 bg-gray-50/30">
+          <div className="shrink-0 px-3 sm:px-6 py-2 sm:py-3 border-b border-gray-100/50 bg-gray-50/30">
             <div className="relative group">
               <Input
                 ref={searchRef}
@@ -180,7 +180,7 @@ export default function CashierProducts() {
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
                 placeholder="Buscar produto (nome ou código)..."
-                className="w-full h-11 px-4 rounded-2xl bg-white border-gray-200 border-0 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all text-sm"
+                className="w-full h-9 sm:h-11 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-white border-gray-200 border-0 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all text-sm"
               />
 
               {searchTerm && (
@@ -195,7 +195,7 @@ export default function CashierProducts() {
           </div>
 
           {/* Product List */}
-          <div className="flex-1 overflow-y-auto min-h-0 bg-white p-2">
+          <div className="flex-1 overflow-y-auto min-h-0 bg-white p-1 sm:p-2">
             {isLoading ? (
               <LoadingSpinner />
             ) : (
@@ -204,9 +204,9 @@ export default function CashierProducts() {
                   <button
                     key={product.id}
                     onClick={() => addToCart(product)}
-                    className="group flex items-start gap-3 p-3 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all text-left bg-white"
+                    className="group flex items-start gap-3 p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all text-left bg-white"
                   >
-                    <div className="shrink-0 w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 group-hover:border-blue-100 transition-colors">
+                    <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 group-hover:border-blue-100 transition-colors">
                       {(product.image_url || product.imageUrl) ? (
                         <img src={product.image_url || product.imageUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -214,7 +214,7 @@ export default function CashierProducts() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-gray-900 text-sm truncate leading-tight mb-0.5">{product.name}</h3>
+                      <h3 className="font-semibold text-gray-900 text-[13px] sm:text-sm truncate leading-tight mb-0.5">{product.name}</h3>
                       <p className="text-[11px] text-gray-400 truncate mb-1.5">{product.barcode || 'Sem código'}</p>
                       <div className="flex items-center justify-between">
                         {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
@@ -223,7 +223,7 @@ export default function CashierProducts() {
                             <span className="text-sm font-bold text-green-600">R$ {Number(product.promo_price).toFixed(2)}</span>
                           </div>
                         ) : (
-                          <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">R$ {Number(product.price).toFixed(2)}</span>
+                          <span className="text-[13px] sm:text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">R$ {Number(product.price).toFixed(2)}</span>
                         )}
                         <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-90 group-hover:scale-100">
                           <Plus className="w-4 h-4" />
@@ -256,7 +256,7 @@ export default function CashierProducts() {
           </div>
 
           {/* Cart Items */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50/50">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2 bg-gray-50/50">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-3 opacity-60">
                 <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
@@ -266,18 +266,18 @@ export default function CashierProducts() {
               </div>
             ) : (
               cart.map((item) => (
-                <div key={item.product_id} className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex gap-3 group animate-in slide-in-from-right-2 duration-300">
-                  <div className="w-12 h-12 rounded-xl bg-gray-50 shrink-0 flex items-center justify-center">
-                    <Package className="w-5 h-5 text-gray-300" />
+                <div key={item.product_id} className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-gray-100 shadow-sm flex gap-3 group animate-in slide-in-from-right-2 duration-300">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gray-50 shrink-0 flex items-center justify-center">
+                    <Package className="w-4 h-4 sm:w-5 sm:h-5 text-gray-300" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-semibold text-gray-900 text-sm truncate pr-2">{item.product_name}</h4>
-                      <p className="font-bold text-gray-900 text-sm">R$ {(unitForItem(item) * item.quantity).toFixed(2)}</p>
+                    <div className="flex justify-between items-start mb-0.5 sm:mb-1">
+                      <h4 className="font-semibold text-gray-900 text-[13px] sm:text-sm truncate pr-2">{item.product_name}</h4>
+                      <p className="font-bold text-gray-900 text-[13px] sm:text-sm">R$ {(unitForItem(item) * item.quantity).toFixed(2)}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-500">Unit: R$ {unitForItem(item).toFixed(2)}</p>
-                      <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
+                      <p className="text-[11px] sm:text-xs text-gray-500">Unit: R$ {unitForItem(item).toFixed(2)}</p>
+                      <div className="flex items-center gap-1.5 sm:gap-2 bg-gray-50 rounded-md sm:rounded-lg p-0.5 border border-gray-100">
                         <button
                           onClick={() => {
                             if (item.quantity === 1) {
@@ -287,14 +287,14 @@ export default function CashierProducts() {
                               updateQuantity(item.product_id, -1);
                             }
                           }}
-                          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-white text-gray-500 hover:text-red-500 transition-colors"
+                          className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-md hover:bg-white text-gray-500 hover:text-red-500 transition-colors"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
-                        <span className="text-xs font-bold text-gray-700 w-4 text-center">{item.quantity}</span>
+                        <span className="text-[11px] sm:text-xs font-bold text-gray-700 w-4 text-center">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.product_id, 1)}
-                          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-white text-gray-500 hover:text-green-600 transition-colors"
+                          className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-md hover:bg-white text-gray-500 hover:text-green-600 transition-colors"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -307,11 +307,11 @@ export default function CashierProducts() {
           </div>
 
           {/* Totals Section */}
-          <div className="shrink-0 bg-white border-t border-gray-100 p-5 space-y-3 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.03)]">
+          <div className="shrink-0 bg-white border-t border-gray-100 p-3 sm:p-5 space-y-2 sm:space-y-3 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.03)]">
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Total a Pagar</p>
-                <h3 className="text-3xl font-bold text-gray-900 tracking-tight">
+                <p className="text-[11px] sm:text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Total a Pagar</p>
+                <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
                   R$ {effectiveTotal.toFixed(2)}
                 </h3>
               </div>
