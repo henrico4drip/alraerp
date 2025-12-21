@@ -1042,34 +1042,37 @@ export default function CashierPayment() {
             </div>
 
             {selectedCustomer && Number(selectedCustomer.cashback_balance || 0) > 0 && (
-              <div className="flex items-center gap-1.5 mt-2">
-                <Label className="text-[9px] text-purple-700 font-bold uppercase">Cashback</Label>
-                <Input
-                  type="number" step="0.01" min="0" max={maxCashbackToUse}
-                  value={cashbackToUse}
-                  onChange={(e) => {
-                    const v = Math.max(0, Math.min(Number(e.target.value || 0), maxCashbackToUse));
-                    setCashbackToUse(v);
-                  }}
-                  className="h-7 w-20 px-2 rounded-md border-purple-200 text-xs font-semibold bg-white"
-                />
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-[10px] text-gray-600 font-semibold">Cashback</span>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-purple-700">R$</span>
+                  <Input
+                    type="number" step="0.01" min="0" max={maxCashbackToUse}
+                    value={cashbackToUse}
+                    onChange={(e) => {
+                      const v = Math.max(0, Math.min(Number(e.target.value || 0), maxCashbackToUse));
+                      setCashbackToUse(v);
+                    }}
+                    className="h-7 w-24 pl-6 pr-2 rounded-full border-gray-200 text-xs font-bold bg-white"
+                  />
+                </div>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="h-7 px-2 rounded-md border-purple-300 text-purple-800 bg-white hover:bg-purple-50 text-[10px]"
+                  className="h-7 px-2 text-[10px] rounded-full text-purple-800 hover:bg-purple-50"
                   onClick={() => setCashbackToUse(maxCashbackToUse)}
                 >
                   Tudo
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="h-7 px-2 rounded-md border-purple-300 text-purple-800 bg-white hover:bg-purple-50 text-[10px]"
+                  className="h-7 px-2 text-[10px] rounded-full text-purple-800 hover:bg-purple-50"
                   onClick={() => setCashbackToUse(0)}
                 >
                   Limpar
                 </Button>
-                <span className="text-[9px] text-purple-700">Disp.: R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)}</span>
+                <span className="text-[10px] text-gray-500">Disp.: R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)}</span>
               </div>
             )}
 
