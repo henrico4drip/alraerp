@@ -1042,8 +1042,8 @@ export default function CashierPayment() {
             </div>
 
             {selectedCustomer && Number(selectedCustomer.cashback_balance || 0) > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <Label className="text-[10px] text-purple-700 font-bold uppercase">Cashback (R$)</Label>
+              <div className="flex items-center gap-1.5 mt-2">
+                <Label className="text-[9px] text-purple-700 font-bold uppercase">Cashback</Label>
                 <Input
                   type="number" step="0.01" min="0" max={maxCashbackToUse}
                   value={cashbackToUse}
@@ -1051,12 +1051,12 @@ export default function CashierPayment() {
                     const v = Math.max(0, Math.min(Number(e.target.value || 0), maxCashbackToUse));
                     setCashbackToUse(v);
                   }}
-                  className="h-8 w-28 rounded-lg border-purple-200 text-sm font-semibold bg-white"
+                  className="h-7 w-20 px-2 rounded-md border-purple-200 text-xs font-semibold bg-white"
                 />
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 rounded-lg border-purple-300 text-purple-800 bg-white hover:bg-purple-50"
+                  className="h-7 px-2 rounded-md border-purple-300 text-purple-800 bg-white hover:bg-purple-50 text-[10px]"
                   onClick={() => setCashbackToUse(maxCashbackToUse)}
                 >
                   Tudo
@@ -1064,12 +1064,12 @@ export default function CashierPayment() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 rounded-lg border-purple-300 text-purple-800 bg-white hover:bg-purple-50"
+                  className="h-7 px-2 rounded-md border-purple-300 text-purple-800 bg-white hover:bg-purple-50 text-[10px]"
                   onClick={() => setCashbackToUse(0)}
                 >
                   Limpar
                 </Button>
-                <span className="text-[10px] text-purple-700">Disp.: R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)}</span>
+                <span className="text-[9px] text-purple-700">Disp.: R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)}</span>
               </div>
             )}
 
