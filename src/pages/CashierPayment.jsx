@@ -943,43 +943,6 @@ export default function CashierPayment() {
 
               </div>
 
-          {/* Amount Input Area */}
-          {selectedCustomer && Number(selectedCustomer.cashback_balance || 0) > 0 && (
-            <div className="bg-purple-50 rounded-2xl p-3 border border-purple-200 mb-3">
-              <div className="flex items-end gap-3 flex-wrap">
-                <div className="flex-1 min-w-[220px]">
-                  <Label className="text-xs font-bold text-purple-700 uppercase tracking-wider">Cashback do cliente (R$)</Label>
-                  <Input
-                    type="number" step="0.01" min="0" max={maxCashbackToUse}
-                    value={cashbackToUse}
-                    onChange={(e) => {
-                      const v = Math.max(0, Math.min(Number(e.target.value || 0), maxCashbackToUse));
-                      setCashbackToUse(v);
-                    }}
-                    className="h-9 rounded-xl border-purple-200 text-base font-bold bg-white shadow-sm"
-                  />
-                  <p className="text-[10px] text-purple-700 mt-1">Saldo disponível: R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)} • Máx. nesta venda: R$ {Number(maxCashbackToUse).toFixed(2)}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="h-9 rounded-xl border-purple-300 text-purple-800 bg-white hover:bg-purple-50"
-                    onClick={() => setCashbackToUse(maxCashbackToUse)}
-                  >
-                    Usar tudo
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-9 rounded-xl border-purple-300 text-purple-800 bg-white hover:bg-purple-50"
-                    onClick={() => setCashbackToUse(0)}
-                  >
-                    Limpar
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="bg-gray-50/50 rounded-2xl p-3 border border-gray-100">
               <div className="flex flex-col sm:flex-row gap-2 items-end">
                 <div className="flex-1 w-full space-y-1">
@@ -1077,6 +1040,38 @@ export default function CashierPayment() {
                 className="h-7 rounded-lg border-gray-200 focus:border-blue-300 transition-colors text-xs"
               />
             </div>
+
+            {selectedCustomer && Number(selectedCustomer.cashback_balance || 0) > 0 && (
+              <div className="flex items-center gap-2 mt-2">
+                <Label className="text-[10px] text-purple-700 font-bold uppercase">Cashback (R$)</Label>
+                <Input
+                  type="number" step="0.01" min="0" max={maxCashbackToUse}
+                  value={cashbackToUse}
+                  onChange={(e) => {
+                    const v = Math.max(0, Math.min(Number(e.target.value || 0), maxCashbackToUse));
+                    setCashbackToUse(v);
+                  }}
+                  className="h-8 w-28 rounded-lg border-purple-200 text-sm font-semibold bg-white"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg border-purple-300 text-purple-800 bg-white hover:bg-purple-50"
+                  onClick={() => setCashbackToUse(maxCashbackToUse)}
+                >
+                  Tudo
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg border-purple-300 text-purple-800 bg-white hover:bg-purple-50"
+                  onClick={() => setCashbackToUse(0)}
+                >
+                  Limpar
+                </Button>
+                <span className="text-[10px] text-purple-700">Disp.: R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)}</span>
+              </div>
+            )}
 
             {/* Status Bar + Cashback */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
