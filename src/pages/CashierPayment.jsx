@@ -285,6 +285,16 @@ export default function CashierPayment() {
       return;
     }
 
+    // Cashback: aplica como abatimento, não adiciona linha de pagamento
+    if (method === 'Cashback') {
+      if (!selectedCustomer) { alert('Selecione um cliente'); return; }
+      const allowed = maxCashbackToUse;
+      const useAmt = Math.min(Math.max(nm, 0), allowed);
+      setCashbackToUse(useAmt);
+      setPaymentDraft({ method: '', amount: '', installments: 1 });
+      return;
+    }
+
     // Intercept PIX
     if (method === 'PIX' && settings?.pix_key) {
       if (confirm('Deseja gerar um QR Code PIX para este pagamento?')) {
@@ -830,7 +840,7 @@ export default function CashierPayment() {
             {/* Payment Methods Grid */}
             <div className="space-y-2">
               <Label className={`text-xs font-bold uppercase tracking-wider transition-all ${!paymentDraft.method ? 'text-red-600 animate-pulse' : 'text-gray-400'}`}>Forma de Pagamento {!paymentDraft.method && <span className="text-red-500">*</span>}</Label>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              <div className="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-none">
                 {[
                   { id: 'PIX', icon: QrCode },
                   { id: 'Dinheiro', icon: Banknote },
@@ -840,7 +850,7 @@ export default function CashierPayment() {
                   { id: 'Cashback', icon: Gift },
                   { id: 'Outros', icon: MoreHorizontal }
                 ].map((m) => {
-                  const isActive = m.id === 'Cashback' ? (Number(cashbackToUse || 0) > 0) : (paymentDraft.method === m.id);
+                  const isActive = paymentDraft.method === m.id;
 
                   // Classes fixas para cada método
                   const getButtonClasses = () => {
@@ -898,7 +908,8 @@ export default function CashierPayment() {
                             alert('Selecione um cliente com saldo de cashback.');
                             return;
                           }
-                          setCashbackToUse(prev => (prev > 0 ? 0 : maxCashbackToUse));
+                          setPaymentDraft({ ...paymentDraft, method: 'Cashback', amount: String(Math.min(maxCashbackToUse, remainingAmount())) })
+                          setTimeout(() => amountInputRef.current?.focus(), 100);
                         } else {
                           handleSelectPaymentMethod(m.id);
                           setTimeout(() => amountInputRef.current?.focus(), 100);
@@ -952,10 +963,10 @@ export default function CashierPayment() {
 
               </div>
 
-          <div className="bg-gray-50/50 rounded-2xl p-3 border border-gray-100">
+            <div className="bg-gray-50/50 rounded-2xl p-3 border border-gray-100">
               <div className="flex flex-col sm:flex-row gap-2 items-end">
                 <div className="flex-1 w-full space-y-1">
-                  <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Valor a Pagar (R$)</Label>
+                  <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{paymentDraft.method === 'Cashback' ? 'Valor Cashback (R$)' : 'Valor a Pagar (R$)'}</Label>
                   <Input
                     ref={amountInputRef}
                     type="number" step="0.01"
