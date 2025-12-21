@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Minus, Plus, Trash2, Check, FileText, QrCode, Banknote, CreditCard, CalendarRange, MoreHorizontal, ShoppingCart, Package } from "lucide-react";
+import { Minus, Plus, Trash2, Check, FileText, QrCode, Banknote, CreditCard, CalendarRange, MoreHorizontal, ShoppingCart, Package, Gift } from "lucide-react";
 import { useCashier } from "@/context/CashierContext";
 import { useNavigate } from "react-router-dom";
 import CustomerDialog from "@/components/CustomerDialog";
@@ -102,7 +102,6 @@ export default function CashierPayment() {
   const [savingPaymentMethod, setSavingPaymentMethod] = useState(false);
   const [showFooterAnimation, setShowFooterAnimation] = useState(false);
   const [highlightRight, setHighlightRight] = useState(false);
-  const [cashbackMode, setCashbackMode] = useState('none');
   const [saleDateTime, setSaleDateTime] = useState(() => {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
@@ -838,9 +837,10 @@ export default function CashierPayment() {
                   { id: 'Cartão de Débito', label: 'Débito', icon: CreditCard },
                   { id: 'Cartão de Crédito', label: 'Crédito', icon: CreditCard },
                   { id: 'Carnê', icon: CalendarRange },
+                  { id: 'Cashback', icon: Gift },
                   { id: 'Outros', icon: MoreHorizontal }
                 ].map((m) => {
-                  const isActive = paymentDraft.method === m.id;
+                  const isActive = m.id === 'Cashback' ? (Number(cashbackToUse || 0) > 0) : (paymentDraft.method === m.id);
 
                   // Classes fixas para cada método
                   const getButtonClasses = () => {
@@ -852,6 +852,7 @@ export default function CashierPayment() {
                       case 'Cartão de Débito': return 'bg-blue-100 border-blue-600 text-blue-800 shadow-md';
                       case 'Cartão de Crédito': return 'bg-indigo-100 border-indigo-600 text-indigo-800 shadow-md';
                       case 'Carnê': return 'bg-yellow-100 border-yellow-600 text-yellow-800 shadow-md';
+                      case 'Cashback': return 'bg-purple-100 border-purple-600 text-purple-800 shadow-md';
                       case 'Outros': return 'bg-slate-100 border-slate-600 text-slate-800 shadow-md';
                       default: return 'bg-gray-100 border-gray-600 text-gray-800 shadow-md';
                     }
@@ -866,6 +867,7 @@ export default function CashierPayment() {
                       case 'Cartão de Débito': return 'bg-blue-300 text-blue-900';
                       case 'Cartão de Crédito': return 'bg-indigo-300 text-indigo-900';
                       case 'Carnê': return 'bg-yellow-300 text-yellow-900';
+                      case 'Cashback': return 'bg-purple-300 text-purple-900';
                       case 'Outros': return 'bg-slate-300 text-slate-900';
                       default: return 'bg-gray-300 text-gray-900';
                     }
@@ -878,6 +880,7 @@ export default function CashierPayment() {
                       case 'Cartão de Débito': return 'bg-blue-600';
                       case 'Cartão de Crédito': return 'bg-indigo-600';
                       case 'Carnê': return 'bg-yellow-600';
+                      case 'Cashback': return 'bg-purple-600';
                       case 'Outros': return 'bg-slate-600';
                       default: return 'bg-gray-600';
                     }
@@ -890,9 +893,14 @@ export default function CashierPayment() {
                         if (m.id === 'Outros') {
                           handleSelectPaymentMethod('Outros');
                           setShowPaymentPopover(v => !v);
+                        } else if (m.id === 'Cashback') {
+                          if (!selectedCustomer || Number(selectedCustomer.cashback_balance || 0) <= 0) {
+                            alert('Selecione um cliente com saldo de cashback.');
+                            return;
+                          }
+                          setCashbackToUse(prev => (prev > 0 ? 0 : maxCashbackToUse));
                         } else {
                           handleSelectPaymentMethod(m.id);
-                          // Focar no input de valor após selecionar método
                           setTimeout(() => amountInputRef.current?.focus(), 100);
                         }
                       }}
@@ -1042,43 +1050,7 @@ export default function CashierPayment() {
               />
             </div>
 
-            {selectedCustomer && Number(selectedCustomer.cashback_balance || 0) > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-[10px] text-gray-600 font-semibold">Cashback</span>
-                <Select
-                  value={cashbackMode}
-                  onValueChange={(val) => {
-                    setCashbackMode(val);
-                    if (val === 'none') setCashbackToUse(0);
-                    if (val === 'all') setCashbackToUse(maxCashbackToUse);
-                  }}
-                >
-                  <SelectTrigger className="h-7 w-24 rounded-lg border-gray-200 text-[11px] px-2">
-                    <SelectValue placeholder="Selecionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Não usar</SelectItem>
-                    <SelectItem value="all">Usar tudo</SelectItem>
-                    <SelectItem value="value">Valor</SelectItem>
-                  </SelectContent>
-                </Select>
-                {cashbackMode === 'value' && (
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-purple-700">R$</span>
-                    <Input
-                      type="number" step="0.01" min="0" max={maxCashbackToUse}
-                      value={cashbackToUse}
-                      onChange={(e) => {
-                        const v = Math.max(0, Math.min(Number(e.target.value || 0), maxCashbackToUse));
-                        setCashbackToUse(v);
-                      }}
-                      className="h-7 w-20 pl-6 pr-2 rounded-full border-gray-200 text-xs font-bold bg-white"
-                    />
-                  </div>
-                )}
-                <span className="text-[10px] text-gray-500">Disp.: R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)}</span>
-              </div>
-            )}
+            {/* Cashback inline controls removidos: agora controlado pelo botão "Cashback" nos métodos */}
 
             {/* Status Bar + Cashback */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
