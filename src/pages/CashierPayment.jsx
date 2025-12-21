@@ -29,6 +29,37 @@ const mapPaymentMethodToCode = (method) => {
   return '99'; // Outros
 };
 
+
+
+const generateCashbackMessage = (sale, customer, settings) => {
+  if (!sale || !customer) return { msg: '', phone: '' };
+
+  const rawPhone = customer?.phone || "";
+  const digits = String(rawPhone).replace(/\D/g, "");
+  const phoneWithCountry = digits.length >= 10 ? `55${digits}` : "";
+
+  const balance = Number(customer?.cashback_balance || 0).toFixed(2);
+  const expDays = settings?.cashback_expiration_days ?? 30;
+  const expiresAtIso = customer?.cashback_expires_at || new Date(Date.now() + expDays * 24 * 60 * 60 * 1000).toISOString();
+  const expiresDate = new Date(expiresAtIso);
+  const expiresStr = expiresDate.toLocaleDateString('pt-BR');
+
+  const earned = Number(sale.cashback_earned || 0).toFixed(2);
+  const firstName = customer?.name ? customer.name.split(' ')[0] : "";
+
+  const storeSlug = settings?.slug;
+  const portalLink = storeSlug ? `https://alraerp.com.br/${storeSlug}/cashback` : '';
+
+  let msg = `Olá${firstName ? ` ${firstName}` : ""}! Você ganhou R$ ${earned} de cashback nesta compra. Seu saldo total de cashback é R$ ${balance} e vence em ${expDays} dias (até ${expiresStr}).`;
+
+  if (portalLink) {
+    msg += ` Confira seu extrato completo em: ${portalLink}`;
+  }
+  msg += ` Obrigado!`;
+
+  return { msg, phone: phoneWithCountry };
+};
+
 export default function CashierPayment() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -169,7 +200,10 @@ export default function CashierPayment() {
   const customer = selectedCustomer
     ? customers.find((c) => c.id === selectedCustomer.id)
     : null;
-  const maxCashbackToUse = customer ? Math.min(customer.cashback_balance, calculateTotal()) : 0;
+  const maxCashbackToUse = customer ? Math.min(
+    Number(customer.cashback_balance || 0),
+    Math.max(0, calculateTotal() - discountAmount())
+  ) : 0;
 
   // Destaca método selecionado e preenche valor automaticamente
   const handleSelectPaymentMethod = (method) => {
@@ -554,6 +588,30 @@ export default function CashierPayment() {
           // Don't block the UI flow, just log
         }
       }
+
+      // --- WHATSAPP AUTOMATION ---
+      if (settings?.whatsapp_auto_send_cashback && selectedCustomer) {
+        try {
+          const { msg, phone } = generateCashbackMessage(
+            createdSale || saleData,
+            { ...selectedCustomer, cashback_balance: (selectedCustomer.cashback_balance || 0) - (cashbackToUse || 0) + saleData.cashback_earned },
+            settings
+          );
+
+          if (phone) {
+            console.log('Enviando mensagem automática de cashback...');
+            await supabase.functions.invoke('whatsapp-proxy', {
+              body: {
+                action: 'send_message',
+                payload: { phone, message: msg }
+              }
+            });
+          }
+        } catch (waError) {
+          console.error('Erro no envio automático do WhatsApp:', waError);
+        }
+      }
+      // -----------------------------
       // -----------------------------
 
       setShowReceiptDialog(true);
@@ -592,43 +650,21 @@ export default function CashierPayment() {
     if (!lastSale) return;
     const customers = queryClient.getQueryData(["customers"]) || [];
     const customer = customers.find((c) => c.id === lastSale.customer_id);
-    const rawPhone = customer?.phone || "";
-    const digits = String(rawPhone).replace(/\D/g, "");
-    const phoneWithCountry = digits.length >= 10 ? `55${digits}` : "";
 
-    // Saldo total atual do cliente (após a venda)
-    const balance = Number(customer?.cashback_balance || 0).toFixed(2);
+    const { msg, phone } = generateCashbackMessage(lastSale, customer, settings);
 
-    // Determinar data de vencimento: se houver no cliente, usa; senão calcula pelo settings
-    const expDays = settings?.cashback_expiration_days ?? 30;
-    const expiresAtIso = customer?.cashback_expires_at || new Date(Date.now() + expDays * 24 * 60 * 60 * 1000).toISOString();
-    const expiresDate = new Date(expiresAtIso);
-    const expiresStr = expiresDate.toLocaleDateString('pt-BR');
-
-    const earned = Number(lastSale.cashback_earned || 0).toFixed(2);
-    const firstName = customer?.name ? customer.name.split(' ')[0] : "";
-
-    // Gera link do portal (usa slug se tiver, ou avisa)
-    const storeSlug = settings?.slug;
-    const portalLink = storeSlug ? `https://alraerp.com.br/${storeSlug}/cashback` : '';
-
-    let msg = `Olá${firstName ? ` ${firstName}` : ""}! Você ganhou R$ ${earned} de cashback nesta compra. Seu saldo total de cashback é R$ ${balance} e vence em ${expDays} dias (até ${expiresStr}).`;
-
-    if (portalLink) {
-      msg += ` Confira seu extrato completo em: ${portalLink}`;
-    }
-    msg += ` Obrigado!`;
-
-    if (!phoneWithCountry) {
+    if (!phone) {
       alert("Cliente sem telefone válido para WhatsApp.");
-      try {
-        navigator.clipboard.writeText(msg);
-        alert("Mensagem de cashback copiada para a área de transferência.");
-      } catch (e) { }
+      if (msg) {
+        try {
+          navigator.clipboard.writeText(msg);
+          alert("Mensagem de cashback copiada para a área de transferência.");
+        } catch (e) { }
+      }
       return;
     }
 
-    const url = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(msg)}`;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank");
   };
 
@@ -904,10 +940,47 @@ export default function CashierPayment() {
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Amount Input Area */}
-            <div className="bg-gray-50/50 rounded-2xl p-3 border border-gray-100">
+              </div>
+
+          {/* Amount Input Area */}
+          {selectedCustomer && Number(selectedCustomer.cashback_balance || 0) > 0 && (
+            <div className="bg-purple-50 rounded-2xl p-3 border border-purple-200 mb-3">
+              <div className="flex items-end gap-3 flex-wrap">
+                <div className="flex-1 min-w-[220px]">
+                  <Label className="text-xs font-bold text-purple-700 uppercase tracking-wider">Cashback do cliente (R$)</Label>
+                  <Input
+                    type="number" step="0.01" min="0" max={maxCashbackToUse}
+                    value={cashbackToUse}
+                    onChange={(e) => {
+                      const v = Math.max(0, Math.min(Number(e.target.value || 0), maxCashbackToUse));
+                      setCashbackToUse(v);
+                    }}
+                    className="h-9 rounded-xl border-purple-200 text-base font-bold bg-white shadow-sm"
+                  />
+                  <p className="text-[10px] text-purple-700 mt-1">Saldo disponível: R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)} • Máx. nesta venda: R$ {Number(maxCashbackToUse).toFixed(2)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="h-9 rounded-xl border-purple-300 text-purple-800 bg-white hover:bg-purple-50"
+                    onClick={() => setCashbackToUse(maxCashbackToUse)}
+                  >
+                    Usar tudo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-9 rounded-xl border-purple-300 text-purple-800 bg-white hover:bg-purple-50"
+                    onClick={() => setCashbackToUse(0)}
+                  >
+                    Limpar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-gray-50/50 rounded-2xl p-3 border border-gray-100">
               <div className="flex flex-col sm:flex-row gap-2 items-end">
                 <div className="flex-1 w-full space-y-1">
                   <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Valor a Pagar (R$)</Label>
