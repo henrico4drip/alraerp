@@ -34,7 +34,7 @@ function getFrontendOrigin(req) {
       return `${u.protocol}//${u.host}`
     } catch (_) { }
   }
-  return 'http://localhost:5174'
+  return 'http://localhost:5176'
 }
 
 // Health

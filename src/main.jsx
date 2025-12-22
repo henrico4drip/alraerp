@@ -95,6 +95,9 @@ function RequireSubscription({ children }) {
 
       if (adminEmails.includes(email) || testEmails.includes(email)) { setAllowed(true); return }
 
+      // Em desenvolvimento local, não bloquear navegação
+      if (import.meta.env.DEV) { setAllowed(true); return }
+
       try {
         const params = new URLSearchParams(window.location.search)
         const status = params.get('status')
@@ -114,15 +117,21 @@ function RequireSubscription({ children }) {
         const API = import.meta.env.VITE_API_URL || 'http://localhost:4242'
         let ok = false
         try {
-          const res = await fetch(`${API}/subscription-status?email=${encodeURIComponent(email)}`)
+          const ctrl = new AbortController()
+          const timer = setTimeout(() => ctrl.abort(), 1500)
+          const res = await fetch(`${API}/subscription-status?email=${encodeURIComponent(email)}`, { signal: ctrl.signal })
+          clearTimeout(timer)
           const json = await res.json()
           ok = Boolean(json?.active)
         } catch { }
 
         if (!ok) {
           try {
+            const ctrl2 = new AbortController()
+            const timer2 = setTimeout(() => ctrl2.abort(), 1200)
             const alt = `${window.location.origin}/subscription-status?email=${encodeURIComponent(email)}`
-            const res2 = await fetch(alt)
+            const res2 = await fetch(alt, { signal: ctrl2.signal })
+            clearTimeout(timer2)
             const json2 = await res2.json()
             ok = Boolean(json2?.active)
           } catch { }
