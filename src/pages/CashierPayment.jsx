@@ -415,7 +415,7 @@ export default function CashierPayment() {
       const w = product?.wholesale_price
       const hasW = w !== undefined && w !== null
       let price = item.unit_price
-      if (settings?.wholesale_enabled && hasW) {
+      if (!item.custom_price && settings?.wholesale_enabled && hasW) {
         if (settings?.wholesale_type === 'global' && totalQty >= minCount) price = Number(w)
         if (settings?.wholesale_type === 'item' && item.quantity >= minCount) price = Number(w)
       }
@@ -773,18 +773,18 @@ export default function CashierPayment() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50/50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
             {cart.map((item) => (
-              <div key={item.product_id} className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex gap-3">
+              <div key={item.product_id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gray-50 shrink-0 flex items-center justify-center">
                   <Package className="w-4 h-4 text-gray-300" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start">
-                    <h4 className="font-medium text-gray-900 text-sm truncate pr-2">{item.product_name}</h4>
-                    <p className="font-bold text-gray-900 text-sm">R$ {(item.unit_price * item.quantity).toFixed(2)}</p>
+                    <h4 className="font-medium text-gray-900 text-base truncate pr-2">{item.product_name}</h4>
+                    <p className="font-bold text-gray-900 text-base">R$ {(item.unit_price * item.quantity).toFixed(2)}</p>
                   </div>
-                  <p className="text-xs text-gray-500">{item.quantity}x R$ {item.unit_price.toFixed(2)}</p>
+                  <p className="text-sm text-gray-500">{item.quantity}x R$ {item.unit_price.toFixed(2)}</p>
                 </div>
               </div>
             ))}
@@ -840,7 +840,7 @@ export default function CashierPayment() {
             {/* Payment Methods Grid */}
             <div className="space-y-2">
               <Label className={`text-xs font-bold uppercase tracking-wider transition-all ${!paymentDraft.method ? 'text-red-600 animate-pulse' : 'text-gray-400'}`}>Forma de Pagamento {!paymentDraft.method && <span className="text-red-500">*</span>}</Label>
-              <div className="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-none">
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                 {[
                   { id: 'PIX', icon: QrCode },
                   { id: 'Dinheiro', icon: Banknote },
@@ -915,7 +915,7 @@ export default function CashierPayment() {
                           setTimeout(() => amountInputRef.current?.focus(), 100);
                         }
                       }}
-                      className={`relative h-14 sm:h-16 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all duration-200 group ${getButtonClasses()} ${isActive ? 'scale-[1.02]' : 'hover:scale-[1.02] hover:shadow-md'}`}
+                      className={`w-full relative h-14 sm:h-16 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all duration-200 group ${getButtonClasses()} ${isActive ? 'scale-[1.02]' : 'hover:scale-[1.02] hover:shadow-md'}`}
                     >
                       <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-colors ${getIconClasses()}`}>
                         <m.icon className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -929,6 +929,15 @@ export default function CashierPayment() {
                   );
                 })}
               </div>
+              {payments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {payments.map((p, idx) => (
+                    <span key={idx} className="px-2 py-1 rounded-full border text-[11px] bg-white">
+                      {p.method} • R$ {Number(p.amount || 0).toFixed(2)}{(p.installments || 1) > 1 ? ` • ${p.installments}x` : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Custom Payment Popover (Inline) */}
               {showPaymentPopover && (
@@ -948,8 +957,9 @@ export default function CashierPayment() {
                       <Button
                         key={m}
                         size="sm"
+                        variant="outline"
                         onClick={() => { handleSelectPaymentMethod(m); setShowPaymentPopover(false); }}
-                        className="h-8 text-xs rounded-lg bg-white border-2 border-slate-300 hover:bg-slate-100 text-slate-800 font-semibold shadow-sm"
+                        className="h-8 text-xs rounded-lg hover:bg-slate-100 text-black font-semibold shadow-sm"
                       >
                         {m}
                       </Button>

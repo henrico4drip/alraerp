@@ -99,7 +99,10 @@ export default function Reports() {
   }, [sales, dateRange, filters]);
 
   const summary = useMemo(() => {
-    const totalRevenue = filteredSales.reduce((sum, s) => sum + (s.total_amount || 0), 0);
+    const totalRevenue = filteredSales.reduce((sum, s) => {
+      const net = Math.max(0, Number(s.total_amount || 0) - Number(s.discount_amount || 0) - Number(s.cashback_used || 0));
+      return sum + net;
+    }, 0);
     const totalCost = filteredSales.reduce((sum, s) => sum + costOfSale(s), 0);
     const totalEarned = filteredSales.reduce((sum, s) => sum + (s.cashback_earned || 0), 0);
     const count = filteredSales.length;
@@ -135,7 +138,7 @@ export default function Reports() {
       const k = format(parseISO(sale.sale_date), 'yyyy-MM-dd');
       if (map.has(k)) {
         const d = map.get(k);
-        const rev = Number(sale.total_amount || 0);
+        const rev = Math.max(0, Number(sale.total_amount || 0) - Number(sale.discount_amount || 0) - Number(sale.cashback_used || 0));
         const cost = costOfSale(sale);
         const earned = Number(sale.cashback_earned || 0);
 
@@ -154,7 +157,8 @@ export default function Reports() {
     const counts = filteredSales.reduce((acc, s) => {
       const method = s.payment_method || 'Outros';
       // Split combined methods if needed, simpler to just take the string for now
-      acc[method] = (acc[method] || 0) + (s.total_amount || 0);
+      const net = Math.max(0, Number(s.total_amount || 0) - Number(s.discount_amount || 0) - Number(s.cashback_used || 0));
+      acc[method] = (acc[method] || 0) + net;
       return acc;
     }, {});
 
@@ -185,7 +189,8 @@ export default function Reports() {
     filteredSales.forEach(s => {
       const name = s.customer_name || 'Cliente Avulso';
       const current = map.get(name) || { name, total: 0 };
-      current.total += Number(s.total_amount || 0);
+      const net = Math.max(0, Number(s.total_amount || 0) - Number(s.discount_amount || 0) - Number(s.cashback_used || 0));
+      current.total += net;
       map.set(name, current);
     });
     return Array.from(map.values())

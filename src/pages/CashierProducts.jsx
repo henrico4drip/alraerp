@@ -44,6 +44,8 @@ export default function CashierProducts() {
   const [shouldAutoProceed, setShouldAutoProceed] = useState(false);
   const [showConfirmRemoveCartItem, setShowConfirmRemoveCartItem] = useState(false);
   const [confirmRemoveCartItemId, setConfirmRemoveCartItemId] = useState(null);
+  const [editingPriceId, setEditingPriceId] = useState(null);
+  const [editingPriceValue, setEditingPriceValue] = useState("");
   useEffect(() => {
     const animate = sessionStorage.getItem('animateCashierEntry') === 'true';
     if (animate) {
@@ -273,7 +275,50 @@ export default function CashierProducts() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-0.5 sm:mb-1">
                       <h4 className="font-semibold text-gray-900 text-[13px] sm:text-sm truncate pr-2">{item.product_name}</h4>
-                      <p className="font-bold text-gray-900 text-[13px] sm:text-sm">R$ {(unitForItem(item) * item.quantity).toFixed(2)}</p>
+                      <div className="flex items-center gap-1">
+                        {editingPriceId === item.product_id ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-24 h-7 rounded-md border border-gray-300 px-2 text-[12px] font-bold"
+                            value={editingPriceValue}
+                            onChange={(e) => setEditingPriceValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const v = Math.max(0, Number(editingPriceValue || 0));
+                                setCart(prev => prev.map(it => it.product_id === item.product_id ? { ...it, unit_price: v, custom_price: true } : it));
+                                setEditingPriceId(null);
+                                setEditingPriceValue("");
+                              } else if (e.key === 'Escape') {
+                                setEditingPriceId(null);
+                                setEditingPriceValue("");
+                              }
+                            }}
+                            onBlur={() => {
+                              const v = Math.max(0, Number(editingPriceValue || 0));
+                              setCart(prev => prev.map(it => it.product_id === item.product_id ? { ...it, unit_price: v, custom_price: true } : it));
+                              setEditingPriceId(null);
+                              setEditingPriceValue("");
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="font-bold text-gray-900 text-[13px] sm:text-sm">R$ {(unitForItem(item) * item.quantity).toFixed(2)}</p>
+                        )}
+                        {editingPriceId !== item.product_id && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 rounded-md text-gray-500 hover:text-gray-700"
+                            onClick={() => {
+                              setEditingPriceId(item.product_id);
+                              setEditingPriceValue(String(unitForItem(item).toFixed(2)));
+                            }}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] sm:text-xs text-gray-500">Unit: R$ {unitForItem(item).toFixed(2)}</p>

@@ -86,9 +86,10 @@ export default function Dashboard() {
   useEffect(() => {
     const showTimer = setTimeout(() => setShowNotif(true), 3000);
 
-    // Pixel: CompleteRegistration
+    // Pixel: CompleteRegistration (somente produção)
     const regCompleted = localStorage.getItem('registration_completed');
-    if (regCompleted === 'true' && window.fbq) {
+    const isProdHost = typeof window !== 'undefined' && window.location && /alraerp\.com\.br$/i.test(window.location.hostname);
+    if (regCompleted === 'true' && isProdHost && window.fbq) {
       window.fbq('track', 'CompleteRegistration');
       localStorage.removeItem('registration_completed');
     }

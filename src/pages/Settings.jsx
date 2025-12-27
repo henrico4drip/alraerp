@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import SubscriptionLockOverlay from '@/components/SubscriptionLockOverlay'
 import RequirePermission from '@/components/RequirePermission'
 import FiscalSettings from '@/pages/settings/FiscalSettings'
+import WhatsappSettings from '@/pages/settings/WhatsappSettings'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -541,6 +542,9 @@ export default function Settings() {
 
               {/* 3.5 Fiscal Integration */}
               <FiscalSettings />
+
+              {/* 3.6 WhatsApp Integation */}
+              <WhatsappSettings />
 
               {/* 4. Assinatura */}
               <Card className="shadow-md border-0 ring-1 ring-gray-100 rounded-3xl overflow-hidden bg-gradient-to-br from-white to-blue-50/30">
