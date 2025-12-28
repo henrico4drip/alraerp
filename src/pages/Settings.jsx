@@ -385,7 +385,7 @@ export default function Settings() {
                       {paymentMethods.map((m) => (
                         <div key={m} className="pl-3 pr-2 py-1.5 bg-gray-100 rounded-lg flex items-center gap-2 border border-gray-200">
                           <span className="text-sm font-medium text-gray-700">{m}</span>
-                          <button onClick={() => { setConfirmRemovePaymentMethod(m); setShowConfirmRemovePaymentMethod(true); }} className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-red-500 transition-colors">
+                          <button onClick={() => { setMethodToRemove(m); setShowConfirmRemovePaymentMethod(true); }} className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-red-500 transition-colors">
                             <X className="w-3 h-3" />
                           </button>
                         </div>

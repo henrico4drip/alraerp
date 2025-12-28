@@ -276,6 +276,20 @@ export default function CashierProducts() {
                     <div className="flex justify-between items-start mb-0.5 sm:mb-1">
                       <h4 className="font-semibold text-gray-900 text-[13px] sm:text-sm truncate pr-2">{item.product_name}</h4>
                       <div className="flex items-center gap-1">
+                        {editingPriceId !== item.product_id && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-4 w-4 sm:h-5 sm:w-5 rounded-md text-gray-400 hover:text-gray-600"
+                            onClick={() => {
+                              setEditingPriceId(item.product_id);
+                              setEditingPriceValue(String(unitForItem(item).toFixed(2)));
+                            }}
+                            title="Editar preço"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        )}
                         {editingPriceId === item.product_id ? (
                           <input
                             type="number"
@@ -303,20 +317,7 @@ export default function CashierProducts() {
                             autoFocus
                           />
                         ) : (
-                          <p className="font-bold text-gray-900 text-[13px] sm:text-sm">R$ {(unitForItem(item) * item.quantity).toFixed(2)}</p>
-                        )}
-                        {editingPriceId !== item.product_id && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 rounded-md text-gray-500 hover:text-gray-700"
-                            onClick={() => {
-                              setEditingPriceId(item.product_id);
-                              setEditingPriceValue(String(unitForItem(item).toFixed(2)));
-                            }}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
+                          <p className="font-bold text-gray-900 text-[13px] sm:text-sm whitespace-nowrap">R$ {(unitForItem(item) * item.quantity).toFixed(2)}</p>
                         )}
                       </div>
                     </div>

@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 
 export default function WhatsappSettings() {
-    const [status, setStatus] = useState('disconnected') // 'disconnected' | 'connecting' | 'connected'
+    const [status, setStatus] = useState('disconnected') // 'connected', 'disconnected', 'connecting', 'error'
     const [qrCode, setQrCode] = useState(null)
     const [loading, setLoading] = useState(false)
     const [instanceData, setInstanceData] = useState(null)
+    const [errorDetails, setErrorDetails] = useState(null)
+    const [proxyLogs, setProxyLogs] = useState([])
     const [autoSendCashback, setAutoSendCashback] = useState(false)
     const effectiveDetails = useEffectiveSettings()
 
@@ -33,71 +35,93 @@ export default function WhatsappSettings() {
         }
     }
 
-    const checkStatus = async () => {
-        setLoading(true)
+    const checkStatus = async (isPolling = false) => {
+        if (!isPolling) setLoading(true)
+        setErrorDetails(null)
         try {
             const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
                 body: { action: 'get_status' }
             })
             if (error) throw error
 
-            // Map Evolution status to connection state
-            // Evolution v2 connectionState: 'open', 'close', 'connecting'
-            const evoState = data?.instance?.state || 'close'
+            if (data?.error) {
+                // Se for polling e der erro de rede, não mudamos o status para erro imediatamente
+                // para não assustar o usuário com mensagens vermelhas enquanto ele escaneia
+                if (!isPolling) {
+                    setStatus('error')
+                    setErrorDetails(data.message + (data.details ? `: ${data.details}` : ''))
+                }
+                return
+            }
 
-            if (evoState === 'open') {
+            // Detecção robusta para Evolution v2
+            const instance = data?.instance || data
+            const connectionStatus = (instance?.connectionStatus || instance?.state || instance?.status || '').toUpperCase()
+
+            if (connectionStatus === 'OPEN' || connectionStatus === 'CONNECTED') {
                 setStatus('connected')
                 setQrCode(null)
-            } else if (evoState === 'connecting') {
+            } else if (connectionStatus === 'CONNECTING') {
                 setStatus('connecting')
-            } else {
+                const qrBase64 = instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
+                if (qrBase64) {
+                    setQrCode(qrBase64)
+                }
+            } else if (connectionStatus === 'DISCONNECTED' || connectionStatus === 'CLOSE') {
                 setStatus('disconnected')
+                setQrCode(null)
             }
             setInstanceData(data)
         } catch (e) {
             console.error('Failed to check status:', e)
-            setStatus('error')
+            if (!isPolling) {
+                setStatus('error')
+                setErrorDetails(`Erro: ${e.message}`)
+            }
         } finally {
-            setLoading(false)
+            if (!isPolling) setLoading(false)
         }
     }
 
     const handleConnect = async () => {
         setLoading(true)
-        setQrCode(null)
+        // NÃO limpar o QR Code aqui - manter visível
+        setErrorDetails(null)
+        setProxyLogs([])
         try {
             const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
                 body: { action: 'connect' }
             })
             if (error) throw error
 
+            if (data?.log) setProxyLogs(data.log)
+
             if (data?.error) {
-                const msg = data.message || 'Erro no servidor'
-                const details = data.details || ''
-                alert(`Erro do Servidor: ${msg}\n${details}`)
+                setStatus('error')
+                setErrorDetails(data.message + (data.details ? `: ${data.details}` : ''))
                 return
             }
 
-            console.log('Connect Data (Full):', data)
-
             const qrBase64 = data?.instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
-            const qrCodeValue = data?.instance?.qrcode?.code || data?.qrcode?.code || data?.code
+            const qrCodeValue = data?.instance?.qrcode?.code || data?.qrcode?.code || data?.code || data?.pairingCode
 
             if (qrBase64) {
-                console.log('QR Code Base64 found!')
                 setQrCode(qrBase64)
                 setStatus('connecting')
             } else if (qrCodeValue) {
-                console.log('Pairing Code found:', qrCodeValue)
                 setQrCode(qrCodeValue)
                 setStatus('connecting')
+            } else if (data?.status === 'connected') {
+                setStatus('connected')
+                setQrCode(null) // Só limpa quando conectou
             } else {
-                console.log('No QR or Code found in data structure.')
-                alert(`O servidor respondeu, mas não enviou um QR Code ainda.\n\nResposta do Servidor:\n${JSON.stringify(data, null, 2)}\n\nTente clicar mais uma vez em "Gerar QR Code".`)
+                setStatus('error')
+                setErrorDetails(data.message || "O servidor não retornou um QR Code. Tente novamente em instantes.")
             }
         } catch (e) {
             console.error('Failed to connect:', e)
-            alert(`Erro na conexão: ${e.message}`)
+            setStatus('error')
+            setErrorDetails(e.message)
         } finally {
             setLoading(false)
         }
@@ -118,13 +142,15 @@ export default function WhatsappSettings() {
     const handleForceReset = async () => {
         if (!confirm('Isso vai apagar a instância atual no servidor e tentar criar uma nova. Deseja continuar?')) return
         setLoading(true)
+        setErrorDetails(null) // Clear previous errors
         try {
             await supabase.functions.invoke('whatsapp-proxy', { body: { action: 'logout' } })
             alert('Instância limpa com sucesso. Agora clique em "Gerar QR Code" novamente.')
             setStatus('disconnected')
             setQrCode(null)
         } catch (e) {
-            alert('Erro ao limpar: ' + e.message)
+            setStatus('error')
+            setErrorDetails(`Erro ao limpar a instância: ${e.message}.`)
         } finally {
             setLoading(false)
         }
@@ -133,6 +159,7 @@ export default function WhatsappSettings() {
     const handleLogout = async () => {
         if (!confirm('Tem certeza que deseja desconectar?')) return
         setLoading(true)
+        setErrorDetails(null) // Clear previous errors
         try {
             await supabase.functions.invoke('whatsapp-proxy', {
                 body: { action: 'logout' }
@@ -141,6 +168,8 @@ export default function WhatsappSettings() {
             setQrCode(null)
         } catch (e) {
             console.error('Failed to logout:', e)
+            setStatus('error')
+            setErrorDetails(`Erro ao desconectar: ${e.message}.`)
         } finally {
             setLoading(false)
         }
@@ -151,22 +180,55 @@ export default function WhatsappSettings() {
         checkStatus()
     }, [])
 
+    // Polling effect while connecting - USANDO WEBSOCKET
+    useEffect(() => {
+        let statusInterval = null
+        let ws = null
+
+        // Polling rápido para detectar conexão
+        if (status === 'connecting') {
+            statusInterval = setInterval(() => {
+                checkStatus(true)
+            }, 3000) // Verifica status a cada 3s
+
+            // Atualiza o QR Code a cada 25s (antes de expirar aos 30s)
+            const qrRefreshInterval = setInterval(() => {
+                handleConnect() // Gera um novo QR Code
+            }, 25000)
+
+            return () => {
+                if (statusInterval) clearInterval(statusInterval)
+                clearInterval(qrRefreshInterval)
+            }
+        }
+
+        return () => {
+            if (statusInterval) clearInterval(statusInterval)
+        }
+    }, [status])
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Card className="border-none shadow-none bg-white/50 backdrop-blur-sm">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <span className="text-xl">💬</span> Integração WhatsApp
-                        {status === 'connected' && <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Conectado</Badge>}
-                        {status === 'connecting' && <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-none">Aguardando Leitura</Badge>}
-                        {status === 'disconnected' && <Badge variant="outline" className="text-gray-500">Desconectado</Badge>}
-                        {status === 'error' && <Badge variant="destructive">Servidor Offline</Badge>}
-                    </CardTitle>
-                    <p className="text-sm text-gray-500">
-                        Conecte seu WhatsApp para enviar mensagens automáticas de Cashback e Comprovantes.
-                    </p>
+                <CardHeader className="bg-gradient-to-r from-green-50/50 to-blue-50/50 border-b border-gray-100 pb-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+                                <span className="text-2xl">💬</span> Conectar WhatsApp
+                            </CardTitle>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Ative mensagens automáticas e melhore a experiência dos seus clientes.
+                            </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                            {status === 'connected' && <Badge className="bg-green-500 text-white border-none px-3 py-1 text-sm font-semibold shadow-sm">CONECTADO</Badge>}
+                            {status === 'connecting' && <Badge className="bg-yellow-400 text-white border-none px-3 py-1 text-sm font-semibold shadow-sm">AGUARDANDO...</Badge>}
+                            {status === 'disconnected' && <Badge variant="outline" className="text-gray-400 border-gray-200 px-3 py-1 text-sm font-semibold">DESCONECTADO</Badge>}
+                            {status === 'error' && <Badge variant="destructive" className="px-3 py-1 text-sm font-semibold">ERRO NO SERVIDOR</Badge>}
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="pt-8 space-y-8">
 
                     {status === 'connected' ? (
                         <div className="flex flex-col items-center justify-center p-8 bg-green-50 rounded-2xl border border-green-100 space-y-4">
@@ -203,19 +265,66 @@ export default function WhatsappSettings() {
                                 </Button>
                             </div>
 
-                            <div className="flex items-center justify-center w-[280px] h-[280px] bg-white rounded-2xl border-2 border-dashed border-gray-200 relative">
-                                {loading && !qrCode && <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />}
-                                {!loading && !qrCode && <Smartphone className="w-12 h-12 text-gray-200" />}
+                            <div className="flex items-center justify-center w-[280px] h-[280px] bg-white rounded-3xl border-2 border-dashed border-gray-200 relative group transition-all hover:border-green-300 overflow-hidden shadow-inner">
+                                {loading && !qrCode && (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Loader2 className="w-10 h-10 text-green-500 animate-spin" />
+                                        <span className="text-xs text-gray-400 font-medium">Iniciando sessão...</span>
+                                    </div>
+                                )}
+                                {!loading && !qrCode && (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Smartphone className="w-12 h-12 text-gray-200 group-hover:scale-110 transition-transform" />
+                                        <span className="text-xs text-gray-400">Pronto para gerar</span>
+                                    </div>
+                                )}
                                 {qrCode && (
-                                    <img src={qrCode} alt="QR Code" className="w-full h-full object-contain p-2" />
+                                    <div className="relative w-full h-full p-4 animate-in fade-in zoom-in duration-300">
+                                        <img src={qrCode} alt="QR Code" className="w-full h-full object-contain" />
+                                        {loading && (
+                                            <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex items-center justify-center">
+                                                <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
                     )}
 
                     {status === 'error' && (
-                        <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm text-center">
-                            Falha ao comunicar com o servidor de WhatsApp. Verifique se a variável de ambiente <code>EVOLUTION_API_URL</code> está configurada.
+                        <div className="p-6 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center gap-4 animate-in fade-in zoom-in">
+                            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                <span className="text-xl">❌</span>
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-red-900 font-bold">Falha na Conexão</h3>
+                                <p className="text-red-700 text-sm mt-1 max-w-[400px]">
+                                    {errorDetails || "Não foi possível falar com o servidor Evolution."}
+                                </p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                className="rounded-xl border-red-200 text-red-700 hover:bg-red-100"
+                                onClick={checkStatus}
+                            >
+                                Tentar Novamente
+                            </Button>
+                        </div>
+                    )}
+
+                    {proxyLogs && proxyLogs.length > 0 && (
+                        <div className="mt-8 p-4 bg-gray-900 rounded-xl font-mono text-[10px] text-gray-400 overflow-auto max-h-[200px]">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-green-500">CONDIAG_LOG v1.0</span>
+                                <Button variant="ghost" className="h-4 text-[8px] text-gray-500 hover:text-white" onClick={() => setProxyLogs([])}>Limpar</Button>
+                            </div>
+                            {proxyLogs.map((log, i) => (
+                                <div key={i} className="mb-1">
+                                    <span className="text-gray-600">[{new Date().toLocaleTimeString()}]</span> {log.msg}
+                                    {log.data && <span className="text-blue-400"> - {JSON.stringify(log.data)}</span>}
+                                </div>
+                            ))}
                         </div>
                     )}
 
