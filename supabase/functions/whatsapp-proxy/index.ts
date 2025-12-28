@@ -43,19 +43,49 @@ serve(async (req) => {
             return new Response(JSON.stringify({ error: true, message: "URL ou Chave da Evolution não configurada no Supabase." }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
-        const headers = { 'Content-Type': 'application/json', 'apikey': EVO_API_KEY }
+        const headers = { 'Content-Type': 'application/json', 'apikey': EVO_API_KEY, 'x-api-key': EVO_API_KEY }
+        const withApiKey = (path: string) => `${EVO_API_URL}${path}${path.includes('?') ? '&' : '?'}apikey=${encodeURIComponent(EVO_API_KEY!)}`
+        const safeFetchJson = async (path: string, init: RequestInit = {}, retries = 1, timeoutMs = 6000) => {
+            let lastErr: any = null
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                const ctrl = new AbortController()
+                const id = setTimeout(() => ctrl.abort(), timeoutMs)
+                try {
+                    const res = await fetch(withApiKey(path), { ...init, signal: ctrl.signal })
+                    clearTimeout(id)
+                    const text = await res.text()
+                    let json: any
+                    try { json = JSON.parse(text) } catch { json = null }
+                    return { status: res.status, json, text }
+                } catch (e) {
+                    lastErr = e
+                    addLog(`safeFetch error: ${e instanceof Error ? e.message : String(e)}`)
+                    await sleep(500)
+                } finally {
+                    clearTimeout(id)
+                }
+            }
+            throw lastErr || new Error('Network error')
+        }
 
         if (action === 'get_status') {
-            const res = await fetch(`${EVO_API_URL}/instance/fetchInstances`, { headers })
-            const data = await res.json()
+            const res = await safeFetchJson(`/instance/fetchInstances`, { headers }, 3, 10000)
+            if (res.status === 403) {
+                const msg = res.json?.response?.message || []
+                const flat = Array.isArray(msg) ? msg.join(' | ') : String(msg || '')
+                if (flat.toLowerCase().includes('missing global api key')) {
+                    return new Response(JSON.stringify({ error: true, message: 'Evolution API Key ausente. Configure EVOLUTION_API_URL e EVOLUTION_API_KEY.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                }
+            }
+            const data = res.json
             const found = Array.isArray(data) ? data.find((i: any) => i.instanceName === instanceName || i.name === instanceName) : null
 
             if (found) {
                 const connStatus = (found.connectionStatus || found.state || found.status || '').toUpperCase()
                 // Se está tentando conectar mas o QR não veio no fetch inicial, tenta o endpoint de connect
                 if (connStatus === 'CONNECTING' && !found.qrcode) {
-                    const connRes = await fetch(`${EVO_API_URL}/instance/connect/${instanceName}`, { headers })
-                    const connData = await connRes.json()
+                    const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 2, 10000)
+                    const connData = connRes.json
                     // Se já vier status conectado pelo endpoint, devolve isso
                     const cs = (connData?.connectionStatus || connData?.status || connData?.instance?.connectionStatus || '').toUpperCase()
                     if (cs === 'OPEN' || cs === 'CONNECTED') {
@@ -75,13 +105,20 @@ serve(async (req) => {
         if (action === 'connect') {
             // 1. Check if exists
             addLog(`Checking if instance exists`);
-            const listRes = await fetch(`${EVO_API_URL}/instance/fetchInstances`, { headers })
-            const instances = await listRes.json()
+            const listRes = await safeFetchJson(`/instance/fetchInstances`, { headers }, 3, 10000)
+            if (listRes.status === 403) {
+                const msg = listRes.json?.response?.message || []
+                const flat = Array.isArray(msg) ? msg.join(' | ') : String(msg || '')
+                if (flat.toLowerCase().includes('missing global api key')) {
+                    return new Response(JSON.stringify({ error: true, message: 'Evolution API Key ausente. Configure EVOLUTION_API_URL e EVOLUTION_API_KEY.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                }
+            }
+            const instances = listRes.json
             const foundInitial = Array.isArray(instances) ? instances.find((i: any) => i.instanceName === instanceName || i.name === instanceName) : null
 
             if (!foundInitial) {
                 addLog(`Instance ${instanceName} not found. Creating it...`);
-                const createRes = await fetch(`${EVO_API_URL}/instance/create`, {
+                const createRes = await safeFetchJson(`/instance/create`, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
@@ -90,8 +127,8 @@ serve(async (req) => {
                         integration: "WHATSAPP-BAILEYS",
                         qrcode: true
                     })
-                })
-                const createData = await createRes.json();
+                }, 2, 12000)
+                const createData = createRes.json;
                 addLog(`Create response status: ${createRes.status}`, createData);
 
                 // Se a instância já existe (403), não é erro - apenas continue
@@ -111,8 +148,8 @@ serve(async (req) => {
                 }
             } else {
                 addLog(`Instance exists. Forcing connect.`);
-                const connRes = await fetch(`${EVO_API_URL}/instance/connect/${instanceName}`, { headers });
-                const connData = await connRes.json();
+                const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 3, 10000);
+                const connData = connRes.json;
                 addLog(`Connect result`, connData);
             }
 
@@ -129,8 +166,8 @@ serve(async (req) => {
                 addLog(`Polling QR attempt ${i + 1}`);
 
                 // Tenta pegar status geral
-                const pollRes = await fetch(`${EVO_API_URL}/instance/fetchInstances`, { headers })
-                const pollInstances = await pollRes.json()
+                const pollRes = await safeFetchJson(`/instance/fetchInstances`, { headers }, 3, 8000)
+                const pollInstances = pollRes.json
                 const found = Array.isArray(pollInstances) ? pollInstances.find((ins: any) => ins.instanceName === instanceName || ins.name === instanceName) : null
 
                 if (found) {
@@ -156,8 +193,8 @@ serve(async (req) => {
 
                 // Tenta forçar pegar o QR via endpoint de connect
                 try {
-                    const qrRes = await fetch(`${EVO_API_URL}/instance/connect/${instanceName}`, { headers });
-                    const qrData = await qrRes.json();
+                    const qrRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 2, 8000);
+                    const qrData = qrRes.json;
 
                     addLog(`Connect endpoint response`, qrData);
 
@@ -187,9 +224,17 @@ serve(async (req) => {
 
         if (action === 'logout') {
             addLog(`Deleting instance`);
-            const delRes = await fetch(`${EVO_API_URL}/instance/delete/${instanceName}`, { method: 'DELETE', headers });
+            const delRes = await fetch(withApiKey(`/instance/delete/${instanceName}`), { method: 'DELETE', headers });
             const delData = await delRes.json();
             return new Response(JSON.stringify({ success: true, log, delData }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        }
+
+        if (action === 'debug_list') {
+            const res = await fetch(withApiKey(`/instance/fetchInstances`), { headers })
+            const text = await res.text()
+            let json: any
+            try { json = JSON.parse(text) } catch { json = { raw: text } }
+            return new Response(JSON.stringify(json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: res.status })
         }
 
         return new Response(JSON.stringify({ error: true, message: "Ação inválida" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })

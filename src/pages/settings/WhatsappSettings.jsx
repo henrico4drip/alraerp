@@ -21,6 +21,10 @@ export default function WhatsappSettings() {
     const effectiveDetails = useEffectiveSettings()
     const [lastQrHash, setLastQrHash] = useState(null)
     const [staleCount, setStaleCount] = useState(0)
+    const [diagEnabled, setDiagEnabled] = useState(false)
+    const [qrType, setQrType] = useState(null)
+    const [qrGeneratedAt, setQrGeneratedAt] = useState(null)
+    const [lastStatusAt, setLastStatusAt] = useState(null)
 
     useEffect(() => {
         if (effectiveDetails) {
@@ -61,6 +65,7 @@ export default function WhatsappSettings() {
             // Detecção robusta para Evolution v2
             const instance = data?.instance || data
             const connectionStatus = (instance?.connectionStatus || instance?.state || instance?.status || '').toUpperCase()
+            setLastStatusAt(new Date())
 
             if (connectionStatus === 'OPEN' || connectionStatus === 'CONNECTED') {
                 setStatus('connected')
@@ -71,17 +76,29 @@ export default function WhatsappSettings() {
             } else if (connectionStatus === 'CONNECTING') {
                 setStatus('connecting')
                 const qrBase64 = instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
-                const qrCodeValue = instance?.qrcode?.code || data?.qrcode?.code || data?.code || data?.pairingCode
+                const pairing = instance?.qrcode?.pairingCode || data?.qrcode?.pairingCode || data?.pairingCode
+                const qrCodeValue = instance?.qrcode?.code || data?.qrcode?.code || data?.code
                 if (qrBase64) {
                     const img = String(qrBase64).startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`
                     setQrCode(img)
                     setPairingCode(null)
+                    setQrType('base64')
+                    setQrGeneratedAt(new Date())
                     setLastQrHash(img?.slice(0, 64) || null)
                     setStaleCount(0)
-                } else if (qrCodeValue) {
-                    // Evolution pode retornar um código de pareamento (para digitar no celular)
-                    setPairingCode(String(qrCodeValue))
+                } else if (pairing) {
+                    setPairingCode(String(pairing))
                     setQrCode(null)
+                    setQrType('pairing')
+                    setQrGeneratedAt(new Date())
+                } else if (qrCodeValue) {
+                    try {
+                        const img = await QRCode.toDataURL(String(qrCodeValue))
+                        setQrCode(img)
+                        setPairingCode(null)
+                        setQrType('code')
+                        setQrGeneratedAt(new Date())
+                    } catch {}
                 } /* Se não veio nada, mantenha o QR atual visível */
             } else if (connectionStatus === 'DISCONNECTED' || connectionStatus === 'CLOSE') {
                 // Enquanto usuário está tentando conectar, mantenha o último QR visível
@@ -90,9 +107,12 @@ export default function WhatsappSettings() {
                     const img = String(instance.qrcode.base64).startsWith('data:image') ? instance.qrcode.base64 : `data:image/png;base64,${instance.qrcode.base64}`
                     setQrCode(img)
                     setPairingCode(null)
+                    setQrType('base64')
+                    setQrGeneratedAt(new Date())
                 }
             }
             setInstanceData(data)
+            setProxyLogs(prev => [...prev.slice(-99), { msg: 'Status', data: { connectionStatus, qrType: qrType || (pairingCode ? 'pairing' : (qrCode ? 'base64/code' : 'none')) } }])
         } catch (e) {
             console.error('Failed to check status:', e)
             if (!isPolling) {
@@ -124,17 +144,29 @@ export default function WhatsappSettings() {
             }
 
             const qrBase64 = data?.instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
-            const qrCodeValue = data?.instance?.qrcode?.code || data?.qrcode?.code || data?.code || data?.pairingCode
+            const pairing = data?.instance?.qrcode?.pairingCode || data?.qrcode?.pairingCode || data?.pairingCode
+            const qrCodeValue = data?.instance?.qrcode?.code || data?.qrcode?.code || data?.code
 
             if (qrBase64) {
                 const img = String(qrBase64).startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`
                 setQrCode(img)
                 setPairingCode(null)
+                setQrType('base64')
+                setQrGeneratedAt(new Date())
                 setStatus('connecting')
-            } else if (qrCodeValue) {
-                // Mostrar como código de pareamento (não QR)
-                setPairingCode(String(qrCodeValue))
+            } else if (pairing) {
+                setPairingCode(String(pairing))
                 setQrCode(null)
+                setQrType('pairing')
+                setQrGeneratedAt(new Date())
+            } else if (qrCodeValue) {
+                try {
+                    const img = await QRCode.toDataURL(String(qrCodeValue))
+                    setQrCode(img)
+                    setPairingCode(null)
+                    setQrType('code')
+                    setQrGeneratedAt(new Date())
+                } catch {}
                 setStatus('connecting')
             } else if (data?.status === 'connected') {
                 setStatus('connected')
@@ -200,9 +232,10 @@ export default function WhatsappSettings() {
         }
     }
 
-    // Checking status on mount
+    // Auto start: checa e tenta conectar ao montar
     useEffect(() => {
         checkStatus()
+        handleConnect(true)
     }, [])
 
     // Polling effect while connecting - USANDO WEBSOCKET
@@ -210,30 +243,24 @@ export default function WhatsappSettings() {
         let statusInterval = null
         let ws = null
 
-        // Polling rápido para detectar conexão
+        // Polling rápido para detectar conexão e obter QR atualizado sem reiniciar a sessão
         if (status === 'connecting') {
             statusInterval = setInterval(() => {
                 checkStatus(true)
-            }, 3000) // Verifica status a cada 3s
-
-            // Atualiza o QR Code a cada 25s (antes de expirar aos 30s)
-            const qrRefreshInterval = setInterval(() => {
-                handleConnect(true) // refresh silencioso do QR sem overlay
-                // Se o QR não mudou por 2 ciclos, força reconectar
+                // Se o QR não mudou por ~1min, força reconectar uma única vez
                 setStaleCount(prev => {
                     const next = prev + 1
-                    if (next >= 2) {
+                    if (next >= 20) { // 20 * 3s ≈ 60s
                         supabase.functions.invoke('whatsapp-proxy', { body: { action: 'logout' } })
                             .catch(() => {}).finally(() => handleConnect(true))
                         return 0
                     }
                     return next
                 })
-            }, 25000)
+            }, 3000) // Verifica status a cada 3s
 
             return () => {
                 if (statusInterval) clearInterval(statusInterval)
-                clearInterval(qrRefreshInterval)
             }
         }
 
@@ -241,6 +268,14 @@ export default function WhatsappSettings() {
             if (statusInterval) clearInterval(statusInterval)
         }
     }, [status])
+
+    useEffect(() => {
+        if (!diagEnabled) return
+        const interval = setInterval(() => {
+            checkStatus(true)
+        }, 2000)
+        return () => clearInterval(interval)
+    }, [diagEnabled])
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -325,7 +360,6 @@ export default function WhatsappSettings() {
                                 {qrCode && (
                                     <div className="relative w-full h-full p-4 animate-in fade-in zoom-in duration-300">
                                         <img src={qrCode} alt="QR Code" className="w-full h-full object-contain" />
-                                        {/* Indicador de atualização sem esconder o QR */}
                                         {loading && (
                                             <div className="absolute top-2 right-2 bg-white/80 rounded-full p-1 shadow">
                                                 <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
@@ -333,6 +367,15 @@ export default function WhatsappSettings() {
                                         )}
                                     </div>
                                 )}
+                            </div>
+                            <div className="mt-3 text-center md:text-left">
+                                <div className="text-xs text-gray-500">
+                                    <span className="font-semibold text-gray-700">QR tipo:</span> {qrType || (pairingCode ? 'pairing' : (qrCode ? 'imagem' : 'N/A'))}
+                                    {' • '}
+                                    <span className="font-semibold text-gray-700">Gerado há:</span> {qrGeneratedAt ? `${Math.floor((Date.now() - qrGeneratedAt.getTime()) / 1000)}s` : 'N/A'}
+                                    {' • '}
+                                    <span className="font-semibold text-gray-700">Último status:</span> {lastStatusAt ? lastStatusAt.toLocaleTimeString() : 'N/A'}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -401,6 +444,10 @@ export default function WhatsappSettings() {
                 >
                     Problemas com o QR Code? Clique aqui para Reset Total da Instância
                 </button>
+                <div className="flex items-center gap-2">
+                    <Switch id="diag-switch" checked={diagEnabled} onCheckedChange={setDiagEnabled} />
+                    <label htmlFor="diag-switch" className="text-xs text-gray-500">Diagnóstico em tempo real</label>
+                </div>
                 <button
                     onClick={handleDebugList}
                     className="text-xs text-gray-400 hover:text-blue-500 transition-colors underline bg-transparent border-none cursor-pointer"
