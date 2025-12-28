@@ -12,12 +12,15 @@ import QRCode from 'qrcode'
 export default function WhatsappSettings() {
     const [status, setStatus] = useState('disconnected') // 'connected', 'disconnected', 'connecting', 'error'
     const [qrCode, setQrCode] = useState(null)
+    const [pairingCode, setPairingCode] = useState(null)
     const [loading, setLoading] = useState(false)
     const [instanceData, setInstanceData] = useState(null)
     const [errorDetails, setErrorDetails] = useState(null)
     const [proxyLogs, setProxyLogs] = useState([])
     const [autoSendCashback, setAutoSendCashback] = useState(false)
     const effectiveDetails = useEffectiveSettings()
+    const [lastQrHash, setLastQrHash] = useState(null)
+    const [staleCount, setStaleCount] = useState(0)
 
     useEffect(() => {
         if (effectiveDetails) {
@@ -62,6 +65,9 @@ export default function WhatsappSettings() {
             if (connectionStatus === 'OPEN' || connectionStatus === 'CONNECTED') {
                 setStatus('connected')
                 setQrCode(null)
+                setPairingCode(null)
+                setLastQrHash(null)
+                setStaleCount(0)
             } else if (connectionStatus === 'CONNECTING') {
                 setStatus('connecting')
                 const qrBase64 = instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
@@ -69,13 +75,13 @@ export default function WhatsappSettings() {
                 if (qrBase64) {
                     const img = String(qrBase64).startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`
                     setQrCode(img)
+                    setPairingCode(null)
+                    setLastQrHash(img?.slice(0, 64) || null)
+                    setStaleCount(0)
                 } else if (qrCodeValue) {
-                    try {
-                        const img = await QRCode.toDataURL(String(qrCodeValue))
-                        setQrCode(img)
-                    } catch {
-                        /* mantêm QR atual */
-                    }
+                    // Evolution pode retornar um código de pareamento (para digitar no celular)
+                    setPairingCode(String(qrCodeValue))
+                    setQrCode(null)
                 } /* Se não veio nada, mantenha o QR atual visível */
             } else if (connectionStatus === 'DISCONNECTED' || connectionStatus === 'CLOSE') {
                 // Enquanto usuário está tentando conectar, mantenha o último QR visível
@@ -83,6 +89,7 @@ export default function WhatsappSettings() {
                 if (instance?.qrcode?.base64) {
                     const img = String(instance.qrcode.base64).startsWith('data:image') ? instance.qrcode.base64 : `data:image/png;base64,${instance.qrcode.base64}`
                     setQrCode(img)
+                    setPairingCode(null)
                 }
             }
             setInstanceData(data)
@@ -122,14 +129,12 @@ export default function WhatsappSettings() {
             if (qrBase64) {
                 const img = String(qrBase64).startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`
                 setQrCode(img)
+                setPairingCode(null)
                 setStatus('connecting')
             } else if (qrCodeValue) {
-                try {
-                    const img = await QRCode.toDataURL(String(qrCodeValue))
-                    setQrCode(img)
-                } catch {
-                    /* mantém QR atual */
-                }
+                // Mostrar como código de pareamento (não QR)
+                setPairingCode(String(qrCodeValue))
+                setQrCode(null)
                 setStatus('connecting')
             } else if (data?.status === 'connected') {
                 setStatus('connected')
@@ -214,6 +219,16 @@ export default function WhatsappSettings() {
             // Atualiza o QR Code a cada 25s (antes de expirar aos 30s)
             const qrRefreshInterval = setInterval(() => {
                 handleConnect(true) // refresh silencioso do QR sem overlay
+                // Se o QR não mudou por 2 ciclos, força reconectar
+                setStaleCount(prev => {
+                    const next = prev + 1
+                    if (next >= 2) {
+                        supabase.functions.invoke('whatsapp-proxy', { body: { action: 'logout' } })
+                            .catch(() => {}).finally(() => handleConnect(true))
+                        return 0
+                    }
+                    return next
+                })
             }, 25000)
 
             return () => {
@@ -294,24 +309,33 @@ export default function WhatsappSettings() {
                                 )}
                                 {!loading && !qrCode && (
                                     <div className="flex flex-col items-center gap-2">
-                                        <Smartphone className="w-12 h-12 text-gray-200 group-hover:scale-110 transition-transform" />
-                                        <span className="text-xs text-gray-400">Pronto para gerar</span>
+                                        {pairingCode ? (
+                                            <div className="text-center">
+                                                <div className="text-2xl font-black tracking-widest text-gray-900">{pairingCode}</div>
+                                                <div className="text-xs text-gray-400 mt-1">Digite este código no WhatsApp para parear</div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <Smartphone className="w-12 h-12 text-gray-200 group-hover:scale-110 transition-transform" />
+                                                <span className="text-xs text-gray-400">Pronto para gerar</span>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                                 {qrCode && (
                                     <div className="relative w-full h-full p-4 animate-in fade-in zoom-in duration-300">
                                         <img src={qrCode} alt="QR Code" className="w-full h-full object-contain" />
-                                {/* Indicador de atualização sem esconder o QR */}
-                                {loading && (
-                                    <div className="absolute top-2 right-2 bg-white/80 rounded-full p-1 shadow">
-                                        <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
+                                        {/* Indicador de atualização sem esconder o QR */}
+                                        {loading && (
+                                            <div className="absolute top-2 right-2 bg-white/80 rounded-full p-1 shadow">
+                                                <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
-                </div>
-            )}
+                        </div>
+                    )}
 
                     {status === 'error' && (
                         <div className="p-6 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center gap-4 animate-in fade-in zoom-in">
