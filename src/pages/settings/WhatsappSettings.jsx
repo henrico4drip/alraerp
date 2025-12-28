@@ -67,18 +67,23 @@ export default function WhatsappSettings() {
                 const qrBase64 = instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
                 const qrCodeValue = instance?.qrcode?.code || data?.qrcode?.code || data?.code || data?.pairingCode
                 if (qrBase64) {
-                    setQrCode(qrBase64)
+                    const img = String(qrBase64).startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`
+                    setQrCode(img)
                 } else if (qrCodeValue) {
                     try {
                         const img = await QRCode.toDataURL(String(qrCodeValue))
                         setQrCode(img)
                     } catch {
-                        setQrCode(null)
+                        /* mantêm QR atual */
                     }
-                }
+                } /* Se não veio nada, mantenha o QR atual visível */
             } else if (connectionStatus === 'DISCONNECTED' || connectionStatus === 'CLOSE') {
-                setStatus('disconnected')
-                setQrCode(null)
+                // Enquanto usuário está tentando conectar, mantenha o último QR visível
+                setStatus(prev => prev === 'connecting' ? 'connecting' : 'disconnected')
+                if (instance?.qrcode?.base64) {
+                    const img = String(instance.qrcode.base64).startsWith('data:image') ? instance.qrcode.base64 : `data:image/png;base64,${instance.qrcode.base64}`
+                    setQrCode(img)
+                }
             }
             setInstanceData(data)
         } catch (e) {
@@ -92,8 +97,8 @@ export default function WhatsappSettings() {
         }
     }
 
-    const handleConnect = async () => {
-        setLoading(true)
+    const handleConnect = async (silent = false) => {
+        if (!silent) setLoading(true)
         // NÃO limpar o QR Code aqui - manter visível
         setErrorDetails(null)
         setProxyLogs([])
@@ -115,14 +120,15 @@ export default function WhatsappSettings() {
             const qrCodeValue = data?.instance?.qrcode?.code || data?.qrcode?.code || data?.code || data?.pairingCode
 
             if (qrBase64) {
-                setQrCode(qrBase64)
+                const img = String(qrBase64).startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`
+                setQrCode(img)
                 setStatus('connecting')
             } else if (qrCodeValue) {
                 try {
                     const img = await QRCode.toDataURL(String(qrCodeValue))
                     setQrCode(img)
                 } catch {
-                    setQrCode(null)
+                    /* mantém QR atual */
                 }
                 setStatus('connecting')
             } else if (data?.status === 'connected') {
@@ -137,7 +143,7 @@ export default function WhatsappSettings() {
             setStatus('error')
             setErrorDetails(e.message)
         } finally {
-            setLoading(false)
+            if (!silent) setLoading(false)
         }
     }
 
@@ -207,7 +213,7 @@ export default function WhatsappSettings() {
 
             // Atualiza o QR Code a cada 25s (antes de expirar aos 30s)
             const qrRefreshInterval = setInterval(() => {
-                handleConnect() // Gera um novo QR Code
+                handleConnect(true) // refresh silencioso do QR sem overlay
             }, 25000)
 
             return () => {
@@ -295,16 +301,17 @@ export default function WhatsappSettings() {
                                 {qrCode && (
                                     <div className="relative w-full h-full p-4 animate-in fade-in zoom-in duration-300">
                                         <img src={qrCode} alt="QR Code" className="w-full h-full object-contain" />
-                                        {loading && (
-                                            <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex items-center justify-center">
-                                                <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
-                                            </div>
-                                        )}
+                                {/* Indicador de atualização sem esconder o QR */}
+                                {loading && (
+                                    <div className="absolute top-2 right-2 bg-white/80 rounded-full p-1 shadow">
+                                        <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
+                </div>
+            )}
 
                     {status === 'error' && (
                         <div className="p-6 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center gap-4 animate-in fade-in zoom-in">
