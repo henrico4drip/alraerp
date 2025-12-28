@@ -7,6 +7,7 @@ import { supabase } from '@/api/supabaseClient'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
+import QRCode from 'qrcode'
 
 export default function WhatsappSettings() {
     const [status, setStatus] = useState('disconnected') // 'connected', 'disconnected', 'connecting', 'error'
@@ -64,8 +65,16 @@ export default function WhatsappSettings() {
             } else if (connectionStatus === 'CONNECTING') {
                 setStatus('connecting')
                 const qrBase64 = instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
+                const qrCodeValue = instance?.qrcode?.code || data?.qrcode?.code || data?.code || data?.pairingCode
                 if (qrBase64) {
                     setQrCode(qrBase64)
+                } else if (qrCodeValue) {
+                    try {
+                        const img = await QRCode.toDataURL(String(qrCodeValue))
+                        setQrCode(img)
+                    } catch {
+                        setQrCode(null)
+                    }
                 }
             } else if (connectionStatus === 'DISCONNECTED' || connectionStatus === 'CLOSE') {
                 setStatus('disconnected')
@@ -109,7 +118,12 @@ export default function WhatsappSettings() {
                 setQrCode(qrBase64)
                 setStatus('connecting')
             } else if (qrCodeValue) {
-                setQrCode(qrCodeValue)
+                try {
+                    const img = await QRCode.toDataURL(String(qrCodeValue))
+                    setQrCode(img)
+                } catch {
+                    setQrCode(null)
+                }
                 setStatus('connecting')
             } else if (data?.status === 'connected') {
                 setStatus('connected')
