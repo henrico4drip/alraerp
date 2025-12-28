@@ -56,7 +56,16 @@ serve(async (req) => {
                 if (connStatus === 'CONNECTING' && !found.qrcode) {
                     const connRes = await fetch(`${EVO_API_URL}/instance/connect/${instanceName}`, { headers })
                     const connData = await connRes.json()
+                    // Se já vier status conectado pelo endpoint, devolve isso
+                    const cs = (connData?.connectionStatus || connData?.status || connData?.instance?.connectionStatus || '').toUpperCase()
+                    if (cs === 'OPEN' || cs === 'CONNECTED') {
+                        return new Response(JSON.stringify({ status: 'connected', instance: connData.instance || found }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                    }
                     return new Response(JSON.stringify(connData || found), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                }
+                // Inclui QR se presente no objeto encontrado
+                if (found.qrcode?.base64 || found.qrcode?.code) {
+                    return new Response(JSON.stringify({ instance: found, qrcode: found.qrcode, status: connStatus || found.status }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
             }
 
@@ -110,12 +119,13 @@ serve(async (req) => {
             // Polling
             let lastPoll = null;
             // Aumentando o wait inicial para dar tempo do QR ser gerado pela Evolution
-            addLog(`Waiting 5s for QR generation...`);
+            addLog(`Waiting 8s for QR generation...`);
             const startWait = Date.now();
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 8000));
             addLog(`Waited ${Date.now() - startWait}ms`);
 
-            for (let i = 0; i < 20; i++) {
+            // Até ~2 minutos
+            for (let i = 0; i < 40; i++) {
                 addLog(`Polling QR attempt ${i + 1}`);
 
                 // Tenta pegar status geral
@@ -130,6 +140,15 @@ serve(async (req) => {
                     const status = (found.connectionStatus || found.state || found.status || '').toUpperCase()
                     if (status === 'OPEN' || status === 'CONNECTED') {
                         return new Response(JSON.stringify({ status: 'connected', instance: found, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                    }
+                    // Se veio QR no objeto listado, devolve-o
+                    if (found.qrcode?.base64 || found.qrcode?.code) {
+                        return new Response(JSON.stringify({
+                            base64: found.qrcode?.base64,
+                            code: found.qrcode?.code,
+                            instance: found,
+                            log
+                        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                     }
                 } else {
                     addLog(`Poll: Instance not found in list`);
@@ -151,11 +170,16 @@ serve(async (req) => {
                             log
                         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                     }
+                    // Se a resposta indicar conectado, finalize
+                    const cs = (qrData?.connectionStatus || qrData?.status || qrData?.instance?.connectionStatus || '').toUpperCase()
+                    if (cs === 'OPEN' || cs === 'CONNECTED') {
+                        return new Response(JSON.stringify({ status: 'connected', instance: qrData.instance || found, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                    }
                 } catch (err: any) {
                     addLog(`Error checking connect endpoint: ${err.message}`)
                 }
 
-                await sleep(2000);
+                await sleep(3000);
             }
 
             return new Response(JSON.stringify({ error: false, message: "QR Code ainda não gerado. Tente novamente.", debug: lastPoll, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
