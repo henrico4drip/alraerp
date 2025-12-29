@@ -130,7 +130,29 @@ serve(async (req) => {
                 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
             }
 
-            addLog('Instance created, waiting for QR code...')
+            addLog('Instance created successfully')
+            await sleep(2000)
+
+            // Na Evolution API v2, precisamos chamar /instance/connect para iniciar a conexão
+            addLog('Calling /instance/connect to start connection...')
+            const connectInitRes = await safeFetchJson(`/instance/connect/${instanceName}`, {}, 1, 10000)
+
+            // Verifica se já veio o QR code na resposta do connect
+            if (connectInitRes?.json) {
+                const qrBase64 = connectInitRes.json?.base64 || connectInitRes.json?.qrcode?.base64 ||
+                    (typeof connectInitRes.json?.qrcode === 'string' ? connectInitRes.json.qrcode : null)
+
+                if (qrBase64) {
+                    addLog('QR Code received immediately from /instance/connect!')
+                    return new Response(JSON.stringify({
+                        base64: qrBase64,
+                        status: 'CONNECTING',
+                        log
+                    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                }
+            }
+
+            addLog('Starting polling for QR code...')
 
             // Polling para pegar o QR code
             // Na Evolution API v2, o QR pode vir via:
