@@ -132,19 +132,26 @@ serve(async (req) => {
 
             addLog('Instance created, waiting for QR code...')
 
-            // Polling para pegar o QR code via WebSocket events ou logs
-            // Na v2, vamos usar uma abordagem diferente: criar um webhook temporário
-            // Mas como não temos webhook, vamos fazer polling na instância
+            // Polling para pegar o QR code
+            // Na Evolution API v2, o QR pode vir via:
+            // 1. Endpoint /instance/connect/{instanceName}
+            // 2. Objeto da instância em fetchInstances
+            // 3. WebSocket/Webhook (não disponível aqui)
 
             for (let i = 0; i < 30; i++) {
                 await sleep(2000)
 
                 const inst = await getInstance()
-                if (!inst) continue
+                if (!inst) {
+                    addLog(`Instance not found on attempt ${i + 1}`)
+                    continue
+                }
 
                 const status = (inst.connectionStatus || '').toUpperCase()
+                addLog(`Attempt ${i + 1}/30 - Status: ${status}`)
 
                 if (status === 'OPEN' || status === 'CONNECTED') {
+                    addLog('Instance connected!')
                     return new Response(JSON.stringify({
                         status: 'connected',
                         instance: inst,
@@ -152,14 +159,13 @@ serve(async (req) => {
                     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
 
-                // Tenta buscar QR via diferentes métodos
                 // Método 1: Verificar se há base64 na instância
                 if (inst.qrcode || inst.qr || inst.base64) {
                     const qrData = inst.qrcode || inst.qr || inst.base64
                     const base64 = typeof qrData === 'string' ? qrData : (qrData?.base64 || qrData?.code)
 
                     if (base64) {
-                        addLog('QR Code found!')
+                        addLog('QR Code found in instance object!')
                         return new Response(JSON.stringify({
                             base64,
                             status: status || 'CONNECTING',
@@ -168,7 +174,26 @@ serve(async (req) => {
                     }
                 }
 
-                addLog(`Polling attempt ${i + 1}/30...`)
+                // Método 2: Tentar endpoint /instance/connect
+                try {
+                    const connectRes = await safeFetchJson(`/instance/connect/${instanceName}`, {}, 0, 5000)
+                    if (connectRes?.json) {
+                        const connData = connectRes.json
+                        const qrBase64 = connData?.base64 || connData?.qrcode?.base64 ||
+                            (typeof connData?.qrcode === 'string' ? connData.qrcode : null)
+
+                        if (qrBase64) {
+                            addLog('QR Code found via /instance/connect!')
+                            return new Response(JSON.stringify({
+                                base64: qrBase64,
+                                status: 'CONNECTING',
+                                log
+                            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                        }
+                    }
+                } catch (e) {
+                    addLog(`Connect endpoint error: ${e instanceof Error ? e.message : String(e)}`)
+                }
             }
 
             return new Response(JSON.stringify({
