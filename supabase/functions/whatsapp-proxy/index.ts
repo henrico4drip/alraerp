@@ -137,6 +137,9 @@ serve(async (req) => {
             addLog('Calling /instance/connect to start connection...')
             const connectInitRes = await safeFetchJson(`/instance/connect/${instanceName}`, {}, 1, 10000)
 
+            // Log da resposta completa para debug
+            addLog(`Connect response: ${JSON.stringify(connectInitRes?.json).slice(0, 200)}`)
+
             // Verifica se já veio o QR code na resposta do connect
             if (connectInitRes?.json) {
                 const qrBase64 = connectInitRes.json?.base64 || connectInitRes.json?.qrcode?.base64 ||
@@ -151,6 +154,7 @@ serve(async (req) => {
                     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
             }
+
 
             addLog('Starting polling for QR code...')
 
@@ -171,6 +175,11 @@ serve(async (req) => {
 
                 const status = (inst.connectionStatus || '').toUpperCase()
                 addLog(`Attempt ${i + 1}/30 - Status: ${status}`)
+
+                // Log detalhado da instância para debug (apenas nas primeiras 3 tentativas)
+                if (i < 3) {
+                    addLog(`Instance keys: ${Object.keys(inst).join(', ')}`)
+                }
 
                 if (status === 'OPEN' || status === 'CONNECTED') {
                     addLog('Instance connected!')
