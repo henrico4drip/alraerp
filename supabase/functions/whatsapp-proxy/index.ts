@@ -257,13 +257,42 @@ serve(async (req) => {
                 })
             }, 1, 15000)
 
+            addLog(`Create response: ${JSON.stringify(createRes?.json).slice(0, 300)}`)
+            await sleep(2000)
+
+            // Tenta buscar código via /instance/connect
+            addLog('Trying /instance/connect for pairing code...')
+            const connectRes = await safeFetchJson(`/instance/connect/${instanceName}`, {}, 1, 10000)
+            addLog(`Connect response: ${JSON.stringify(connectRes?.json).slice(0, 300)}`)
+
+            if (connectRes?.json?.code || connectRes?.json?.pairingCode) {
+                const code = connectRes.json.code || connectRes.json.pairingCode
+                addLog(`Pairing code found in connect response: ${code}`)
+                return new Response(JSON.stringify({ code, log }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+                })
+            }
+
             // Polling para código de pareamento
             for (let i = 0; i < 15; i++) {
                 await sleep(3000)
                 const inst = await getInstance()
 
+                if (!inst) {
+                    addLog(`Instance not found (attempt ${i + 1})`)
+                    continue
+                }
+
+                // Log detalhado nas primeiras 3 tentativas
+                if (i < 3) {
+                    addLog(`Instance keys: ${Object.keys(inst).join(', ')}`)
+                    if (inst.pairingCode !== undefined) addLog(`pairingCode value: ${inst.pairingCode}`)
+                    if (inst.code !== undefined) addLog(`code value: ${inst.code}`)
+                }
+
                 if (inst?.pairingCode || inst?.code) {
                     const code = inst.pairingCode || inst.code
+                    addLog(`Pairing code found: ${code}`)
                     return new Response(JSON.stringify({ code, log }), {
                         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
                     })
