@@ -9,16 +9,15 @@ const corsHeaders = {
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-    let log: any[] = [];
+    let log: any[] = []
     const addLog = (msg: any, data: any = null) => {
-        const d = new Date();
-        const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}.${d.getMilliseconds().toString().padStart(3, '0')}`;
-        const entry = `[${time}] ${msg}`;
-        console.log(entry, data || '');
-        log.push({ msg, data });
+        const d = new Date()
+        const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
+        console.log(`[${time}] ${msg}`, data || '')
+        log.push({ msg, data })
     }
 
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
     try {
         const supabaseClient = createClient(
@@ -32,17 +31,18 @@ serve(async (req) => {
 
         const body = await req.json().catch(() => ({}))
         const { action, payload } = body
-        const instanceName = `erp_${user.id.split('-')[0]}`
+        const instanceName = `erp_${user.id.split('-')[0]}_v4`
 
         let EVO_API_URL = Deno.env.get('EVOLUTION_API_URL')?.replace(/\/$/, '')
         const EVO_API_KEY = Deno.env.get('EVOLUTION_API_KEY')
 
         if (!EVO_API_URL || !EVO_API_KEY) {
-            return new Response(JSON.stringify({ error: true, message: "Server configuration missing." }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            return new Response(JSON.stringify({ error: true, message: "Server configuration missing." }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+            })
         }
 
         const headers = { 'Content-Type': 'application/json', 'apikey': EVO_API_KEY }
-        const withApiKey = (path: string) => `${EVO_API_URL}${path}${path.includes('?') ? '&' : '?'}apikey=${encodeURIComponent(EVO_API_KEY!)}`
 
         const safeFetchJson = async (path: string, init: RequestInit = {}, retries = 1, timeoutMs = 12000) => {
             let lastErr: any = null
@@ -50,7 +50,7 @@ serve(async (req) => {
                 const ctrl = new AbortController()
                 const id = setTimeout(() => ctrl.abort(), timeoutMs)
                 try {
-                    const res = await fetch(withApiKey(path), { ...init, signal: ctrl.signal })
+                    const res = await fetch(`${EVO_API_URL}${path}`, { ...init, signal: ctrl.signal, headers: { ...headers, ...init.headers } })
                     clearTimeout(id)
                     const text = await res.text()
                     let json: any
@@ -67,92 +67,179 @@ serve(async (req) => {
             throw lastErr || new Error('Network error')
         }
 
+        // Helper para buscar instância
+        const getInstance = async () => {
+            const res = await safeFetchJson(`/instance/fetchInstances`, {}, 2, 8000)
+            const instances = Array.isArray(res.json) ? res.json : []
+            return instances.find((i: any) => i.name === instanceName || i.instanceName === instanceName)
+        }
+
         if (action === 'get_status') {
-            const res = await safeFetchJson(`/instance/fetchInstances`, { headers }, 2, 8000)
-            const data = res.json
-            const found = Array.isArray(data) ? data.find((i: any) =>
-                (i.instance?.instanceName === instanceName) ||
-                (i.instanceName === instanceName) ||
-                (i.name === instanceName)
-            ) : null
+            const inst = await getInstance()
 
-            if (found) {
-                const inst = found.instance || found
-                const connStatus = (inst.connectionStatus || inst.state || inst.status || '').toUpperCase()
-
-                if (connStatus === 'OPEN' || connStatus === 'CONNECTED') {
-                    return new Response(JSON.stringify({ status: 'connected', instance: inst, connectionStatus: 'CONNECTED' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                }
-
-                // Em 1.7.4 o connect gera o QR se não estiver aberto
-                const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 1, 8000).catch(() => null)
-                const connData = connRes?.json
-                const qrB64 = typeof connData?.qrcode === 'string' ? connData.qrcode : (connData?.qrcode?.base64 || connData?.base64)
-
+            if (!inst) {
                 return new Response(JSON.stringify({
-                    instance: inst,
-                    qrcode: qrB64 ? { base64: qrB64 } : undefined,
-                    pairingCode: connData?.pairingCode || connData?.code,
-                    status: (connData?.status || connStatus).toUpperCase(),
-                    connectionStatus: (connData?.status || connStatus).toUpperCase(),
+                    status: 'disconnected',
+                    connectionStatus: 'DISCONNECTED',
                     log
                 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
             }
-            return new Response(JSON.stringify({ status: 'disconnected', connectionStatus: 'DISCONNECTED', log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+
+            const connStatus = (inst.connectionStatus || inst.state || inst.status || '').toUpperCase()
+
+            if (connStatus === 'OPEN' || connStatus === 'CONNECTED') {
+                return new Response(JSON.stringify({
+                    status: 'connected',
+                    instance: inst,
+                    connectionStatus: 'CONNECTED',
+                    log
+                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            }
+
+            return new Response(JSON.stringify({
+                instance: inst,
+                status: connStatus || 'CLOSE',
+                connectionStatus: connStatus || 'CLOSE',
+                log
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
         if (action === 'connect') {
-            addLog(`Creating/Connecting ${instanceName}`);
-            const listRes = await safeFetchJson(`/instance/fetchInstances`, { headers }, 2, 8000)
-            const found = Array.isArray(listRes.json) ? listRes.json.find((i: any) => (i.instance?.instanceName === instanceName) || (i.instanceName === instanceName)) : null
+            addLog(`Creating/Connecting ${instanceName}`)
 
-            if (!found) {
-                addLog(`Instance not found. Creating...`);
-                await safeFetchJson(`/instance/create`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        instanceName,
-                        qrcode: true,
-                        integration: 'WHATSAPP-BAILEYS',
-                        settings: {
-                            syncFullHistory: false,
-                            syncHistory: false,
-                            syncMessages: false,
-                            readMessages: false,
-                            readStatus: false
-                        }
-                    })
-                }, 1, 10000)
-                await sleep(4000)
+            // Deleta instância antiga se existir
+            await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE' }, 0, 5000).catch(() => { })
+            await sleep(2000)
+
+            // Cria nova instância
+            addLog('Creating new instance...')
+            const createRes = await safeFetchJson(`/instance/create`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    instanceName,
+                    qrcode: true,
+                    integration: 'WHATSAPP-BAILEYS'
+                })
+            }, 1, 15000)
+
+            if (!createRes.json?.instance) {
+                return new Response(JSON.stringify({
+                    error: true,
+                    message: "Failed to create instance",
+                    log
+                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
             }
 
-            for (let i = 0; i < 15; i++) {
-                const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 1, 10000)
-                const data = connRes.json
-                const status = (data?.status || data?.instance?.status || data?.connectionStatus || '').toUpperCase()
+            addLog('Instance created, waiting for QR code...')
+
+            // Polling para pegar o QR code via WebSocket events ou logs
+            // Na v2, vamos usar uma abordagem diferente: criar um webhook temporário
+            // Mas como não temos webhook, vamos fazer polling na instância
+
+            for (let i = 0; i < 30; i++) {
+                await sleep(2000)
+
+                const inst = await getInstance()
+                if (!inst) continue
+
+                const status = (inst.connectionStatus || '').toUpperCase()
 
                 if (status === 'OPEN' || status === 'CONNECTED') {
-                    return new Response(JSON.stringify({ status: 'connected', instance: data.instance || data, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                    return new Response(JSON.stringify({
+                        status: 'connected',
+                        instance: inst,
+                        log
+                    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
 
-                const b64 = typeof data?.qrcode === 'string' ? data.qrcode : (data?.qrcode?.base64 || data?.base64)
-                if (b64) {
-                    return new Response(JSON.stringify({ base64: b64, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                // Tenta buscar QR via diferentes métodos
+                // Método 1: Verificar se há base64 na instância
+                if (inst.qrcode || inst.qr || inst.base64) {
+                    const qrData = inst.qrcode || inst.qr || inst.base64
+                    const base64 = typeof qrData === 'string' ? qrData : (qrData?.base64 || qrData?.code)
+
+                    if (base64) {
+                        addLog('QR Code found!')
+                        return new Response(JSON.stringify({
+                            base64,
+                            status: status || 'CONNECTING',
+                            log
+                        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                    }
                 }
-                await sleep(4000);
+
+                addLog(`Polling attempt ${i + 1}/30...`)
             }
-            return new Response(JSON.stringify({ error: true, message: "Timeout waiting for QR.", log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+
+            return new Response(JSON.stringify({
+                error: true,
+                message: "QR code generation timeout. Evolution API v2 requires WebSocket connection for real-time QR codes. Please use pairing code instead.",
+                log
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        }
+
+        if (action === 'send_pairing_code') {
+            let { number } = payload || {}
+            number = String(number || '').replace(/\D/g, '')
+            if (!number.startsWith('55') && (number.length === 10 || number.length === 11)) {
+                number = '55' + number
+            }
+
+            addLog(`Requesting pairing code for ${number}`)
+
+            // Deleta e recria instância
+            await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE' }, 0, 5000).catch(() => { })
+            await sleep(2000)
+
+            const createRes = await safeFetchJson(`/instance/create`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    instanceName,
+                    qrcode: false,
+                    number,
+                    integration: 'WHATSAPP-BAILEYS'
+                })
+            }, 1, 15000)
+
+            // Polling para código de pareamento
+            for (let i = 0; i < 15; i++) {
+                await sleep(3000)
+                const inst = await getInstance()
+
+                if (inst?.pairingCode || inst?.code) {
+                    const code = inst.pairingCode || inst.code
+                    return new Response(JSON.stringify({ code, log }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+                    })
+                }
+
+                addLog(`Waiting for pairing code (attempt ${i + 1})...`)
+            }
+
+            return new Response(JSON.stringify({
+                error: true,
+                message: "Pairing code generation timeout",
+                log
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
         if (action === 'logout') {
-            await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE', headers }, 1, 8000).catch(() => { })
-            return new Response(JSON.stringify({ success: true, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE' }, 1, 15000).catch(() => { })
+            return new Response(JSON.stringify({ success: true, log }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+            })
         }
 
-        return new Response(JSON.stringify({ error: true, message: "Invalid action" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+        return new Response(JSON.stringify({ error: true, message: "Invalid action", log }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+        })
 
-    } catch (err: any) {
-        return new Response(JSON.stringify({ error: true, message: err.message, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    } catch (error) {
+        console.error('Proxy error:', error)
+        return new Response(JSON.stringify({
+            error: true,
+            message: error instanceof Error ? error.message : 'Unknown error',
+            log
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 })
