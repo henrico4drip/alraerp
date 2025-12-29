@@ -76,9 +76,9 @@ export default function WhatsappSettings() {
                 setStaleCount(0)
             } else if (connectionStatus === 'CONNECTING') {
                 setStatus('connecting')
-                const qrBase64 = instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
-                const pairing = instance?.qrcode?.pairingCode || data?.qrcode?.pairingCode || data?.pairingCode
-                const qrCodeValue = instance?.qrcode?.code || data?.qrcode?.code || data?.code
+                const qrBase64 = data?.base64 || data?.qrcode?.base64 || instance?.qrcode?.base64
+                const pairing = data?.pairingCode || data?.qrcode?.pairingCode || instance?.qrcode?.pairingCode
+                const qrCodeValue = data?.code || data?.qrcode?.code || instance?.qrcode?.code
                 if (qrBase64) {
                     const img = String(qrBase64).startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`
                     setQrCode(img)
@@ -144,9 +144,9 @@ export default function WhatsappSettings() {
                 return
             }
 
-            const qrBase64 = data?.instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
-            const pairing = data?.instance?.qrcode?.pairingCode || data?.qrcode?.pairingCode || data?.pairingCode
-            const qrCodeValue = data?.instance?.qrcode?.code || data?.qrcode?.code || data?.code
+            const qrBase64 = data?.data?.base64 || data?.qrcode?.base64 || instance?.qrcode?.base64
+            const pairing = data?.data?.pairingCode || data?.qrcode?.pairingCode || instance?.qrcode?.pairingCode
+            const qrCodeValue = data?.data?.code || data?.qrcode?.code || instance?.qrcode?.code
 
             if (qrBase64) {
                 const img = String(qrBase64).startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`

@@ -84,10 +84,12 @@ serve(async (req) => {
                     return new Response(JSON.stringify({ status: 'connected', instance: inst, connectionStatus: 'CONNECTED' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
 
-                // Em 1.7.4 o connect gera o QR se não estiver aberto
+                // Na v2, o connect retorna o QR se não estiver aberto
                 const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 1, 8000).catch(() => null)
                 const connData = connRes?.json
-                const qrB64 = typeof connData?.qrcode === 'string' ? connData.qrcode : (connData?.qrcode?.base64 || connData?.base64)
+                
+                // Extração robusta do QR Code na v2
+                const qrB64 = connData?.base64 || connData?.qrcode?.base64 || (typeof connData?.qrcode === 'string' ? connData.qrcode : null)
 
                 return new Response(JSON.stringify({
                     instance: inst,
@@ -113,21 +115,16 @@ serve(async (req) => {
                     headers,
                     body: JSON.stringify({
                         instanceName,
+                        token: EVO_API_KEY,
                         qrcode: true,
-                        integration: 'WHATSAPP-BAILEYS',
-                        settings: {
-                            syncFullHistory: false,
-                            syncHistory: false,
-                            syncMessages: false,
-                            readMessages: false,
-                            readStatus: false
-                        }
+                        integration: 'WHATSAPP-BAILEYS'
                     })
                 }, 1, 10000)
-                await sleep(4000)
+                await sleep(2000)
             }
 
-            for (let i = 0; i < 15; i++) {
+            // Tentar conectar e obter QR
+            for (let i = 0; i < 5; i++) {
                 const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 1, 10000)
                 const data = connRes.json
                 const status = (data?.status || data?.instance?.status || data?.connectionStatus || '').toUpperCase()
@@ -136,23 +133,39 @@ serve(async (req) => {
                     return new Response(JSON.stringify({ status: 'connected', instance: data.instance || data, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
 
-                const b64 = typeof data?.qrcode === 'string' ? data.qrcode : (data?.qrcode?.base64 || data?.base64)
+                const b64 = data?.base64 || data?.qrcode?.base64 || (typeof data?.qrcode === 'string' ? data.qrcode : null)
                 if (b64) {
                     return new Response(JSON.stringify({ base64: b64, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
-                await sleep(4000);
+                await sleep(2000);
             }
-            return new Response(JSON.stringify({ error: true, message: "Timeout waiting for QR.", log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            return new Response(JSON.stringify({ error: true, message: "Aguardando geração do QR Code. Tente atualizar em instantes.", log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
         if (action === 'logout') {
+            addLog(`Deleting instance ${instanceName}`);
             await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE', headers }, 1, 8000).catch(() => { })
             return new Response(JSON.stringify({ success: true, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        }
+
+        if (action === 'send_pairing_code') {
+            const number = payload?.number;
+            if (!number) throw new Error("Number is required");
+            
+            addLog(`Sending pairing code to ${number} for ${instanceName}`);
+            const connRes = await safeFetchJson(`/instance/connect/${instanceName}?number=${number}`, { headers }, 1, 10000)
+            const data = connRes.json
+            
+            if (data?.code) {
+                return new Response(JSON.stringify({ code: data.code, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            }
+            return new Response(JSON.stringify({ error: true, message: "Não foi possível gerar o código de pareamento.", details: data, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
         return new Response(JSON.stringify({ error: true, message: "Invalid action" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
 
     } catch (err: any) {
+        addLog(`Fatal error: ${err.message}`);
         return new Response(JSON.stringify({ error: true, message: err.message, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 })
