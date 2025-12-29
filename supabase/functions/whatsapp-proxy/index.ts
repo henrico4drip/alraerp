@@ -37,15 +37,14 @@ serve(async (req) => {
         let EVO_API_URL = Deno.env.get('EVOLUTION_API_URL')?.replace(/\/$/, '')
         const EVO_API_KEY = Deno.env.get('EVOLUTION_API_KEY')
 
-        addLog(`Proxy started`, { action, instanceName, url: EVO_API_URL });
-
         if (!EVO_API_URL || !EVO_API_KEY) {
-            return new Response(JSON.stringify({ error: true, message: "URL ou Chave da Evolution não configurada no Supabase." }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            return new Response(JSON.stringify({ error: true, message: "Server configuration missing." }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
-        const headers = { 'Content-Type': 'application/json', 'apikey': EVO_API_KEY, 'x-api-key': EVO_API_KEY }
+        const headers = { 'Content-Type': 'application/json', 'apikey': EVO_API_KEY }
         const withApiKey = (path: string) => `${EVO_API_URL}${path}${path.includes('?') ? '&' : '?'}apikey=${encodeURIComponent(EVO_API_KEY!)}`
-        const safeFetchJson = async (path: string, init: RequestInit = {}, retries = 1, timeoutMs = 6000) => {
+
+        const safeFetchJson = async (path: string, init: RequestInit = {}, retries = 1, timeoutMs = 12000) => {
             let lastErr: any = null
             for (let attempt = 0; attempt <= retries; attempt++) {
                 const ctrl = new AbortController()
@@ -59,8 +58,8 @@ serve(async (req) => {
                     return { status: res.status, json, text }
                 } catch (e) {
                     lastErr = e
-                    addLog(`safeFetch error: ${e instanceof Error ? e.message : String(e)}`)
-                    await sleep(500)
+                    addLog(`Fetch error (attempt ${attempt}): ${e instanceof Error ? e.message : String(e)}`)
+                    await sleep(1000)
                 } finally {
                     clearTimeout(id)
                 }
@@ -69,177 +68,91 @@ serve(async (req) => {
         }
 
         if (action === 'get_status') {
-            const res = await safeFetchJson(`/instance/fetchInstances`, { headers }, 3, 10000)
-            if (res.status === 403) {
-                const msg = res.json?.response?.message || []
-                const flat = Array.isArray(msg) ? msg.join(' | ') : String(msg || '')
-                if (flat.toLowerCase().includes('missing global api key')) {
-                    return new Response(JSON.stringify({ error: true, message: 'Evolution API Key ausente. Configure EVOLUTION_API_URL e EVOLUTION_API_KEY.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                }
-            }
+            const res = await safeFetchJson(`/instance/fetchInstances`, { headers }, 2, 8000)
             const data = res.json
-            const found = Array.isArray(data) ? data.find((i: any) => i.instanceName === instanceName || i.name === instanceName) : null
+            const found = Array.isArray(data) ? data.find((i: any) =>
+                (i.instance?.instanceName === instanceName) ||
+                (i.instanceName === instanceName) ||
+                (i.name === instanceName)
+            ) : null
 
             if (found) {
-                const connStatus = (found.connectionStatus || found.state || found.status || '').toUpperCase()
-                // Se está tentando conectar mas o QR não veio no fetch inicial, tenta o endpoint de connect
-                if (connStatus === 'CONNECTING' && !found.qrcode) {
-                    const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 2, 10000)
-                    const connData = connRes.json
-                    // Se já vier status conectado pelo endpoint, devolve isso
-                    const cs = (connData?.connectionStatus || connData?.status || connData?.instance?.connectionStatus || '').toUpperCase()
-                    if (cs === 'OPEN' || cs === 'CONNECTED') {
-                        return new Response(JSON.stringify({ status: 'connected', instance: connData.instance || found }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                    }
-                    return new Response(JSON.stringify(connData || found), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                }
-                // Inclui QR se presente no objeto encontrado
-                if (found.qrcode?.base64 || found.qrcode?.code) {
-                    return new Response(JSON.stringify({ instance: found, qrcode: found.qrcode, status: connStatus || found.status }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                }
-            }
+                const inst = found.instance || found
+                const connStatus = (inst.connectionStatus || inst.state || inst.status || '').toUpperCase()
 
-            return new Response(JSON.stringify(found || { status: 'disconnected' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                if (connStatus === 'OPEN' || connStatus === 'CONNECTED') {
+                    return new Response(JSON.stringify({ status: 'connected', instance: inst, connectionStatus: 'CONNECTED' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                }
+
+                // Em 1.7.4 o connect gera o QR se não estiver aberto
+                const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 1, 8000).catch(() => null)
+                const connData = connRes?.json
+                const qrB64 = typeof connData?.qrcode === 'string' ? connData.qrcode : (connData?.qrcode?.base64 || connData?.base64)
+
+                return new Response(JSON.stringify({
+                    instance: inst,
+                    qrcode: qrB64 ? { base64: qrB64 } : undefined,
+                    pairingCode: connData?.pairingCode || connData?.code,
+                    status: (connData?.status || connStatus).toUpperCase(),
+                    connectionStatus: (connData?.status || connStatus).toUpperCase(),
+                    log
+                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            }
+            return new Response(JSON.stringify({ status: 'disconnected', connectionStatus: 'DISCONNECTED', log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
         if (action === 'connect') {
-            // 1. Check if exists
-            addLog(`Checking if instance exists`);
-            const listRes = await safeFetchJson(`/instance/fetchInstances`, { headers }, 3, 10000)
-            if (listRes.status === 403) {
-                const msg = listRes.json?.response?.message || []
-                const flat = Array.isArray(msg) ? msg.join(' | ') : String(msg || '')
-                if (flat.toLowerCase().includes('missing global api key')) {
-                    return new Response(JSON.stringify({ error: true, message: 'Evolution API Key ausente. Configure EVOLUTION_API_URL e EVOLUTION_API_KEY.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                }
-            }
-            const instances = listRes.json
-            const foundInitial = Array.isArray(instances) ? instances.find((i: any) => i.instanceName === instanceName || i.name === instanceName) : null
+            addLog(`Creating/Connecting ${instanceName}`);
+            const listRes = await safeFetchJson(`/instance/fetchInstances`, { headers }, 2, 8000)
+            const found = Array.isArray(listRes.json) ? listRes.json.find((i: any) => (i.instance?.instanceName === instanceName) || (i.instanceName === instanceName)) : null
 
-            if (!foundInitial) {
-                addLog(`Instance ${instanceName} not found. Creating it...`);
-                const createRes = await safeFetchJson(`/instance/create`, {
+            if (!found) {
+                addLog(`Instance not found. Creating...`);
+                await safeFetchJson(`/instance/create`, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        instanceName: instanceName,
-                        token: "TOKEN_" + instanceName,
-                        integration: "WHATSAPP-BAILEYS",
-                        qrcode: true
+                        instanceName,
+                        qrcode: true,
+                        integration: 'WHATSAPP-BAILEYS',
+                        settings: {
+                            syncFullHistory: false,
+                            syncHistory: false,
+                            syncMessages: false,
+                            readMessages: false,
+                            readStatus: false
+                        }
                     })
-                }, 2, 12000)
-                const createData = createRes.json;
-                addLog(`Create response status: ${createRes.status}`, createData);
-
-                // Se a instância já existe (403), não é erro - apenas continue
-                if (createRes.status !== 201 && createRes.status !== 200 && createRes.status !== 403) {
-                    return new Response(JSON.stringify({
-                        error: true,
-                        message: `Erro ao criar instância no servidor: ${createData.message || 'Erro desconhecido'}`,
-                        details: createData,
-                        log
-                    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                }
-
-                if (createRes.status === 403) {
-                    addLog(`Instance already exists, will connect to it`);
-                } else {
-                    await sleep(5000); // Espera o baileys apenas se criou agora
-                }
-            } else {
-                addLog(`Instance exists. Forcing connect.`);
-                const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 3, 10000);
-                const connData = connRes.json;
-                addLog(`Connect result`, connData);
+                }, 1, 10000)
+                await sleep(4000)
             }
 
-            // Polling
-            let lastPoll = null;
-            // Aumentando o wait inicial para dar tempo do QR ser gerado pela Evolution
-            addLog(`Waiting 8s for QR generation...`);
-            const startWait = Date.now();
-            await new Promise(resolve => setTimeout(resolve, 8000));
-            addLog(`Waited ${Date.now() - startWait}ms`);
+            for (let i = 0; i < 15; i++) {
+                const connRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 1, 10000)
+                const data = connRes.json
+                const status = (data?.status || data?.instance?.status || data?.connectionStatus || '').toUpperCase()
 
-            // Até ~2 minutos
-            for (let i = 0; i < 40; i++) {
-                addLog(`Polling QR attempt ${i + 1}`);
-
-                // Tenta pegar status geral
-                const pollRes = await safeFetchJson(`/instance/fetchInstances`, { headers }, 3, 8000)
-                const pollInstances = pollRes.json
-                const found = Array.isArray(pollInstances) ? pollInstances.find((ins: any) => ins.instanceName === instanceName || ins.name === instanceName) : null
-
-                if (found) {
-                    addLog(`Poll status: ${found.connectionStatus || found.status}`, { found });
-
-                    lastPoll = found;
-                    const status = (found.connectionStatus || found.state || found.status || '').toUpperCase()
-                    if (status === 'OPEN' || status === 'CONNECTED') {
-                        return new Response(JSON.stringify({ status: 'connected', instance: found, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                    }
-                    // Se veio QR no objeto listado, devolve-o
-                    if (found.qrcode?.base64 || found.qrcode?.code) {
-                        return new Response(JSON.stringify({
-                            base64: found.qrcode?.base64,
-                            code: found.qrcode?.code,
-                            instance: found,
-                            log
-                        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                    }
-                } else {
-                    addLog(`Poll: Instance not found in list`);
+                if (status === 'OPEN' || status === 'CONNECTED') {
+                    return new Response(JSON.stringify({ status: 'connected', instance: data.instance || data, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
 
-                // Tenta forçar pegar o QR via endpoint de connect
-                try {
-                    const qrRes = await safeFetchJson(`/instance/connect/${instanceName}`, { headers }, 2, 8000);
-                    const qrData = qrRes.json;
-
-                    addLog(`Connect endpoint response`, qrData);
-
-                    // Se veio QR neste endpoint (base64 ou code) - v1.7.4 usa qrcode.base64
-                    if (qrData?.base64 || qrData?.qrcode?.base64 || qrData?.code || qrData?.pairingCode) {
-                        return new Response(JSON.stringify({
-                            base64: qrData.base64 || qrData.qrcode?.base64,
-                            code: qrData.code || qrData.pairingCode,
-                            instance: found || qrData.instance,
-                            log
-                        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                    }
-                    // Se a resposta indicar conectado, finalize
-                    const cs = (qrData?.connectionStatus || qrData?.status || qrData?.instance?.connectionStatus || '').toUpperCase()
-                    if (cs === 'OPEN' || cs === 'CONNECTED') {
-                        return new Response(JSON.stringify({ status: 'connected', instance: qrData.instance || found, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                    }
-                } catch (err: any) {
-                    addLog(`Error checking connect endpoint: ${err.message}`)
+                const b64 = typeof data?.qrcode === 'string' ? data.qrcode : (data?.qrcode?.base64 || data?.base64)
+                if (b64) {
+                    return new Response(JSON.stringify({ base64: b64, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
-
-                await sleep(3000);
+                await sleep(4000);
             }
-
-            return new Response(JSON.stringify({ error: false, message: "QR Code ainda não gerado. Tente novamente.", debug: lastPoll, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            return new Response(JSON.stringify({ error: true, message: "Timeout waiting for QR.", log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
         if (action === 'logout') {
-            addLog(`Deleting instance`);
-            const delRes = await fetch(withApiKey(`/instance/delete/${instanceName}`), { method: 'DELETE', headers });
-            const delData = await delRes.json();
-            return new Response(JSON.stringify({ success: true, log, delData }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE', headers }, 1, 8000).catch(() => { })
+            return new Response(JSON.stringify({ success: true, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
-        if (action === 'debug_list') {
-            const res = await fetch(withApiKey(`/instance/fetchInstances`), { headers })
-            const text = await res.text()
-            let json: any
-            try { json = JSON.parse(text) } catch { json = { raw: text } }
-            return new Response(JSON.stringify(json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: res.status })
-        }
+        return new Response(JSON.stringify({ error: true, message: "Invalid action" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
 
-        return new Response(JSON.stringify({ error: true, message: "Ação inválida" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-
-    } catch (error: any) {
-        return new Response(JSON.stringify({ error: true, message: error.message, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    } catch (err: any) {
+        return new Response(JSON.stringify({ error: true, message: err.message, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 })

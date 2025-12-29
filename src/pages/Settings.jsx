@@ -633,6 +633,9 @@ export default function Settings() {
 
         <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
           <DialogContent className="max-w-4xl p-0 bg-transparent border-0 shadow-none">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Plano & Assinatura</DialogTitle>
+            </DialogHeader>
             <SubscriptionLockOverlay />
           </DialogContent>
         </Dialog>
@@ -653,8 +656,10 @@ export default function Settings() {
         {/* Staff Management Dialog */}
         <Dialog open={showStaffDialog} onOpenChange={setShowStaffDialog}>
           <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingStaff ? 'Editar Membro' : 'Novo Membro'}</DialogTitle>
+            </DialogHeader>
             <div className="space-y-4">
-              <h2 className="text-xl font-bold">{editingStaff ? 'Editar Membro' : 'Novo Membro'}</h2>
               <div className="space-y-2">
                 <Label>Nome</Label>
                 <Input value={staffForm.name} onChange={e => setStaffForm({ ...staffForm, name: e.target.value })} placeholder="Ex: João Caixa" />

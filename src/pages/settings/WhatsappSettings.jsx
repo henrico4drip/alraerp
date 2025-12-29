@@ -25,6 +25,7 @@ export default function WhatsappSettings() {
     const [qrType, setQrType] = useState(null)
     const [qrGeneratedAt, setQrGeneratedAt] = useState(null)
     const [lastStatusAt, setLastStatusAt] = useState(null)
+    const [phoneNumber, setPhoneNumber] = useState('')
 
     useEffect(() => {
         if (effectiveDetails) {
@@ -98,7 +99,7 @@ export default function WhatsappSettings() {
                         setPairingCode(null)
                         setQrType('code')
                         setQrGeneratedAt(new Date())
-                    } catch {}
+                    } catch { }
                 } /* Se não veio nada, mantenha o QR atual visível */
             } else if (connectionStatus === 'DISCONNECTED' || connectionStatus === 'CLOSE') {
                 // Enquanto usuário está tentando conectar, mantenha o último QR visível
@@ -166,7 +167,7 @@ export default function WhatsappSettings() {
                     setPairingCode(null)
                     setQrType('code')
                     setQrGeneratedAt(new Date())
-                } catch {}
+                } catch { }
                 setStatus('connecting')
             } else if (data?.status === 'connected') {
                 setStatus('connected')
@@ -181,6 +182,47 @@ export default function WhatsappSettings() {
             setErrorDetails(e.message)
         } finally {
             if (!silent) setLoading(false)
+        }
+    }
+
+    const handleConnectByPhone = async () => {
+        if (!phoneNumber || phoneNumber.length < 10) {
+            setErrorDetails('Por favor, informe um número de telefone válido com DDD (ex: 11988887777)')
+            return
+        }
+        setLoading(true)
+        setProxyLogs([])
+        setQrCode(null)
+        setPairingCode(null)
+        setErrorDetails(null)
+        try {
+            const cleanNumber = phoneNumber.replace(/\D/g, '')
+            const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+                body: { action: 'send_pairing_code', payload: { number: cleanNumber } }
+            })
+            if (error) throw error
+
+            if (data?.log) setProxyLogs(data.log)
+            if (data?.error) {
+                setStatus('error')
+                setErrorDetails(data.message)
+                return
+            }
+
+            if (data?.code) {
+                setPairingCode(data.code)
+                setQrType('pairing')
+                setQrGeneratedAt(new Date())
+                setStatus('connecting')
+            } else {
+                setErrorDetails('Não foi possível gerar o código. Verifique se o número está correto e tente novamente.')
+            }
+        } catch (e) {
+            console.error('Failed to connect by phone:', e)
+            setStatus('error')
+            setErrorDetails(`Erro: ${e.message}`)
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -252,7 +294,7 @@ export default function WhatsappSettings() {
                     const next = prev + 1
                     if (next >= 20) { // 20 * 3s ≈ 60s
                         supabase.functions.invoke('whatsapp-proxy', { body: { action: 'logout' } })
-                            .catch(() => {}).finally(() => handleConnect(true))
+                            .catch(() => { }).finally(() => handleConnect(true))
                         return 0
                     }
                     return next
@@ -321,18 +363,37 @@ export default function WhatsappSettings() {
                                     <ol className="list-decimal list-inside text-sm text-gray-600 space-y-1">
                                         <li>Abra o WhatsApp no seu celular</li>
                                         <li>Toque em <span className="font-bold">Aparelhos conectados</span> &gt; <span className="font-bold">Conectar aparelho</span></li>
-                                        <li>Aponte a câmera para o QR Code ao lado</li>
+                                        <li>Aponte a câmera para o QR Code ou use o código de telefone abaixo</li>
                                     </ol>
                                 </div>
-                                {!qrCode && (
-                                    <Button onClick={handleConnect} disabled={loading} className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl">
-                                        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <QrCode className="w-4 h-4 mr-2" />}
-                                        {loading ? 'Carregando...' : 'Gerar QR Code'}
+                                <div className="space-y-4 pt-2">
+                                    {!qrCode && !pairingCode && (
+                                        <Button onClick={() => handleConnect()} disabled={loading} className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl">
+                                            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <QrCode className="w-4 h-4 mr-2" />}
+                                            {loading ? 'Carregando...' : 'Gerar QR Code'}
+                                        </Button>
+                                    )}
+
+                                    <div className="relative pt-2 border-t border-gray-100">
+                                        <div className="text-[10px] text-gray-400 uppercase font-bold text-center mb-2">Alternativa: Código de Telefone</div>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="DDD + Número (ex: 11999998888)"
+                                                value={phoneNumber}
+                                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                                className="flex-1 text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                                            />
+                                            <Button onClick={handleConnectByPhone} disabled={loading || !phoneNumber} variant="outline" className="rounded-xl border-green-200 text-green-700 hover:bg-green-50 px-3">
+                                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <Button variant="ghost" onClick={() => checkStatus()} disabled={loading} size="sm" className="w-full text-xs text-gray-400">
+                                        <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} /> Atualizar Status
                                     </Button>
-                                )}
-                                <Button variant="ghost" onClick={checkStatus} disabled={loading} size="sm" className="text-xs text-gray-400">
-                                    <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} /> Atualizar Status
-                                </Button>
+                                </div>
                             </div>
 
                             <div className="flex items-center justify-center w-[280px] h-[280px] bg-white rounded-3xl border-2 border-dashed border-gray-200 relative group transition-all hover:border-green-300 overflow-hidden shadow-inner">
