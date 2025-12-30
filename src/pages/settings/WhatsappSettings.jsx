@@ -554,11 +554,8 @@ export default function WhatsappSettings() {
                 </div>
             )}
 
-        </CardContent>
-        </Card >
-    </div >
+        </div>
     )
 }
-        </div >
-    )
-}
+
+export default WhatsappSettings
