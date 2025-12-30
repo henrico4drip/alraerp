@@ -43,6 +43,46 @@ serve(async (req) => {
             })
         }
 
+        // --- WEBHOOK HANDLER ---
+        if (body.event === 'onMessage' && body.data) {
+            const secret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+            const adminClient = createClient(
+                Deno.env.get('SUPABASE_URL') ?? '',
+                secret
+            )
+
+            const msg = body.data
+            // Ignorar mensagens de grupo ou status
+            if (msg.isGroup || msg.from === 'status@broadcast') {
+                return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            }
+
+            // Tentar extrair user_id da sessão (ex: erp_UUID)
+            const session = body.session || ''
+            let targetUserId = null
+            if (session.startsWith('erp_')) {
+                targetUserId = session.replace('erp_', '')
+            }
+
+            // Se não achou na sessão, tenta pegar do primeiro admin (fallback perigoso se multi-tenant, mas ok para MVP único)
+            // Melhor: só salvar se tiver user_id.
+
+            if (targetUserId) {
+                const contactPhone = String(msg.from).split('@')[0].replace(/\D/g, '') // remove @c.us
+
+                await adminClient.from('whatsapp_messages').insert({
+                    user_id: targetUserId,
+                    contact_phone: contactPhone,
+                    content: msg.body || msg.content || (msg.type === 'image' ? '[Imagem]' : '[Arquivo]'),
+                    direction: 'inbound',
+                    status: 'received'
+                })
+                addLog(`Inbound message saved for ${targetUserId} from ${contactPhone}`)
+            }
+
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        }
+
         // 1. Gerar Token (Auth da WPPConnect)
         let token = null
         const secretsToTry = [Deno.env.get('WPPCONNECT_SECRET_KEY'), 'THISISMYSECURETOKEN'].filter(Boolean)
@@ -177,6 +217,18 @@ serve(async (req) => {
             })
 
             addLog('Send message response', sendRes.json)
+
+            // Save to Database for CRM
+            if (sendRes.json?.status === 'success' || sendRes.status === 200) {
+                await supabaseClient.from('whatsapp_messages').insert({
+                    user_id: user.id,
+                    contact_phone: cleanPhone, // Storing just digits for easier joining
+                    content: message,
+                    direction: 'outbound',
+                    status: 'sent'
+                })
+            }
+
             return new Response(JSON.stringify({ success: true, data: sendRes.json, log }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
             })

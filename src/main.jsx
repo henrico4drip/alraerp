@@ -15,6 +15,7 @@ import Sales from './pages/Sales'
 import Customers from './pages/Customers'
 import Inventory from './pages/Inventory'
 import Reports from './pages/Reports'
+import CRM from './pages/CRM'
 import Marketing from './pages/stubs/Marketing'
 import Settings from './pages/Settings'
 import Billing from './pages/Billing'
@@ -150,7 +151,7 @@ function RequireSubscription({ children }) {
               const { data: prof } = await supabase.from('profiles').select('trial_until').eq('user_id', user.id).limit(1).maybeSingle()
               const trialUntilProf = prof?.trial_until ? new Date(prof.trial_until).getTime() : 0
               if (trialUntilProf > Date.now()) { if (!cancelled) setAllowed(true); return }
-            } catch {}
+            } catch { }
           }
           // Fallback em settings
           const settings = await base44.entities.Settings.list()
@@ -249,6 +250,10 @@ function App() {
                 element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Reports"><Reports /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route
+                path="/crm"
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="CRM"><CRM /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+              />
+              <Route
                 path="/marketing"
                 element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Marketing"><Marketing /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
@@ -297,6 +302,6 @@ if ('serviceWorker' in navigator) {
   } else {
     navigator.serviceWorker.getRegistrations().then(regs => {
       regs.forEach(r => r.unregister());
-    }).catch(() => {});
+    }).catch(() => { });
   }
 }

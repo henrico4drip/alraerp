@@ -22,7 +22,8 @@ import {
   Calendar,
   CalendarDays,
   Wallet,
-  Download
+  Download,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -237,6 +238,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Estoque", path: createPageUrl("Inventory"), icon: Package, tutorialId: "inventory-link" },
     { name: "Pagamentos", path: createPageUrl("Payments"), icon: Wallet, tutorialId: "payments-link" },
     { name: "Relatórios", path: createPageUrl("Reports"), icon: BarChart3 },
+    { name: "CRM", path: createPageUrl("CRM"), icon: MessageSquare },
     { name: "Marketing", path: createPageUrl("Marketing"), icon: Megaphone },
     { name: "Configurações", path: createPageUrl("Settings"), icon: SettingsIcon, tutorialId: "settings-link" },
   ];
