@@ -510,8 +510,10 @@ export default function WhatsappSettings() {
                                 const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
                                     body: {
                                         action: 'set_webhook',
-                                        webhookUrl: webhookUrl,
-                                        enabled: true
+                                        payload: {
+                                            webhookUrl: webhookUrl,
+                                            enabled: true
+                                        }
                                     }
                                 })
                                 if (error) throw error
