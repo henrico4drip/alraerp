@@ -557,5 +557,3 @@ export default function WhatsappSettings() {
         </div>
     )
 }
-
-export default WhatsappSettings
