@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { base44 } from '@/api/base44Client'
 import { Link } from 'react-router-dom'
 import { createPageUrl } from '@/utils'
-import { Zap, DollarSign, TrendingUp } from 'lucide-react'
+import { Zap, DollarSign, TrendingUp, MessageCircle, Star } from 'lucide-react'
 
 export default function Marketing() {
   const { data: settings = [] } = useQuery({
@@ -14,6 +14,11 @@ export default function Marketing() {
   const { data: sales = [] } = useQuery({
     queryKey: ['sales'],
     queryFn: () => base44.entities.Sale.list('-created_date'),
+    initialData: [],
+  })
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => base44.entities.Customers.list(),
     initialData: [],
   })
 
@@ -29,6 +34,38 @@ export default function Marketing() {
   const monthUniqueCustomers = Object.keys(monthCustomerCounts).length
   const monthRepeatCustomers = Object.values(monthCustomerCounts).filter(c => c > 1).length
   const retentionPercent = monthUniqueCustomers > 0 ? Math.round((monthRepeatCustomers / monthUniqueCustomers) * 100) : 0
+
+  // Algoritmo de Oportunidades
+  const opportunities = (customers || [])
+    .filter(c => Number(c.cashback_balance || 0) > 0)
+    .map(c => {
+      const lastSale = sales.find(s => s.customer_id === c.id);
+      const lastDate = lastSale ? new Date(lastSale.sale_date) : new Date(0);
+      const diffDays = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+
+      // Score: Baseado no saldo e na "janela ideal" de retorno (15-60 dias)
+      let score = Number(c.cashback_balance || 0) * 0.5;
+
+      if (diffDays >= 15 && diffDays <= 60) score += 40; // Janela quente
+      else if (diffDays > 60) score += 20; // Reativação
+      else score += 10; // Recente
+
+      return { ...c, score, recency: diffDays };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  const handleWhatsAppAction = (customer) => {
+    const firstName = customer.name.split(' ')[0];
+    const balance = Number(customer.cashback_balance || 0).toFixed(2);
+    const msg = `Olá ${firstName}! Tudo bem? Conferi aqui que você tem R$ ${balance} em cashback disponível na nossa loja. 🎁 Que tal aproveitar para nos visitar esta semana?`;
+    const phone = String(customer.phone).replace(/\D/g, '');
+    if (phone) {
+      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+    } else {
+      alert('Cliente sem telefone cadastrado.');
+    }
+  };
 
   return (
     <div className="p-4 w-full">
@@ -100,14 +137,72 @@ export default function Marketing() {
             <button className="h-9 px-3 text-sm rounded-xl border border-gray-200 hover:bg-gray-50">Configurar</button>
           </div>
         </div>
-        <div className="mt-8 bg-amber-50 border border-amber-200 rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center text-center shadow-sm">
-          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 text-amber-600 animate-pulse">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-construction"><rect x="2" y="6" width="20" height="8" rx="1" /><path d="M17 14v7" /><path d="M7 14v7" /><path d="M17 3v3" /><path d="M7 3v3" /><path d="M10 14 2.3 6.3" /><path d="m14 6 7.7 7.7" /><path d="m8 6 8 8" /></svg>
+        {/* Oportunidades de Venda */}
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+            <h2 className="text-lg font-bold text-gray-900">🔥 Oportunidades de Compra</h2>
           </div>
-          <h3 className="text-xl font-bold text-amber-900 mb-2">Página em Desenvolvimento</h3>
-          <p className="text-amber-700 max-w-md mx-auto text-sm leading-relaxed">
-            Estamos preparando novidades incríveis para você impulsionar seu negócio. Esta área receberá ferramentas avançadas de marketing em breve!
-          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+              <p className="text-sm text-gray-500 mb-6">Clientes com maior probabilidade de retorno baseada em cashback e data da última compra.</p>
+
+              <div className="space-y-4">
+                {opportunities.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400 text-sm italic">
+                    Nenhuma oportunidade identificada no momento.
+                  </div>
+                ) : opportunities.map((customer) => (
+                  <div key={customer.id} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/50 hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#3490c7] text-white flex items-center justify-center font-bold text-xs">
+                        {customer.name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">{customer.name}</div>
+                        <div className="text-[10px] text-[#3490c7] font-medium uppercase tracking-wider">
+                          R$ {Number(customer.cashback_balance).toFixed(2)} de Saldo
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="text-right hidden sm:block">
+                        <div className="text-[10px] text-gray-400 uppercase">Última compra</div>
+                        <div className="text-xs font-medium text-gray-600">há {customer.recency} dias</div>
+                      </div>
+                      <button
+                        onClick={() => handleWhatsAppAction(customer)}
+                        className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 shadow-sm transition-all active:scale-95"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-[#3490c7] rounded-3xl p-6 text-white relative overflow-hidden flex flex-col justify-between min-h-[200px]">
+              <div className="relative z-10">
+                <h3 className="text-xl font-black mb-2 leading-tight">IMPULSIONE SUAS VENDAS 🚀</h3>
+                <p className="text-[#e1f0f9] text-sm opacity-90 leading-relaxed">
+                  Você tem <strong>{opportunities.length} clientes quentes</strong> que não compram há mais de 15 dias e possuem saldo de cashback!
+                </p>
+              </div>
+
+              <div className="relative z-10 pt-4">
+                <div className="text-xs uppercase font-bold tracking-widest opacity-80 mb-2">Dica Pro</div>
+                <p className="text-xs italic bg-white/10 p-3 rounded-xl border border-white/20">
+                  "O envio de lembretes de cashback aumenta a retenção em até 35% no varejo físico."
+                </p>
+              </div>
+
+              {/* Efeito decorativo */}
+              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl text-[#3490c7]" />
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Minus, Plus, Trash2, Check, FileText, QrCode, Banknote, CreditCard, CalendarRange, MoreHorizontal, ShoppingCart, Package, Gift } from "lucide-react";
+import { Minus, Plus, Trash2, Check, FileText, QrCode, Banknote, CreditCard, CalendarRange, MoreHorizontal, ShoppingCart, Package, Gift, Loader2 } from "lucide-react";
 import { useCashier } from "@/context/CashierContext";
 import { useNavigate } from "react-router-dom";
 import CustomerDialog from "@/components/CustomerDialog";
@@ -116,6 +116,9 @@ export default function CashierPayment() {
   const [showPixDialog, setShowPixDialog] = useState(false);
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState('');
   const [pixPayload, setPixPayload] = useState('');
+  const [waSending, setWaSending] = useState(false);
+  const [waSent, setWaSent] = useState(false);
+  const [showCashbackSuccess, setShowCashbackSuccess] = useState(false);
   const amountInputRef = useRef(null);
   useEffect(() => {
     const animatePayment = sessionStorage.getItem('animateCashierPaymentEntry') === 'true';
@@ -610,19 +613,29 @@ export default function CashierPayment() {
 
           if (phone) {
             console.log('Enviando mensagem automática de cashback...');
-            await supabase.functions.invoke('whatsapp-proxy', {
+            const { data: waRes, error: waCallErr } = await supabase.functions.invoke('whatsapp-proxy', {
               body: {
                 action: 'send_message',
                 payload: { phone, message: msg }
               }
             });
+
+            if (!waCallErr && waRes && !waRes.error) {
+              setWaSent(true);
+              setShowCashbackSuccess(true);
+              // Wait 2.5s then show receipt
+              setTimeout(() => {
+                setShowCashbackSuccess(false);
+                setShowReceiptDialog(true);
+              }, 2500);
+              return; // EXIT EARLY so we don't showReceiptDialog(true) immediately below
+              // Removed `return;` here to allow the general success flow to continue
+            }
           }
         } catch (waError) {
           console.error('Erro no envio automático do WhatsApp:', waError);
         }
       }
-      // -----------------------------
-      // -----------------------------
 
       setShowReceiptDialog(true);
 
@@ -634,6 +647,10 @@ export default function CashierPayment() {
       setObservations("");
       setPayments([]);
       setPaymentDraft({ method: "", amount: "", installments: 1 });
+
+      setWaSent(false);
+      setWaSending(false);
+      setShowCashbackSuccess(false);
 
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
@@ -656,26 +673,59 @@ export default function CashierPayment() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cart.length, payments.length, remainingAmount]);
 
-  const handleSendCashbackWhatsApp = () => {
-    if (!lastSale) return;
-    const customers = queryClient.getQueryData(["customers"]) || [];
-    const customer = customers.find((c) => c.id === lastSale.customer_id);
+  const handleSendCashbackWhatsApp = async () => {
+    if (!lastSale || waSending || waSent) return;
+    setWaSending(true);
+    try {
+      const customers = queryClient.getQueryData(["customers"]) || [];
+      const customer = customers.find((c) => c.id === lastSale.customer_id);
+      const { msg, phone } = generateCashbackMessage(lastSale, customer, settings);
 
-    const { msg, phone } = generateCashbackMessage(lastSale, customer, settings);
-
-    if (!phone) {
-      alert("Cliente sem telefone válido para WhatsApp.");
-      if (msg) {
-        try {
-          navigator.clipboard.writeText(msg);
-          alert("Mensagem de cashback copiada para a área de transferência.");
-        } catch (e) { }
+      if (!msg) {
+        setWaSending(false);
+        return;
       }
-      return;
-    }
 
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-    window.open(url, "_blank");
+      // Tenta envio automático via Evolution API, se possível
+      let delivered = false;
+      if (phone) {
+        try {
+          const { error: waErr } = await supabase.functions.invoke('whatsapp-proxy', {
+            body: { action: 'send_message', payload: { phone, message: msg } }
+          });
+          if (!waErr) {
+            delivered = true;
+          }
+        } catch (_) {
+          delivered = false;
+        }
+      }
+
+      // Fallback: abrir WhatsApp Web no navegador
+      if (!delivered && phone) {
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+        window.open(url, "_blank");
+        delivered = true; // Considera ação iniciada pelo usuário
+      }
+
+      // Fallback sem telefone: copiar mensagem
+      if (!phone) {
+        try {
+          await navigator.clipboard.writeText(msg);
+          alert("Cliente sem telefone. Mensagem de cashback copiada para a área de transferência.");
+          delivered = true;
+        } catch (_) { delivered = false; }
+      }
+
+      if (delivered) {
+        setWaSent(true);
+        setShowCashbackSuccess(true);
+        // Exibe o card de sucesso por 2s e mantém a NF aberta (se já estiver)
+        setTimeout(() => setShowCashbackSuccess(false), 2000);
+      }
+    } finally {
+      setWaSending(false);
+    }
   };
 
   useEffect(() => {
@@ -971,7 +1021,7 @@ export default function CashierPayment() {
                 </div>
               )}
 
-              </div>
+            </div>
 
             <div className="bg-gray-50/50 rounded-2xl p-3 border border-gray-100">
               <div className="flex flex-col sm:flex-row gap-2 items-end">
@@ -1188,21 +1238,49 @@ export default function CashierPayment() {
 
         {/* Sale Receipt Dialog */}
         <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
-          <DialogContent>
+          <DialogContent className="max-w-[400px]">
             <DialogHeader>
-              <DialogTitle>Comprovante</DialogTitle>
+              <DialogTitle>Comprovante de Venda</DialogTitle>
             </DialogHeader>
             {lastSale && (
               <div className="space-y-3">
                 <Receipt sale={lastSale} settings={settings} />
-                <div className="flex gap-2 pt-2 flex-wrap">
-
-                  <Button className="rounded-lg" onClick={() => printReceipt(lastSale)}>Imprimir/Salvar</Button>
-                  <Button className="rounded-lg bg-green-600 hover:bg-green-700 text-white" onClick={handleSendCashbackWhatsApp}>Enviar cashback por WhatsApp</Button>
-                  <Button variant="outline" className="rounded-lg" onClick={() => setShowReceiptDialog(false)}>Fechar</Button>
+                <div className="flex gap-2 pt-2 flex-wrap justify-center">
+                  <Button className="rounded-xl" onClick={() => printReceipt(lastSale)}>
+                    <FileText className="w-4 h-4 mr-2" /> Imprimir/Salvar
+                  </Button>
+                  <Button
+                    className={`rounded-xl transition-all duration-300 ${waSent ? 'bg-emerald-600' : 'bg-green-600 hover:bg-green-700'} text-white flex items-center gap-2`}
+                    onClick={handleSendCashbackWhatsApp}
+                    disabled={waSending || waSent}
+                  >
+                    {waSending ? <Loader2 className="w-4 h-4 animate-spin" /> : waSent ? <Check className="w-4 h-4" /> : <Gift className="w-4 h-4" />}
+                    {waSending ? 'Enviando...' : waSent ? 'Enviado!' : 'Reenviar WhatsApp'}
+                  </Button>
+                  <Button variant="outline" className="rounded-xl" onClick={() => setShowReceiptDialog(false)}>Fechar</Button>
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* --- NOVO: CARD DE REAÇÃO/SUCESSO CASHBACK --- */}
+        <Dialog open={showCashbackSuccess} onOpenChange={setShowCashbackSuccess}>
+          <DialogContent className="max-w-[320px] p-8 border-none bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-[2rem] shadow-2xl overflow-hidden">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center animate-bounce">
+                <Check className="w-12 h-12 text-white stroke-[3]" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black">CASHBACK ENVIADO!</h3>
+                <p className="text-emerald-50 opacity-90 text-sm font-medium">
+                  Seu cliente recebeu uma mensagem recheada de benefícios.
+                </p>
+              </div>
+              <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-white animate-progress" />
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 

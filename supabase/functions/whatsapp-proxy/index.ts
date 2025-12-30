@@ -31,285 +31,160 @@ serve(async (req) => {
 
         const body = await req.json().catch(() => ({}))
         const { action, payload } = body
-        const instanceName = `erp_${user.id.split('-')[0]}_v4`
+        const sessionName = `erp_${user.id.split('-')[0]}`
 
-        let EVO_API_URL = Deno.env.get('EVOLUTION_API_URL')?.replace(/\/$/, '')
-        const EVO_API_KEY = Deno.env.get('EVOLUTION_API_KEY')
+        let WPP_URL = Deno.env.get('WPPCONNECT_URL')?.replace(/\/$/, '')
+        // Default secret for official WPPConnect Docker image is 'THISISMYSECURETOKEN'
+        const WPP_SECRET = Deno.env.get('WPPCONNECT_SECRET_KEY') || 'THISISMYSECURETOKEN'
 
-        if (!EVO_API_URL || !EVO_API_KEY) {
-            return new Response(JSON.stringify({ error: true, message: "Server configuration missing." }), {
+        if (!WPP_URL) {
+            return new Response(JSON.stringify({ error: true, message: "WPPConnect URL missing." }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
             })
         }
 
-        const headers = { 'Content-Type': 'application/json', 'apikey': EVO_API_KEY }
+        // 1. Gerar Token (Auth da WPPConnect)
+        let token = null
+        const secretsToTry = [Deno.env.get('WPPCONNECT_SECRET_KEY'), 'THISISMYSECURETOKEN'].filter(Boolean)
 
-        const safeFetchJson = async (path: string, init: RequestInit = {}, retries = 1, timeoutMs = 12000) => {
-            let lastErr: any = null
-            for (let attempt = 0; attempt <= retries; attempt++) {
-                const ctrl = new AbortController()
-                const id = setTimeout(() => ctrl.abort(), timeoutMs)
-                try {
-                    const res = await fetch(`${EVO_API_URL}${path}`, { ...init, signal: ctrl.signal, headers: { ...headers, ...init.headers } })
-                    clearTimeout(id)
-                    const text = await res.text()
-                    let json: any
-                    try { json = JSON.parse(text) } catch { json = null }
-                    return { status: res.status, json, text }
-                } catch (e) {
-                    lastErr = e
-                    addLog(`Fetch error (attempt ${attempt}): ${e instanceof Error ? e.message : String(e)}`)
-                    await sleep(1000)
-                } finally {
-                    clearTimeout(id)
+        for (const secret of secretsToTry) {
+            addLog(`Attempting token generation with secret start: ${secret?.slice(0, 3)}...`)
+            try {
+                const tokenRes = await fetch(`${WPP_URL}/api/${sessionName}/${secret}/generate-token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                const tokenData = await tokenRes.json()
+                if (tokenData.token) {
+                    token = tokenData.token
+                    addLog('Token generated successfully!')
+                    break
+                } else {
+                    addLog('Secret rejected by server', tokenData)
                 }
+            } catch (e) {
+                addLog('Error during token attempt', e instanceof Error ? e.message : e)
             }
-            throw lastErr || new Error('Network error')
         }
 
-        // Helper para buscar instância
-        const getInstance = async () => {
-            const res = await safeFetchJson(`/instance/fetchInstances`, {}, 2, 8000)
-            const instances = Array.isArray(res.json) ? res.json : []
-            return instances.find((i: any) => i.name === instanceName || i.instanceName === instanceName)
+        if (!token) {
+            throw new Error('Could not authenticate with WPPConnect (All secrets failed)')
+        }
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+
+        const safeFetch = async (path: string, init: RequestInit = {}) => {
+            const res = await fetch(`${WPP_URL}${path}`, { ...init, headers: { ...headers, ...init.headers } })
+            const text = await res.text()
+            let json: any
+            try { json = JSON.parse(text) } catch { json = null }
+            return { status: res.status, json, text }
         }
 
         if (action === 'get_status') {
-            const inst = await getInstance()
+            addLog('Checking status...')
+            const statusRes = await safeFetch(`/api/${sessionName}/check-connection-session`)
 
-            if (!inst) {
-                return new Response(JSON.stringify({
-                    status: 'disconnected',
-                    connectionStatus: 'DISCONNECTED',
-                    log
-                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-            }
+            // WPPConnect retorna { connected: true/false } ou similar
+            const isConnected = statusRes.json?.status === true || statusRes.json?.connected === true
 
-            const connStatus = (inst.connectionStatus || inst.state || inst.status || '').toUpperCase()
-
-            if (connStatus === 'OPEN' || connStatus === 'CONNECTED') {
+            if (isConnected) {
                 return new Response(JSON.stringify({
                     status: 'connected',
-                    instance: inst,
                     connectionStatus: 'CONNECTED',
                     log
                 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
             }
 
+            // Se não estiver conectado, tenta pegar o status detalhado
+            const detailRes = await safeFetch(`/api/${sessionName}/status-session`)
+            const status = detailRes.json?.status || 'disconnected'
+
             return new Response(JSON.stringify({
-                instance: inst,
-                status: connStatus || 'CLOSE',
-                connectionStatus: connStatus || 'CLOSE',
+                status: status === 'isLogged' ? 'connected' : 'disconnected',
+                connectionStatus: (status || 'DISCONNECTED').toUpperCase(),
+                instance: detailRes.json,
                 log
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
-        if (action === 'connect') {
-            addLog(`Creating/Connecting ${instanceName}`)
+        if (action === 'connect' || action === 'send_pairing_code') {
+            addLog(`Starting session: ${sessionName}`)
 
-            // Deleta instância antiga se existir
-            await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE' }, 0, 5000).catch(() => { })
-            await sleep(2000)
-
-            // Cria nova instância
-            addLog('Creating new instance...')
-            const createRes = await safeFetchJson(`/instance/create`, {
+            // Inicia sessão
+            const startRes = await safeFetch(`/api/${sessionName}/start-session`, {
                 method: 'POST',
-                body: JSON.stringify({
-                    instanceName,
-                    qrcode: true,
-                    integration: 'WHATSAPP-BAILEYS'
-                })
-            }, 1, 15000)
+                body: JSON.stringify({ waitQrCode: true })
+            })
 
-            if (!createRes.json?.instance) {
-                return new Response(JSON.stringify({
-                    error: true,
-                    message: "Failed to create instance",
-                    log
-                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-            }
+            addLog('Start response received', startRes.json)
 
-            addLog('Instance created successfully')
-            await sleep(2000)
+            // Polling para QR Code se não vier de imediato
+            for (let i = 0; i < 20; i++) {
+                await sleep(3000)
+                const check = await safeFetch(`/api/${sessionName}/status-session`)
+                const currentStatus = check.json?.status
+                addLog(`Attempt ${i + 1} status: ${currentStatus}`)
 
-            // Na Evolution API v2, precisamos chamar /instance/connect para iniciar a conexão
-            addLog('Calling /instance/connect to start connection...')
-            const connectInitRes = await safeFetchJson(`/instance/connect/${instanceName}`, {}, 1, 10000)
+                if (currentStatus === 'isLogged') {
+                    return new Response(JSON.stringify({ status: 'connected', log }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+                    })
+                }
 
-            // Log da resposta completa para debug
-            addLog(`Connect response: ${JSON.stringify(connectInitRes?.json).slice(0, 200)}`)
-
-            // Verifica se já veio o QR code na resposta do connect
-            if (connectInitRes?.json) {
-                const qrBase64 = connectInitRes.json?.base64 || connectInitRes.json?.qrcode?.base64 ||
-                    (typeof connectInitRes.json?.qrcode === 'string' ? connectInitRes.json.qrcode : null)
-
-                if (qrBase64) {
-                    addLog('QR Code received immediately from /instance/connect!')
+                if (check.json?.qrcode) {
+                    addLog('QR Code found!')
                     return new Response(JSON.stringify({
-                        base64: qrBase64,
+                        base64: check.json.qrcode,
+                        status: 'CONNECTING',
+                        log
+                    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                }
+
+                // Algumas versões retornam o QR no start-session direto
+                if (startRes.json?.qrcode) {
+                    return new Response(JSON.stringify({
+                        base64: startRes.json.qrcode,
                         status: 'CONNECTING',
                         log
                     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
                 }
             }
 
-
-            addLog('Starting polling for QR code...')
-
-            // Polling para pegar o QR code
-            // Na Evolution API v2, o QR pode vir via:
-            // 1. Endpoint /instance/connect/{instanceName}
-            // 2. Objeto da instância em fetchInstances
-            // 3. WebSocket/Webhook (não disponível aqui)
-
-            for (let i = 0; i < 30; i++) {
-                await sleep(2000)
-
-                const inst = await getInstance()
-                if (!inst) {
-                    addLog(`Instance not found on attempt ${i + 1}`)
-                    continue
-                }
-
-                const status = (inst.connectionStatus || '').toUpperCase()
-                addLog(`Attempt ${i + 1}/30 - Status: ${status}`)
-
-                // Log detalhado da instância para debug (apenas nas primeiras 3 tentativas)
-                if (i < 3) {
-                    addLog(`Instance keys: ${Object.keys(inst).join(', ')}`)
-                }
-
-                if (status === 'OPEN' || status === 'CONNECTED') {
-                    addLog('Instance connected!')
-                    return new Response(JSON.stringify({
-                        status: 'connected',
-                        instance: inst,
-                        log
-                    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                }
-
-                // Método 1: Verificar se há base64 na instância
-                if (inst.qrcode || inst.qr || inst.base64) {
-                    const qrData = inst.qrcode || inst.qr || inst.base64
-                    const base64 = typeof qrData === 'string' ? qrData : (qrData?.base64 || qrData?.code)
-
-                    if (base64) {
-                        addLog('QR Code found in instance object!')
-                        return new Response(JSON.stringify({
-                            base64,
-                            status: status || 'CONNECTING',
-                            log
-                        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                    }
-                }
-
-                // Método 2: Tentar endpoint /instance/connect
-                try {
-                    const connectRes = await safeFetchJson(`/instance/connect/${instanceName}`, {}, 0, 5000)
-                    if (connectRes?.json) {
-                        const connData = connectRes.json
-                        const qrBase64 = connData?.base64 || connData?.qrcode?.base64 ||
-                            (typeof connData?.qrcode === 'string' ? connData.qrcode : null)
-
-                        if (qrBase64) {
-                            addLog('QR Code found via /instance/connect!')
-                            return new Response(JSON.stringify({
-                                base64: qrBase64,
-                                status: 'CONNECTING',
-                                log
-                            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-                        }
-                    }
-                } catch (e) {
-                    addLog(`Connect endpoint error: ${e instanceof Error ? e.message : String(e)}`)
-                }
-            }
-
-            return new Response(JSON.stringify({
-                error: true,
-                message: "QR code generation timeout. Evolution API v2 requires WebSocket connection for real-time QR codes. Please use pairing code instead.",
-                log
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            return new Response(JSON.stringify({ error: true, message: "Timeout waiting for QR Code", log }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+            })
         }
 
-        if (action === 'send_pairing_code') {
-            let { number } = payload || {}
-            number = String(number || '').replace(/\D/g, '')
-            if (!number.startsWith('55') && (number.length === 10 || number.length === 11)) {
-                number = '55' + number
-            }
+        if (action === 'send_message') {
+            const { phone, message } = payload || {}
+            if (!phone || !message) throw new Error('Phone and message are required')
 
-            addLog(`Requesting pairing code for ${number}`)
+            addLog(`Sending message to ${phone}`)
+            const cleanPhone = String(phone).replace(/\D/g, '')
+            const recipient = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@c.us`
 
-            // Deleta e recria instância
-            await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE' }, 0, 5000).catch(() => { })
-            await sleep(2000)
-
-            const createRes = await safeFetchJson(`/instance/create`, {
+            const sendRes = await safeFetch(`/api/${sessionName}/send-message`, {
                 method: 'POST',
                 body: JSON.stringify({
-                    instanceName,
-                    qrcode: false,
-                    number,
-                    integration: 'WHATSAPP-BAILEYS'
+                    phone: recipient,
+                    message: message,
+                    isGroup: false
                 })
-            }, 1, 15000)
+            })
 
-            addLog(`Create response: ${JSON.stringify(createRes?.json).slice(0, 300)}`)
-            await sleep(2000)
-
-            // Tenta buscar código via /instance/connect
-            addLog('Trying /instance/connect for pairing code...')
-            const connectRes = await safeFetchJson(`/instance/connect/${instanceName}`, {}, 1, 10000)
-            addLog(`Connect response: ${JSON.stringify(connectRes?.json).slice(0, 300)}`)
-
-            if (connectRes?.json?.code || connectRes?.json?.pairingCode) {
-                const code = connectRes.json.code || connectRes.json.pairingCode
-                addLog(`Pairing code found in connect response: ${code}`)
-                return new Response(JSON.stringify({ code, log }), {
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
-                })
-            }
-
-            // Polling para código de pareamento
-            for (let i = 0; i < 15; i++) {
-                await sleep(3000)
-                const inst = await getInstance()
-
-                if (!inst) {
-                    addLog(`Instance not found (attempt ${i + 1})`)
-                    continue
-                }
-
-                // Log detalhado nas primeiras 3 tentativas
-                if (i < 3) {
-                    addLog(`Instance keys: ${Object.keys(inst).join(', ')}`)
-                    if (inst.pairingCode !== undefined) addLog(`pairingCode value: ${inst.pairingCode}`)
-                    if (inst.code !== undefined) addLog(`code value: ${inst.code}`)
-                }
-
-                if (inst?.pairingCode || inst?.code) {
-                    const code = inst.pairingCode || inst.code
-                    addLog(`Pairing code found: ${code}`)
-                    return new Response(JSON.stringify({ code, log }), {
-                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
-                    })
-                }
-
-                addLog(`Waiting for pairing code (attempt ${i + 1})...`)
-            }
-
-            return new Response(JSON.stringify({
-                error: true,
-                message: "Pairing code generation timeout",
-                log
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            addLog('Send message response', sendRes.json)
+            return new Response(JSON.stringify({ success: true, data: sendRes.json, log }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+            })
         }
 
         if (action === 'logout') {
-            await safeFetchJson(`/instance/delete/${instanceName}`, { method: 'DELETE' }, 1, 15000).catch(() => { })
+            addLog('Logging out...')
+            await safeFetch(`/api/${sessionName}/logout-session`, { method: 'POST' })
             return new Response(JSON.stringify({ success: true, log }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
             })
@@ -324,7 +199,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({
             error: true,
             message: error instanceof Error ? error.message : 'Unknown error',
-            log
+            log: [{ msg: 'Critical Error', data: error }]
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 })
