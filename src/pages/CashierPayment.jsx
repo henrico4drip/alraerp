@@ -603,7 +603,11 @@ export default function CashierPayment() {
       }
 
       // --- WHATSAPP AUTOMATION ---
-      if (settings?.whatsapp_auto_send_cashback && selectedCustomer) {
+      // --- WHATSAPP AUTOMATION ---
+      const shouldAutoSend = Boolean(settings?.whatsapp_auto_send_cashback);
+      console.log('FinalizeSale: AutoSend?', shouldAutoSend, 'Customer?', !!selectedCustomer);
+
+      if (shouldAutoSend && selectedCustomer) {
         try {
           const { msg, phone } = generateCashbackMessage(
             createdSale || saleData,
@@ -612,7 +616,7 @@ export default function CashierPayment() {
           );
 
           if (phone) {
-            console.log('Enviando mensagem automática de cashback...');
+            console.log('Enviando mensagem automática de cashback...', phone);
             const { data: waRes, error: waCallErr } = await supabase.functions.invoke('whatsapp-proxy', {
               body: {
                 action: 'send_message',
@@ -620,7 +624,12 @@ export default function CashierPayment() {
               }
             });
 
-            if (!waCallErr && waRes && !waRes.error) {
+            console.log('AutoSend Result Full:', JSON.stringify({ waRes, waCallErr }));
+
+            // Check if successful (allowing any truthy status or success flag)
+            const isSuccess = !waCallErr && waRes && (waRes.success || waRes.status === 'success' || !waRes.error);
+
+            if (isSuccess) {
               setWaSent(true);
               setShowCashbackSuccess(true);
               // Wait 2.5s then show receipt
@@ -628,8 +637,10 @@ export default function CashierPayment() {
                 setShowCashbackSuccess(false);
                 setShowReceiptDialog(true);
               }, 2500);
-              return; // EXIT EARLY so we don't showReceiptDialog(true) immediately below
-              // Removed `return;` here to allow the general success flow to continue
+              return;
+            } else {
+              console.warn('AutoSend Failed:', waRes?.message || waCallErr?.message);
+              // If failed, we just proceed to receipt dialog immediately
             }
           }
         } catch (waError) {

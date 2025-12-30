@@ -11,6 +11,7 @@ export function createPageUrl(name) {
     Settings: '/settings',
     Billing: '/billing',
     Payments: '/payments',
+    CRM: '/crm',
   }
   return map[name] || '/'
 }

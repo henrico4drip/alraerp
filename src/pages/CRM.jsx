@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/api/supabaseClient'
 import { base44 } from '@/api/base44Client'
-import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar } from 'lucide-react'
+import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar, RefreshCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -16,31 +16,54 @@ export default function CRM() {
     const [searchTerm, setSearchTerm] = useState('')
 
     // 1. Fetch Conversations (Unique Phones)
-    const { data: conversations = [], isLoading: isLoadingConv } = useQuery({
+    const { data: conversations = [], isLoading: isLoadingConv, error: listError } = useQuery({
         queryKey: ['whatsapp_conversations'],
         queryFn: async () => {
-            // Get unique phones from messages. 
-            // Note: Supabase doesn't support SELECT DISTINCT ON nicely in JS client without rpc usually, 
-            // or we just fetch all and dedup in JS for MVP if volume is low.
-            // Better: Create a view or RPC in future. For MVP, fast fetch latest messages.
-
+            console.log('Fetching conversations...')
             const { data, error } = await supabase
                 .from('whatsapp_messages')
                 .select('contact_phone, content, created_at, status, direction')
                 .order('created_at', { ascending: false })
-                .limit(500) // Limit for MVP
+                .limit(500)
 
-            if (error) throw error
+            if (error) {
+                console.error('Error fetching conversations:', error)
+                throw error
+            }
+
+            console.log('Raw messages fetched:', data?.length)
 
             // Dedup by phone
             const map = new Map()
+
+            // Helper to normalize phone for grouping (Area Code + Last 8 digits)
+            const normalizePhone = (phone) => {
+                let s = String(phone || '').replace(/\D/g, '')
+                if (s.startsWith('55') && s.length > 11) s = s.slice(2) // Remove 55 country code
+                if (s.length > 8) return s.slice(0, 2) + s.slice(-8) // Area + Last 8
+                return s
+            }
+
             data.forEach(msg => {
-                if (!map.has(msg.contact_phone)) {
-                    map.set(msg.contact_phone, msg)
+                if (!msg.contact_phone) return
+                const key = normalizePhone(msg.contact_phone)
+
+                if (!map.has(key)) {
+                    map.set(key, {
+                        ...msg,
+                        relatedPhones: new Set([msg.contact_phone])
+                    })
+                } else {
+                    map.get(key).relatedPhones.add(msg.contact_phone)
                 }
             })
 
-            return Array.from(map.values())
+            const deduped = Array.from(map.values()).map(c => ({
+                ...c,
+                relatedPhones: Array.from(c.relatedPhones)
+            }))
+            console.log('Deduped conversations:', deduped.length)
+            return deduped
         }
     })
 
@@ -54,8 +77,12 @@ export default function CRM() {
     // Merge conversation with customer info
     const enrichedConversations = conversations.map(conv => {
         const customer = customers.find(c => {
-            const cPhone = String(c.phone).replace(/\D/g, '')
-            return cPhone === conv.contact_phone || cPhone.endsWith(conv.contact_phone)
+            const rawClientPhone = String(c.phone || '').replace(/\D/g, '')
+            const rawConvPhone = String(conv.contact_phone || '').replace(/\D/g, '')
+
+            // Check matching last 8 digits (ignoring country/area code variations slightly)
+            // Ideally should match exactly, but BR numbers have 8 or 9 digits and sometimes leading 55
+            return rawClientPhone.endsWith(rawConvPhone.slice(-8)) && rawConvPhone.endsWith(rawClientPhone.slice(-8))
         })
         return {
             ...conv,
@@ -64,15 +91,22 @@ export default function CRM() {
         }
     }).filter(c => c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || c.contact_phone.includes(searchTerm))
 
-    // 3. Fetch Messages for Selected Phone
+    // Helper to identify active conversation
+    const activeConversation = enrichedConversations.find(c => c.contact_phone === selectedPhone)
+
+    // 3. Fetch Messages for Selected Phone (and its variants)
     const { data: messages = [], isLoading: isLoadingMsgs } = useQuery({
-        queryKey: ['whatsapp_messages', selectedPhone],
+        queryKey: ['whatsapp_messages', selectedPhone, activeConversation?.relatedPhones],
         queryFn: async () => {
             if (!selectedPhone) return []
+
+            // If we have related phones (merged contacts), fetch for all of them
+            const phonesToFetch = activeConversation?.relatedPhones || [selectedPhone]
+
             const { data, error } = await supabase
                 .from('whatsapp_messages')
                 .select('*')
-                .eq('contact_phone', selectedPhone)
+                .in('contact_phone', phonesToFetch)
                 .order('created_at', { ascending: true })
 
             if (error) throw error
@@ -104,15 +138,81 @@ export default function CRM() {
     }
 
     // Get selected customer details
-    const activeConversation = enrichedConversations.find(c => c.contact_phone === selectedPhone)
     const activeCustomer = activeConversation?.customerData
+
+    // 5. Fetch Customer Sales for History & Favorites
+    const { data: activeCustomerSales = [] } = useQuery({
+        queryKey: ['customer_sales', activeCustomer?.id],
+        queryFn: async () => {
+            if (!activeCustomer?.id) return []
+            // Fetch sales from 'sales' table for this customer
+            const { data, error } = await supabase
+                .from('sales')
+                .select('*') // Need items column
+                .eq('customer_id', activeCustomer.id)
+                .order('sale_date', { ascending: false })
+                .limit(50)
+
+            if (error) {
+                console.error('Error fetching sales:', error)
+                return []
+            }
+            return data
+        },
+        enabled: !!activeCustomer?.id
+    })
+
+    // Calculate Top Products
+    const topProducts = React.useMemo(() => {
+        if (!activeCustomerSales?.length) return []
+        const counts = {}
+
+        activeCustomerSales.forEach(sale => {
+            const items = sale.items || []
+            let parsedItems = items
+            // Handle if Supabase returns JSON column as string (rare in js client but possible)
+            if (typeof items === 'string') {
+                try { parsedItems = JSON.parse(items) } catch { }
+            }
+
+            if (Array.isArray(parsedItems)) {
+                parsedItems.forEach(item => {
+                    // product_id or id or name as key
+                    const key = item.product_id || item.name
+                    const name = item.name || item.product_name || 'Item'
+                    if (!key) return
+
+                    if (!counts[key]) counts[key] = { name, count: 0 }
+                    counts[key].count += (Number(item.quantity) || 1)
+                })
+            }
+        })
+
+        return Object.values(counts)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 3)
+    }, [activeCustomerSales])
 
     return (
         <div className="flex h-[calc(100vh-64px-48px)] bg-gray-50 border-t border-gray-200 overflow-hidden">
             {/* 1. Conversations List (Left) */}
             <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
                 <div className="p-4 border-b border-gray-100">
-                    <h2 className="text-lg font-bold text-gray-800 mb-3">Mensagens</h2>
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-bold text-gray-800">Mensagens</h2>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                                queryClient.invalidateQueries(['whatsapp_conversations'])
+                                queryClient.invalidateQueries(['whatsapp_messages'])
+                            }}
+                            disabled={isLoadingConv}
+                            className="h-8 w-8 text-gray-400 hover:text-emerald-600"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isLoadingConv ? 'animate-spin' : ''}`} />
+                        </Button>
+                    </div>
                     <div className="relative">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <Input
@@ -125,6 +225,12 @@ export default function CRM() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
+                    {enrichedConversations.length === 0 && !isLoadingConv && (
+                        <div className="p-8 text-center text-gray-400">
+                            <p className="text-sm">Nenhuma conversa encontrada.</p>
+                            <p className="text-xs mt-2">Sincronize o histórico ou inicie uma nova conversa.</p>
+                        </div>
+                    )}
                     {enrichedConversations.map(conv => (
                         <div
                             key={conv.contact_phone}
@@ -245,8 +351,12 @@ export default function CRM() {
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase">Última Compra</p>
-                                        <p className="font-medium text-sm text-gray-900">R$ 150,00</p>
-                                        <p className="text-xs text-gray-400">Ontem</p>
+                                        <p className="font-medium text-sm text-gray-900">
+                                            {activeCustomerSales?.[0] ? `R$ ${activeCustomerSales[0].total_amount?.toFixed(2)}` : 'R$ 0,00'}
+                                        </p>
+                                        <p className="text-xs text-gray-400">
+                                            {activeCustomerSales?.[0] ? format(new Date(activeCustomerSales[0].sale_date || activeCustomerSales[0].created_at), "d 'de' MMMM", { locale: ptBR }) : 'Nunca'}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -256,9 +366,27 @@ export default function CRM() {
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase">Frequência</p>
-                                        <p className="font-medium text-sm text-gray-900">3x por mês</p>
+                                        <p className="font-medium text-sm text-gray-900">{activeCustomerSales?.length || 0} compras</p>
                                     </div>
                                 </div>
+
+                                {/* Seção de Favoritos */}
+                                {topProducts.length > 0 && (
+                                    <div className="pt-4 border-t border-gray-100 mt-4">
+                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Itens Favoritos</p>
+                                        <div className="space-y-3">
+                                            {topProducts.map((prod, idx) => (
+                                                <div key={idx} className="flex items-center justify-between text-sm">
+                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                                                        <span className="truncate text-gray-700 font-medium">{prod.name}</span>
+                                                    </div>
+                                                    <span className="text-xs text-gray-400 shrink-0">{prod.count}x</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (

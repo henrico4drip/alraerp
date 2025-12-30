@@ -23,7 +23,7 @@ serve(async (req) => {
         const supabaseClient = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+            { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } }
         )
 
         const { data: { user } } = await supabaseClient.auth.getUser()
@@ -43,7 +43,48 @@ serve(async (req) => {
             })
         }
 
-        // --- WEBHOOK HANDLER ---
+        // --- AUTH & HELPERS ---
+        let token = null
+        const secretsToTry = [Deno.env.get('WPPCONNECT_SECRET_KEY'), 'THISISMYSECURETOKEN'].filter(Boolean)
+        // sessionName is already defined above at line 34
+
+        // GENERATE TOKEN (Needed for all actions basically, or we lazy load)
+        // Optimization: For sync_history we might not need token if using APIKEY? 
+        // WPPConnect usually requires Bearer token generated via secret.
+
+        // Let's generate token first thing for simplicity, or reuse if possible.
+        // We need 'safeFetch' defined.
+
+        for (const secret of secretsToTry) {
+            // Only log if not synced yet to avoid spam? No, log is fine.
+            try {
+                const tokenRes = await fetch(`${WPP_URL}/api/${sessionName}/${secret}/generate-token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                const tokenData = await tokenRes.json()
+                if (tokenData.token) {
+                    token = tokenData.token
+                    break
+                }
+            } catch (e) { }
+        }
+
+        // If not token, we might fail unless we don't need it.
+        // But headers uses token.
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+
+        const safeFetch = async (path: string, init: RequestInit = {}) => {
+            const res = await fetch(`${WPP_URL}${path}`, { ...init, headers: { ...headers, ...init.headers } })
+            const text = await res.text()
+            let json: any
+            try { json = JSON.parse(text) } catch { json = null }
+            return { status: res.status, json, text }
+        }
         if (body.event === 'onMessage' && body.data) {
             const secret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? ''
             const adminClient = createClient(
@@ -83,45 +124,115 @@ serve(async (req) => {
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
-        // 1. Gerar Token (Auth da WPPConnect)
-        let token = null
-        const secretsToTry = [Deno.env.get('WPPCONNECT_SECRET_KEY'), 'THISISMYSECURETOKEN'].filter(Boolean)
-
-        for (const secret of secretsToTry) {
-            addLog(`Attempting token generation with secret start: ${secret?.slice(0, 3)}...`)
+        // --- SYNC HISTORY HANDLER ---
+        if (body.action === 'sync_history') {
             try {
-                const tokenRes = await fetch(`${WPP_URL}/api/${sessionName}/${secret}/generate-token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                })
-                const tokenData = await tokenRes.json()
-                if (tokenData.token) {
-                    token = tokenData.token
-                    addLog('Token generated successfully!')
-                    break
-                } else {
-                    addLog('Secret rejected by server', tokenData)
+                // Use safeFetch which handles auth and baseUrl
+
+                // 1. Get Chats
+                // WPPConnect Server: GET /api/{session}/all-chats or POST /api/{session}/list-chats
+                let chatsRes = await safeFetch(`/api/${sessionName}/all-chats`)
+
+                // If all-chats fails or returns empty, try list-chats
+                if (!chatsRes.json || (Array.isArray(chatsRes.json) && chatsRes.json.length === 0) || chatsRes.json.status === 'error') {
+                    chatsRes = await safeFetch(`/api/${sessionName}/list-chats`, { method: 'GET' }) // sometimes GET, sometimes POST
                 }
-            } catch (e) {
-                addLog('Error during token attempt', e instanceof Error ? e.message : e)
+
+                const chatsData = chatsRes.json
+                const chats = Array.isArray(chatsData) ? chatsData : (chatsData?.response || [])
+
+                if (!Array.isArray(chats)) {
+                    throw new Error('Failed to list chats or invalid response format')
+                }
+
+                // 2. Filter & Limit
+                const recentChats = chats
+                    .filter((c: any) => !c.archive && !c.isGroup) // Skip archived & groups for now
+                    .slice(0, 10)
+
+                let importedCount = 0
+
+                // 3. Loop and fetch messages
+                // 3. Loop and fetch messages
+                for (const chat of recentChats) {
+                    // Slight delay to avoid overwhelming the server
+                    await sleep(1000)
+
+                    const phone = (chat.id?._serialized || chat.id).replace(/\D/g, '')
+
+                    try {
+                        // Get messages for this chat
+                        // Attempts to get only recent messages if possible, but WPPConnect usually returns all or paged.
+                        // We use the same endpoint but catch errors now.
+                        const msgsRes = await safeFetch(`/api/${sessionName}/all-messages-in-chat/${phone}?isGroup=false&includeMe=true&includeNotifications=false`)
+
+                        if (msgsRes.status !== 200 && msgsRes.status !== 201) {
+                            addLog(`Failed to fetch msgs for ${phone}: Status ${msgsRes.status}`)
+                            continue
+                        }
+
+                        const msgsData = msgsRes.json
+                        const messages = Array.isArray(msgsData) ? msgsData : (msgsData?.response || [])
+
+                        if (!Array.isArray(messages)) {
+                            addLog(`Invalid messages format for ${phone}`)
+                            continue
+                        }
+
+                        // Limit to last 20 matching database schema
+                        const recentMessages = messages.slice(-20)
+
+                        for (const msg of recentMessages) {
+                            const content = msg.content || msg.body || msg.message || ''
+                            if (!content || typeof content !== 'string') continue
+
+                            const waId = msg.id
+                            const fromMe = msg.fromMe
+                            const direction = fromMe ? 'outbound' : 'inbound'
+                            const ts = msg.timestamp ? new Date(msg.timestamp * 1000) : new Date()
+
+                            // Deduplicate check
+                            const { data: existing } = await supabaseClient
+                                .from('whatsapp_messages')
+                                .select('id')
+                                .eq('wa_message_id', waId)
+                                .single()
+
+                            if (!existing) {
+                                const { error: insertError } = await supabaseClient.from('whatsapp_messages').insert({
+                                    user_id: user.id,
+                                    contact_phone: phone,
+                                    contact_name: chat.name || chat.contact?.name || chat.pushname,
+                                    content: content,
+                                    direction: direction,
+                                    status: fromMe ? 'sent' : 'received',
+                                    created_at: ts.toISOString(),
+                                    wa_message_id: waId
+                                })
+
+                                if (insertError) {
+                                    console.error('Error inserting message:', insertError)
+                                    addLog('Error inserting message', insertError)
+                                } else {
+                                    importedCount++
+                                }
+                            }
+                        }
+                    } catch (chatErr: any) {
+                        addLog(`Error syncing chat ${phone}: ${chatErr.message}`)
+                        // Continue to next chat
+                    }
+                }
+
+                return new Response(JSON.stringify({ success: true, count: importedCount, log }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+                })
+
+            } catch (e: any) {
+                return new Response(JSON.stringify({ error: true, message: e.message, log }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+                })
             }
-        }
-
-        if (!token) {
-            throw new Error('Could not authenticate with WPPConnect (All secrets failed)')
-        }
-
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        }
-
-        const safeFetch = async (path: string, init: RequestInit = {}) => {
-            const res = await fetch(`${WPP_URL}${path}`, { ...init, headers: { ...headers, ...init.headers } })
-            const text = await res.text()
-            let json: any
-            try { json = JSON.parse(text) } catch { json = null }
-            return { status: res.status, json, text }
         }
 
         if (action === 'get_status') {
@@ -219,14 +330,18 @@ serve(async (req) => {
             addLog('Send message response', sendRes.json)
 
             // Save to Database for CRM
-            if (sendRes.json?.status === 'success' || sendRes.status === 200) {
-                await supabaseClient.from('whatsapp_messages').insert({
-                    user_id: user.id,
-                    contact_phone: cleanPhone, // Storing just digits for easier joining
-                    content: message,
-                    direction: 'outbound',
-                    status: 'sent'
-                })
+            try {
+                if (sendRes.json?.status === 'success' || sendRes.status === 200) {
+                    await supabaseClient.from('whatsapp_messages').insert({
+                        user_id: user.id,
+                        contact_phone: cleanPhone, // Storing just digits for easier joining
+                        content: message,
+                        direction: 'outbound',
+                        status: 'sent'
+                    })
+                }
+            } catch (dbErr) {
+                addLog('Error saving to DB', dbErr)
             }
 
             return new Response(JSON.stringify({ success: true, data: sendRes.json, log }), {

@@ -98,7 +98,7 @@ export default function WhatsappSettings() {
                         setPairingCode(null)
                         setQrType('code')
                         setQrGeneratedAt(new Date())
-                    } catch {}
+                    } catch { }
                 } /* Se não veio nada, mantenha o QR atual visível */
             } else if (connectionStatus === 'DISCONNECTED' || connectionStatus === 'CLOSE') {
                 // Enquanto usuário está tentando conectar, mantenha o último QR visível
@@ -166,7 +166,7 @@ export default function WhatsappSettings() {
                     setPairingCode(null)
                     setQrType('code')
                     setQrGeneratedAt(new Date())
-                } catch {}
+                } catch { }
                 setStatus('connecting')
             } else if (data?.status === 'connected') {
                 setStatus('connected')
@@ -252,7 +252,7 @@ export default function WhatsappSettings() {
                     const next = prev + 1
                     if (next >= 20) { // 20 * 3s ≈ 60s
                         supabase.functions.invoke('whatsapp-proxy', { body: { action: 'logout' } })
-                            .catch(() => {}).finally(() => handleConnect(true))
+                            .catch(() => { }).finally(() => handleConnect(true))
                         return 0
                     }
                     return next
@@ -430,6 +430,39 @@ export default function WhatsappSettings() {
                                     checked={autoSendCashback}
                                     onCheckedChange={updateAutoSend}
                                 />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Sincronizar Histórico</Label>
+                                    <p className="text-sm text-gray-500">Importar as últimas conversas do seu celular para o CRM.</p>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    onClick={async () => {
+                                        setLoading(true)
+                                        try {
+                                            const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+                                                body: { action: 'sync_history' }
+                                            })
+                                            if (error) throw error
+                                            if (data?.log) {
+                                                console.log('Sync Logs:', data.log)
+                                                setProxyLogs(data.log)
+                                            }
+                                            if (data?.error) throw new Error(data.message)
+                                            alert(`Sincronização iniciada! ${data.count || 0} novas mensagens importadas. Verifique os logs abaixo se o número for 0.`)
+                                        } catch (e) {
+                                            alert('Erro ao sincronizar: ' + e.message)
+                                        } finally {
+                                            setLoading(false)
+                                        }
+                                    }}
+                                    disabled={loading}
+                                >
+                                    {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                                    Sincronizar Agora
+                                </Button>
                             </div>
                         </div>
                     )}

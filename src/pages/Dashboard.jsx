@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Zap,
   Settings as SettingsIcon,
+  MessageSquare,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -131,6 +132,7 @@ export default function Dashboard() {
     { label: "PAGAMENTOS", icon: DollarSign, link: createPageUrl("Payments"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-green-600" },
     { label: "+ CLIENTE", icon: Users, link: createPageUrl("Customers"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-gray-600" },
     { label: "FATURAMENTO", icon: TrendingUp, link: createPageUrl("Reports"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-indigo-600" },
+    { label: "CRM", icon: MessageSquare, link: createPageUrl("CRM"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-emerald-600" },
   ];
 
   /* Financial Calculation Logic */
@@ -177,30 +179,30 @@ export default function Dashboard() {
           {(() => {
             const hasLogo = Boolean((settings?.logo_url) || (logoUrl && logoUrl !== '/logo-fallback.svg'));
             return hasLogo ? (
-            <img
-              ref={imgRef}
-              src={(settings?.logo_url) || logoUrl}
-              alt="Logo"
-              className={`w-auto object-contain transition-opacity duration-300 ${logoReady ? 'opacity-100' : 'opacity-0'}`}
-              style={{ height: 'clamp(80px, 12vw, 150px)' }}
-              loading="eager"
-              decoding="async"
-              fetchpriority="high"
-              onLoad={() => setLogoReady(true)}
-              onError={() => setLogoReady(true)}
-              data-tutorial="dashboard-logo"
-            />
+              <img
+                ref={imgRef}
+                src={(settings?.logo_url) || logoUrl}
+                alt="Logo"
+                className={`w-auto object-contain transition-opacity duration-300 ${logoReady ? 'opacity-100' : 'opacity-0'}`}
+                style={{ height: 'clamp(80px, 12vw, 150px)' }}
+                loading="eager"
+                decoding="async"
+                fetchpriority="high"
+                onLoad={() => setLogoReady(true)}
+                onError={() => setLogoReady(true)}
+                data-tutorial="dashboard-logo"
+              />
             ) : (
-            <div className="flex flex-col items-center gap-2">
-              <Button variant="outline" className="rounded-2xl h-12 px-8 bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 shadow-sm" onClick={() => document.getElementById('logoInputDash')?.click()}>Inserir logo</Button>
-              <input id="logoInputDash" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
-            </div>
+              <div className="flex flex-col items-center gap-2">
+                <Button variant="outline" className="rounded-2xl h-12 px-8 bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 shadow-sm" onClick={() => document.getElementById('logoInputDash')?.click()}>Inserir logo</Button>
+                <input id="logoInputDash" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
+              </div>
             );
           })()}
         </div>
 
-        {/* Ações em linha - exatamente 4 ícones */}
-        <div className="flex items-center justify-center gap-5 sm:gap-8 py-2">
+        {/* Ações em linha */}
+        <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-8 py-2">
           {actions.map((a) => {
             let summaryLabel = '';
             let summaryValue = '';
@@ -217,6 +219,9 @@ export default function Dashboard() {
             } else if (a.label === 'FATURAMENTO') {
               summaryLabel = 'Total';
               summaryValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(monthlyTotal);
+            } else if (a.label === 'CRM') {
+              summaryLabel = 'Chat';
+              summaryValue = 'Abrir';
             }
 
             return (
