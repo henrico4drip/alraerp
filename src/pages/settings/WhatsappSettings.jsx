@@ -470,7 +470,7 @@ export default function WhatsappSettings() {
                 </CardContent>
             </Card>
 
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2 mt-4">
                 <button
                     onClick={handleForceReset}
                     className="text-xs text-gray-400 hover:text-red-500 transition-colors underline bg-transparent border-none cursor-pointer"
@@ -488,6 +488,77 @@ export default function WhatsappSettings() {
                     Diagnosticar Servidor (Ver instâncias ativas)
                 </button>
             </div>
-        </div>
+
+            {/* Diagnostics & Webhook Config */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mt-8 mb-8">
+                <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-indigo-600" />
+                    Diagnóstico e Recebimento Automático
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                    Se as mensagens dos clientes não estiverem aparecendo, configure o Webhook para notificar o sistema automaticamente.
+                </p>
+                <div className="flex gap-4">
+                    <button
+                        onClick={async () => {
+                            setLoading(true)
+                            try {
+                                const projectUrl = import.meta.env.VITE_SUPABASE_URL || ''
+                                const projectId = projectUrl.split('//')[1].split('.')[0]
+                                const webhookUrl = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy`
+
+                                const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+                                    body: {
+                                        action: 'set_webhook',
+                                        webhookUrl: webhookUrl,
+                                        enabled: true
+                                    }
+                                })
+                                if (error) throw error
+
+                                if (data?.log) setProxyLogs(data.log)
+                                alert(`Webhook configurado para: ${webhookUrl}\n\nResposta do Servidor: ${JSON.stringify(data?.response || data)}`)
+                            } catch (e) {
+                                alert('Erro ao configurar webhook: ' + e.message)
+                            } finally {
+                                setLoading(false)
+                            }
+                        }}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 cursor-pointer text-sm font-medium"
+                    >
+                        <Settings className="w-4 h-4" />
+                        {loading ? 'Configurando...' : 'Configurar Webhook Automático'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Logs Display */}
+            {proxyLogs.length > 0 && (
+                <div className="mt-6 bg-gray-900 rounded-lg p-4 overflow-hidden">
+                    <h3 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
+                        <Terminal className="w-4 h-4" />
+                        Logs de Diagnóstico do Proxy
+                    </h3>
+                    <div className="font-mono text-xs text-green-400 space-y-1 max-h-60 overflow-y-auto">
+                        {proxyLogs.map((log, i) => (
+                            <div key={i} className="flex gap-2">
+                                <span className="opacity-50">[{new Date().toLocaleTimeString()}]</span>
+                                <span>
+                                    {log.msg}
+                                    {log.data ? <span className="text-yellow-400 opacity-80"> {JSON.stringify(log.data)}</span> : ''}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+        </CardContent>
+        </Card >
+    </div >
+    )
+}
+        </div >
     )
 }

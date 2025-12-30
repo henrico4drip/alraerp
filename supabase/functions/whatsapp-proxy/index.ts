@@ -85,40 +85,113 @@ serve(async (req) => {
             try { json = JSON.parse(text) } catch { json = null }
             return { status: res.status, json, text }
         }
-        if (body.event === 'onMessage' && body.data) {
+        // LOG ALL WEBHOOKS FOR DEBUGGING
+        if (body.event) console.log('Webhook Event:', body.event, JSON.stringify(body))
+
+        // --- WEBHOOK HANDLER (INBOUND MESSAGES) ---
+        // Supports: WPPConnect ('onMessage') and Evolution API v2 ('messages.upsert')
+        if (body.event === 'onMessage' || body.event === 'messages.upsert') {
             const secret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? ''
             const adminClient = createClient(
                 Deno.env.get('SUPABASE_URL') ?? '',
                 secret
             )
 
-            const msg = body.data
-            // Ignorar mensagens de grupo ou status
-            if (msg.isGroup || msg.from === 'status@broadcast') {
-                return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            // Normalize Session ID
+            // Evolution sends 'instance', WPPConnect sends 'session'
+            const sessionRaw = body.session || body.instance || ''
+            const user_id = sessionRaw.startsWith('erp_') ? sessionRaw.replace('erp_', '') : null
+
+            if (!user_id) {
+                console.log('Webhook ignored: Could not extract user_id from session/instance', sessionRaw)
+                return new Response(JSON.stringify({ ignored: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
             }
 
-            // Tentar extrair user_id da sessão (ex: erp_UUID)
-            const session = body.session || ''
-            let targetUserId = null
-            if (session.startsWith('erp_')) {
-                targetUserId = session.replace('erp_', '')
+            // Normalize Message Data
+            let msgData = null
+
+            // Strategy A: WPPConnect / Legacy
+            if (body.event === 'onMessage' && body.data && !body.data.messages) {
+                msgData = body.data
+            }
+            // Strategy B: Evolution API v2 (messages.upsert)
+            else if (body.event === 'messages.upsert' && body.data?.messages?.[0]) {
+                const raw = body.data.messages[0]
+                const isFromMe = raw.key?.fromMe
+                // Ignore if it's my own message coming back via webhook (optional, but usually we save outbound separately)
+                // if (isFromMe) ...
+
+                const jid = raw.key?.remoteJid || ''
+                const phone = jid.split('@')[0].replace(/\D/g, '')
+
+                // Extract text content (simplistic)
+                const content = raw.message?.conversation ||
+                    raw.message?.extendedTextMessage?.text ||
+                    raw.message?.imageMessage?.caption ||
+                    (raw.message?.imageMessage ? '[Imagem]' : '[Arquivo]')
+
+                if (!content) {
+                    // Protocol message or unsupported type
+                    return new Response(JSON.stringify({ ignored: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                }
+
+                msgData = {
+                    from: jid, // WPPConnect uses 'from'
+                    body: content,
+                    isGroup: jid.includes('@g.us'),
+                    sender: {
+                        pushname: raw.pushName
+                    },
+                    id: raw.key?.id,
+                    fromMe: isFromMe,
+                    timestamp: raw.messageTimestamp
+                }
             }
 
-            // Se não achou na sessão, tenta pegar do primeiro admin (fallback perigoso se multi-tenant, mas ok para MVP único)
-            // Melhor: só salvar se tiver user_id.
+            if (!msgData) {
+                console.log('Webhook ignored: Unknown message format')
+                return new Response(JSON.stringify({ ignored: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            }
 
-            if (targetUserId) {
-                const contactPhone = String(msg.from).split('@')[0].replace(/\D/g, '') // remove @c.us
+            // Skip Groups & Status
+            if (msgData.isGroup || msgData.from === 'status@broadcast') {
+                return new Response(JSON.stringify({ ignored: true, reason: 'group_or_status' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            }
 
-                await adminClient.from('whatsapp_messages').insert({
-                    user_id: targetUserId,
-                    contact_phone: contactPhone,
-                    content: msg.body || msg.content || (msg.type === 'image' ? '[Imagem]' : '[Arquivo]'),
-                    direction: 'inbound',
-                    status: 'received'
-                })
-                addLog(`Inbound message saved for ${targetUserId} from ${contactPhone}`)
+            // Insert into DB
+            const contactPhone = String(msgData.from).split('@')[0].replace(/\D/g, '')
+            const content = msgData.body || msgData.content
+            const waId = msgData.id || ''
+
+            // Check deduplication using waId if available
+            if (waId) {
+                const { data: existing } = await adminClient
+                    .from('whatsapp_messages')
+                    .select('id')
+                    .eq('wa_message_id', waId)
+                    .single()
+                if (existing) {
+                    console.log('Duplicate message skipped:', waId)
+                    return new Response(JSON.stringify({ success: true, skipped: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                }
+            }
+
+            const { error } = await adminClient.from('whatsapp_messages').insert({
+                user_id: user_id,
+                contact_phone: contactPhone,
+                contact_name: msgData.sender?.pushname || msgData.notifyName || contactPhone,
+                content: content,
+                direction: msgData.fromMe ? 'outbound' : 'inbound',
+                status: msgData.fromMe ? 'sent' : 'received',
+                wa_message_id: waId,
+                created_at: msgData.timestamp ? new Date(Number(msgData.timestamp) * 1000).toISOString() : new Date().toISOString()
+            })
+
+            if (error) {
+                console.error('Error saving inbound message:', error)
+                addLog('Error saving inbound message', error)
+            } else {
+                addLog(`Inbound message saved for ${user_id} from ${contactPhone}`)
             }
 
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
@@ -349,10 +422,22 @@ serve(async (req) => {
             })
         }
 
-        if (action === 'logout') {
-            addLog('Logging out...')
-            await safeFetch(`/api/${sessionName}/logout-session`, { method: 'POST' })
-            return new Response(JSON.stringify({ success: true, log }), {
+        if (action === 'set_webhook') {
+            const { webhookUrl, enabled } = payload || {}
+            addLog(`Setting webhook to: ${webhookUrl}`)
+
+            // WPPConnect Set Webhook
+            const res = await safeFetch(`/api/${sessionName}/set-webhook`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    url: webhookUrl,
+                    enabled: enabled !== false
+                })
+            })
+
+            addLog('Set webhook response', res.json)
+
+            return new Response(JSON.stringify({ success: true, response: res.json, log }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
             })
         }
