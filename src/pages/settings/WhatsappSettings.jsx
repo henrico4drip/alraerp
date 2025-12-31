@@ -67,15 +67,15 @@ export default function WhatsappSettings() {
             const connectionStatus = (instance?.connectionStatus || instance?.state || instance?.status || '').toUpperCase()
             setLastStatusAt(new Date())
 
-            if (connectionStatus === 'OPEN' || connectionStatus === 'CONNECTED') {
+            if (connectionStatus === 'OPEN' || connectionStatus === 'CONNECTED' || connectionStatus === 'ISLOGGED') {
                 setStatus('connected')
                 setQrCode(null)
                 setPairingCode(null)
                 setLastQrHash(null)
                 setStaleCount(0)
-            } else if (connectionStatus === 'CONNECTING') {
+            } else if (connectionStatus === 'CONNECTING' || connectionStatus === 'QRCODE' || connectionStatus === 'NOTLOGGED') {
                 setStatus('connecting')
-                const qrBase64 = instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64
+                const qrBase64 = instance?.qrcode?.base64 || data?.qrcode?.base64 || data?.base64 || instance?.qrcode
                 const pairing = instance?.qrcode?.pairingCode || data?.qrcode?.pairingCode || data?.pairingCode
                 const qrCodeValue = instance?.qrcode?.code || data?.qrcode?.code || data?.code
                 if (qrBase64) {

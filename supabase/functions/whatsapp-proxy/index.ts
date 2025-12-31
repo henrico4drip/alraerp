@@ -426,18 +426,83 @@ serve(async (req) => {
             const { webhookUrl, enabled } = payload || {}
             addLog(`Setting webhook to: ${webhookUrl}`)
 
-            // WPPConnect Set Webhook
-            const res = await safeFetch(`/api/${sessionName}/set-webhook`, {
+            // Try Evolution API v2 first (since user logs show evolution-api-v2)
+            // Evolution requires 'apikey' header usually
+            const apiKey = Deno.env.get('WPPCONNECT_SECRET_KEY') || 'THISISMYSECURETOKEN'
+            const headers = {
+                'Content-Type': 'application/json',
+                'apikey': apiKey
+            }
+
+            // Attempt 1: Evolution v2 /webhook/set/:instance
+            let res = await fetch(`${WPP_URL}/webhook/set/${sessionName}`, {
                 method: 'POST',
+                headers,
                 body: JSON.stringify({
-                    url: webhookUrl,
-                    enabled: enabled !== false
+                    webhook: {
+                        url: webhookUrl,
+                        enabled: enabled !== false
+                    }
                 })
             })
+            let json = await res.json().catch(() => null)
+            addLog(`Evolution /webhook/set status: ${res.status}`, json)
 
-            addLog('Set webhook response', res.json)
+            if (res.status === 404 || res.status === 405) {
+                // Attempt 2: Evolution v2 /instance/update/:instance
+                res = await fetch(`${WPP_URL}/instance/update/${sessionName}`, {
+                    method: 'PUT', // Evolution uses PUT for update usually, can check docs
+                    headers, // Authorization header is also good to have
+                    body: JSON.stringify({
+                        webhook: {
+                            url: webhookUrl,
+                            enabled: enabled !== false,
+                        }
+                    })
+                })
+                json = await res.json().catch(() => null)
+                addLog(`Evolution /instance/update status: ${res.status}`, json)
+            }
 
-            return new Response(JSON.stringify({ success: true, response: res.json, log }), {
+            // Attempt 3: WPPConnect Standard - using start-session to update config
+            if (res.status === 404) {
+                addLog('Trying WPPConnect start-session with webhook...')
+                res = await safeFetch(`/api/${sessionName}/start-session`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        webhook: webhookUrl,
+                        waitQrCode: true
+                    })
+                })
+                json = res.json
+                addLog(`WPPConnect start-session status: ${res.status}`, json)
+
+                // Attempt 4: Explicit /set-webhook (Standard for WPPConnect Server 2.x)
+                if (res.status !== 200 && res.status !== 201) {
+                    res = await safeFetch(`/api/${sessionName}/set-webhook`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            url: webhookUrl,
+                            enabled: enabled !== false
+                        })
+                    })
+                    addLog(`WPPConnect /set-webhook status: ${res.status}`, res.json)
+                }
+
+                // Attempt 5: Explicit /webhook (Fallback)
+                if (res.status !== 200 && res.status !== 201) {
+                    res = await safeFetch(`/api/${sessionName}/webhook`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            url: webhookUrl,
+                            enabled: enabled !== false
+                        })
+                    })
+                    addLog(`WPPConnect /webhook status: ${res.status}`, res.json)
+                }
+            }
+
+            return new Response(JSON.stringify({ success: res.status === 200 || res.status === 201, response: json, log }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
             })
         }
