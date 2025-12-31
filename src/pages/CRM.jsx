@@ -113,7 +113,7 @@ export default function CRM() {
     // 2. Fetch Customers to map names
     const { data: customers = [] } = useQuery({
         queryKey: ['customers'],
-        queryFn: () => base44.entities.Customers.list(),
+        queryFn: () => base44.entities.Customer.list(),
         initialData: []
     })
 
