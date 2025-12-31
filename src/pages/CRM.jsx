@@ -14,6 +14,33 @@ export default function CRM() {
     const [selectedPhone, setSelectedPhone] = useState(null)
     const [messageText, setMessageText] = useState('')
     const [searchTerm, setSearchTerm] = useState('')
+    const [isSyncing, setIsSyncing] = useState(false)
+
+    // Periodic Sync Effect
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            if (isSyncing) return
+            setIsSyncing(true)
+            try {
+                const { data } = await supabase.functions.invoke('whatsapp-proxy', {
+                    body: { action: 'sync_recent' }
+                })
+                if (data?.count > 0) {
+                    console.log('Background Sync: Found', data.count, 'new messages')
+                    queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+                    if (selectedPhone) {
+                        queryClient.invalidateQueries({ queryKey: ['whatsapp_messages', selectedPhone] })
+                    }
+                }
+            } catch (e) {
+                console.error('Background sync failed:', e)
+            } finally {
+                setIsSyncing(false)
+            }
+        }, 30000) // 30 seconds
+
+        return () => clearInterval(interval)
+    }, [selectedPhone, isSyncing, queryClient])
 
     // 1. Fetch Conversations (Unique Phones)
     const { data: conversations = [], isLoading: isLoadingConv, error: listError } = useQuery({

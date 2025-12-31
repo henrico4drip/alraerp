@@ -197,6 +197,71 @@ serve(async (req) => {
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
+        // Helper for syncing a chat
+        const syncChatMessages = async (phone: string, chatName: string) => {
+            try {
+                const msgsRes = await safeFetch(`/api/${sessionName}/all-messages-in-chat/${phone}?isGroup=false&includeMe=true&includeNotifications=false`)
+                if (msgsRes.status !== 200 && msgsRes.status !== 201) {
+                    addLog(`Failed to fetch msgs for ${phone}: Status ${msgsRes.status}`)
+                    return 0
+                }
+
+                const msgsData = msgsRes.json
+                const messages = Array.isArray(msgsData) ? msgsData : (msgsData?.response || [])
+                if (!Array.isArray(messages)) return 0
+
+                let count = 0
+                const recentMessages = messages.slice(-20)
+                for (const msg of recentMessages) {
+                    const content = msg.content || msg.body || msg.message || ''
+                    if (!content || typeof content !== 'string') continue
+
+                    const waId = msg.id
+                    const fromMe = msg.fromMe
+                    const direction = fromMe ? 'outbound' : 'inbound'
+                    const ts = msg.timestamp ? new Date(msg.timestamp * 1000) : new Date()
+
+                    // Deduplicate
+                    const { data: existing } = await supabaseClient.from('whatsapp_messages').select('id').eq('wa_message_id', waId).single()
+                    if (!existing) {
+                        const { error: insertError } = await supabaseClient.from('whatsapp_messages').insert({
+                            user_id: user.id,
+                            contact_phone: phone,
+                            contact_name: chatName,
+                            content: content,
+                            direction: direction,
+                            status: fromMe ? 'sent' : 'received',
+                            created_at: ts.toISOString(),
+                            wa_message_id: waId
+                        })
+                        if (!insertError) count++
+                    }
+                }
+                return count
+            } catch (err: any) {
+                addLog(`Error syncing chat ${phone}: ${err.message}`)
+                return 0
+            }
+        }
+
+        // --- SYNC RECENT CHATS ---
+        if (body.action === 'sync_recent') {
+            try {
+                const chatsRes = await safeFetch(`/api/${sessionName}/list-chats`)
+                const chats = Array.isArray(chatsRes.json) ? chatsRes.json : (chatsRes.json?.response || [])
+                const recentChats = chats.filter((c: any) => !c.archive && !c.isGroup).slice(0, 10)
+
+                let total = 0
+                for (const chat of recentChats) {
+                    const phone = (chat.id?._serialized || chat.id).replace(/\D/g, '')
+                    total += await syncChatMessages(phone, chat.name || chat.contact?.name || chat.pushname || phone)
+                }
+                return new Response(JSON.stringify({ success: true, count: total, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            } catch (e: any) {
+                return new Response(JSON.stringify({ error: true, message: e.message, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+            }
+        }
+
         // --- SYNC HISTORY HANDLER ---
         if (body.action === 'sync_history') {
             try {
@@ -221,80 +286,17 @@ serve(async (req) => {
                 // 2. Filter & Limit
                 const recentChats = chats
                     .filter((c: any) => !c.archive && !c.isGroup) // Skip archived & groups for now
-                    .slice(0, 10)
+                    .slice(0, 50) // More for history
 
                 let importedCount = 0
 
                 // 3. Loop and fetch messages
-                // 3. Loop and fetch messages
                 for (const chat of recentChats) {
                     // Slight delay to avoid overwhelming the server
-                    await sleep(1000)
+                    await sleep(500) // Lower sleep for bulk
 
                     const phone = (chat.id?._serialized || chat.id).replace(/\D/g, '')
-
-                    try {
-                        // Get messages for this chat
-                        // Attempts to get only recent messages if possible, but WPPConnect usually returns all or paged.
-                        // We use the same endpoint but catch errors now.
-                        const msgsRes = await safeFetch(`/api/${sessionName}/all-messages-in-chat/${phone}?isGroup=false&includeMe=true&includeNotifications=false`)
-
-                        if (msgsRes.status !== 200 && msgsRes.status !== 201) {
-                            addLog(`Failed to fetch msgs for ${phone}: Status ${msgsRes.status}`)
-                            continue
-                        }
-
-                        const msgsData = msgsRes.json
-                        const messages = Array.isArray(msgsData) ? msgsData : (msgsData?.response || [])
-
-                        if (!Array.isArray(messages)) {
-                            addLog(`Invalid messages format for ${phone}`)
-                            continue
-                        }
-
-                        // Limit to last 20 matching database schema
-                        const recentMessages = messages.slice(-20)
-
-                        for (const msg of recentMessages) {
-                            const content = msg.content || msg.body || msg.message || ''
-                            if (!content || typeof content !== 'string') continue
-
-                            const waId = msg.id
-                            const fromMe = msg.fromMe
-                            const direction = fromMe ? 'outbound' : 'inbound'
-                            const ts = msg.timestamp ? new Date(msg.timestamp * 1000) : new Date()
-
-                            // Deduplicate check
-                            const { data: existing } = await supabaseClient
-                                .from('whatsapp_messages')
-                                .select('id')
-                                .eq('wa_message_id', waId)
-                                .single()
-
-                            if (!existing) {
-                                const { error: insertError } = await supabaseClient.from('whatsapp_messages').insert({
-                                    user_id: user.id,
-                                    contact_phone: phone,
-                                    contact_name: chat.name || chat.contact?.name || chat.pushname,
-                                    content: content,
-                                    direction: direction,
-                                    status: fromMe ? 'sent' : 'received',
-                                    created_at: ts.toISOString(),
-                                    wa_message_id: waId
-                                })
-
-                                if (insertError) {
-                                    console.error('Error inserting message:', insertError)
-                                    addLog('Error inserting message', insertError)
-                                } else {
-                                    importedCount++
-                                }
-                            }
-                        }
-                    } catch (chatErr: any) {
-                        addLog(`Error syncing chat ${phone}: ${chatErr.message}`)
-                        // Continue to next chat
-                    }
+                    importedCount += await syncChatMessages(phone, chat.name || chat.contact?.name || chat.pushname || phone)
                 }
 
                 return new Response(JSON.stringify({ success: true, count: importedCount, log }), {
