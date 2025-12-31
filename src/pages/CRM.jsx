@@ -51,7 +51,7 @@ export default function CRM() {
                 .from('whatsapp_messages')
                 .select('contact_phone, content, created_at, status, direction')
                 .order('created_at', { ascending: false })
-                .limit(500)
+                .limit(2000)
 
             if (error) {
                 console.error('Error fetching conversations:', error)

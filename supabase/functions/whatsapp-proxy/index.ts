@@ -255,7 +255,7 @@ serve(async (req) => {
                 const recentChats = chats
                     .filter((c: any) => !c.archive && !c.isGroup)
                     .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0)) // Ensure latest are first
-                    .slice(0, 10)
+                    .slice(0, 50)
 
                 let total = 0
                 for (const chat of recentChats) {
