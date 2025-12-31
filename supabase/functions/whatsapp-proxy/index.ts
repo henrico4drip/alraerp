@@ -247,9 +247,15 @@ serve(async (req) => {
         // --- SYNC RECENT CHATS ---
         if (body.action === 'sync_recent') {
             try {
-                const chatsRes = await safeFetch(`/api/${sessionName}/list-chats`)
+                let chatsRes = await safeFetch(`/api/${sessionName}/all-chats`)
+                if (!chatsRes.json || (Array.isArray(chatsRes.json) && chatsRes.json.length === 0) || chatsRes.json.status === 'error') {
+                    chatsRes = await safeFetch(`/api/${sessionName}/list-chats`)
+                }
                 const chats = Array.isArray(chatsRes.json) ? chatsRes.json : (chatsRes.json?.response || [])
-                const recentChats = chats.filter((c: any) => !c.archive && !c.isGroup).slice(0, 10)
+                const recentChats = chats
+                    .filter((c: any) => !c.archive && !c.isGroup)
+                    .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0)) // Ensure latest are first
+                    .slice(0, 10)
 
                 let total = 0
                 for (const chat of recentChats) {
