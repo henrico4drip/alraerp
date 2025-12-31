@@ -199,13 +199,33 @@ export default function CRM() {
     })
 
     const analyzeAiMutation = useMutation({
-        mutationFn: async () => {
-            if (!activeCustomer?.id || !selectedPhone) return
+        mutationFn: async (targetPhone = selectedPhone) => {
+            const conversation = allEnriched.find(c => c.contact_phone === targetPhone)
+            const customer = conversation?.customerData
+            if (!customer?.id || !targetPhone) return
             const { data, error } = await supabase.functions.invoke('whatsapp-ai-analyzer', {
-                body: { customerId: activeCustomer.id, phone: selectedPhone }
+                body: { customerId: customer.id, phone: targetPhone }
             })
             if (error) throw error
             return data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['customers'] })
+            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+        }
+    })
+
+    // Batch analysis mutation
+    const analyzeBatchMutation = useMutation({
+        mutationFn: async (contacts) => {
+            // Process in sequence to be safe with limits, but could be Promise.all
+            for (const contact of contacts) {
+                if (contact.customerData?.id) {
+                    await supabase.functions.invoke('whatsapp-ai-analyzer', {
+                        body: { customerId: contact.customerData.id, phone: contact.contact_phone }
+                    })
+                }
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['customers'] })
@@ -254,6 +274,20 @@ export default function CRM() {
                         <h2 className="text-lg font-bold text-gray-800">Mensagens</h2>
                         <div className="flex items-center gap-1">
                             <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    const toAnalyze = enrichedConversations
+                                        .filter(c => c.customerData?.id && !c.aiScore)
+                                        .slice(0, 5)
+                                    if (toAnalyze.length > 0) analyzeBatchMutation.mutate(toAnalyze)
+                                }}
+                                disabled={analyzeBatchMutation.isPending || enrichedConversations.filter(c => c.customerData?.id && !c.aiScore).length === 0}
+                                className="h-8 px-2 text-[10px] font-bold uppercase text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                            >
+                                {analyzeBatchMutation.isPending ? '...' : 'Analisar Fila'}
+                            </Button>
+                            <Button
                                 variant={sortBy === 'ai' ? 'default' : 'ghost'}
                                 size="sm"
                                 onClick={() => setSortBy(sortBy === 'ai' ? 'recent' : 'ai')}
@@ -289,7 +323,12 @@ export default function CRM() {
                     {enrichedConversations.map(conv => (
                         <div
                             key={conv.contact_phone}
-                            onClick={() => setSelectedPhone(conv.contact_phone)}
+                            onClick={() => {
+                                setSelectedPhone(conv.contact_phone)
+                                if (conv.customerData?.id && !conv.aiScore && !analyzeAiMutation.isPending) {
+                                    analyzeAiMutation.mutate(conv.contact_phone)
+                                }
+                            }}
                             className={`p-4 border-b border-gray-50 cursor-pointer transition-colors hover:bg-gray-50 ${selectedPhone === conv.contact_phone ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : ''}`}
                         >
                             <div className="flex items-center gap-3">
@@ -369,7 +408,7 @@ export default function CRM() {
 
             {/* Info Panel */}
             {selectedPhone && (
-                <div className="w-80 bg-white border-l border-gray-200 p-6 hidden xl:block">
+                <div className="w-80 bg-white border-l border-gray-200 p-6 hidden lg:block">
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6">Informações</h3>
 
                     {activeCustomer ? (
