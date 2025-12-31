@@ -15,6 +15,21 @@ export default function CRM() {
     const [messageText, setMessageText] = useState('')
     const [searchTerm, setSearchTerm] = useState('')
     const [isSyncing, setIsSyncing] = useState(false)
+    const normalizeForMatch = (phone) => {
+        let s = String(phone || '').replace(/\D/g, '')
+        if (s.startsWith('55') && s.length > 10) s = s.slice(2)
+        // Brazilian mobile: DDD + 9 + 8 digits. Remove the '9' (3rd digit) for matching.
+        if (s.length === 11 && s[2] === '9') return s.slice(0, 2) + s.slice(3)
+        return s
+    }
+
+    const formatPhoneDisplay = (phone) => {
+        let s = String(phone || '').replace(/\D/g, '')
+        if (s.startsWith('55')) s = s.slice(2)
+        if (s.length === 11) return `(${s.slice(0, 2)}) ${s.slice(2, 7)}-${s.slice(7)}`
+        if (s.length === 10) return `(${s.slice(0, 2)}) ${s.slice(2, 6)}-${s.slice(6)}`
+        return phone
+    }
 
     // Periodic Sync Effect
     useEffect(() => {
@@ -60,20 +75,9 @@ export default function CRM() {
 
             console.log('Raw messages fetched:', data?.length)
 
-            // Dedup by phone
-            const map = new Map()
-
-            // Helper to normalize phone for grouping (Area Code + Last 8 digits)
-            const normalizePhone = (phone) => {
-                let s = String(phone || '').replace(/\D/g, '')
-                if (s.startsWith('55') && s.length > 11) s = s.slice(2) // Remove 55 country code
-                if (s.length > 8) return s.slice(0, 2) + s.slice(-8) // Area + Last 8
-                return s
-            }
-
             data.forEach(msg => {
                 if (!msg.contact_phone) return
-                const key = normalizePhone(msg.contact_phone)
+                const key = normalizeForMatch(msg.contact_phone)
 
                 if (!map.has(key)) {
                     map.set(key, {
@@ -103,20 +107,21 @@ export default function CRM() {
 
     // Merge conversation with customer info
     const enrichedConversations = conversations.map(conv => {
+        const convMatch = normalizeForMatch(conv.contact_phone)
         const customer = customers.find(c => {
-            const rawClientPhone = String(c.phone || '').replace(/\D/g, '')
-            const rawConvPhone = String(conv.contact_phone || '').replace(/\D/g, '')
-
-            // Check matching last 8 digits (ignoring country/area code variations slightly)
-            // Ideally should match exactly, but BR numbers have 8 or 9 digits and sometimes leading 55
-            return rawClientPhone.endsWith(rawConvPhone.slice(-8)) && rawConvPhone.endsWith(rawClientPhone.slice(-8))
+            const clientMatch = normalizeForMatch(c.phone)
+            return clientMatch === convMatch && clientMatch !== ''
         })
         return {
             ...conv,
-            customerName: customer?.name || conv.contact_phone,
+            customerName: customer?.name || formatPhoneDisplay(conv.contact_phone),
             customerData: customer
         }
-    }).filter(c => c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || c.contact_phone.includes(searchTerm))
+    }).filter(c =>
+        c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.contact_phone.includes(searchTerm) ||
+        normalizeForMatch(c.contact_phone).includes(searchTerm.replace(/\D/g, ''))
+    )
 
     // Helper to identify active conversation
     const activeConversation = enrichedConversations.find(c => c.contact_phone === selectedPhone)
