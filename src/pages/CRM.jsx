@@ -15,6 +15,18 @@ export default function CRM() {
     const [messageText, setMessageText] = useState('')
     const [searchTerm, setSearchTerm] = useState('')
     const [isSyncing, setIsSyncing] = useState(false)
+    const [isRegistering, setIsRegistering] = useState(false)
+    const [isLinking, setIsLinking] = useState(false)
+    const [newCustomerName, setNewCustomerName] = useState('')
+    const [linkSearch, setLinkSearch] = useState('')
+
+    // Reset customer management states when selection changes
+    useEffect(() => {
+        setIsRegistering(false)
+        setIsLinking(false)
+        setNewCustomerName('')
+        setLinkSearch('')
+    }, [selectedPhone])
     const normalizeForMatch = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
         if (s.startsWith('55') && s.length > 10) s = s.slice(2)
@@ -168,6 +180,43 @@ export default function CRM() {
         if (!messageText.trim() || !selectedPhone) return
         sendMessageMutation.mutate({ phone: selectedPhone, text: messageText })
     }
+
+    // Customer mutations
+    const createCustomerMutation = useMutation({
+        mutationFn: async () => {
+            if (!newCustomerName.trim() || !selectedPhone) return
+            return base44.entities.Customer.create({
+                name: newCustomerName,
+                phone: selectedPhone
+            })
+        },
+        onSuccess: () => {
+            setIsRegistering(false)
+            setNewCustomerName('')
+            queryClient.invalidateQueries(['customers'])
+            queryClient.invalidateQueries(['whatsapp_conversations'])
+        }
+    })
+
+    const linkCustomerMutation = useMutation({
+        mutationFn: async (customerId) => {
+            if (!selectedPhone) return
+            return base44.entities.Customer.update(customerId, {
+                phone: selectedPhone
+            })
+        },
+        onSuccess: () => {
+            setIsLinking(false)
+            setLinkSearch('')
+            queryClient.invalidateQueries(['customers'])
+            queryClient.invalidateQueries(['whatsapp_conversations'])
+        }
+    })
+
+    const filteredExistingCustomers = customers.filter(c =>
+        (c.name || '').toLowerCase().includes(linkSearch.toLowerCase()) &&
+        !(c.phone && normalizeForMatch(c.phone) === normalizeForMatch(selectedPhone))
+    ).slice(0, 10)
 
     // Get selected customer details
     const activeCustomer = activeConversation?.customerData
@@ -423,9 +472,87 @@ export default function CRM() {
                         </div>
                     ) : (
                         <div className="text-center text-gray-500 mt-10">
-                            <User className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                            <p>Número não cadastrado como cliente.</p>
-                            <Button variant="outline" className="mt-4 w-full">Cadastrar Cliente</Button>
+                            <User className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                            <p className="font-medium">Número não identificado</p>
+                            <p className="text-sm opacity-60">Escolha como deseja prosseguir:</p>
+
+                            {!isRegistering && !isLinking && (
+                                <div className="space-y-3 mt-6">
+                                    <Button
+                                        onClick={() => setIsRegistering(true)}
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                                    >
+                                        Cadastrar Novo Cliente
+                                    </Button>
+                                    <Button
+                                        onClick={() => setIsLinking(true)}
+                                        variant="outline"
+                                        className="w-full border-2"
+                                    >
+                                        Vincular a Existente
+                                    </Button>
+                                </div>
+                            )}
+
+                            {isRegistering && (
+                                <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="text-left">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">Nome do Cliente</label>
+                                        <Input
+                                            placeholder="Ex: João Silva"
+                                            value={newCustomerName}
+                                            autoFocus
+                                            onChange={e => setNewCustomerName(e.target.value)}
+                                            className="bg-gray-50 border-gray-200"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            disabled={createCustomerMutation.isLoading}
+                                            onClick={() => createCustomerMutation.mutate()}
+                                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        >
+                                            {createCustomerMutation.isLoading ? 'Criando...' : 'Criar'}
+                                        </Button>
+                                        <Button onClick={() => setIsRegistering(false)} variant="ghost" className="text-gray-400">Cancelar</Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isLinking && (
+                                <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="text-left">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">Buscar Cliente</label>
+                                        <div className="relative">
+                                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <Input
+                                                placeholder="Nome do cliente..."
+                                                value={linkSearch}
+                                                autoFocus
+                                                onChange={e => setLinkSearch(e.target.value)}
+                                                className="bg-gray-50 border-gray-200 pl-9"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="max-h-[300px] overflow-y-auto border border-gray-100 rounded-xl bg-gray-50/50 p-2 space-y-1">
+                                        {filteredExistingCustomers.length > 0 ? (
+                                            filteredExistingCustomers.map(cust => (
+                                                <div
+                                                    key={cust.id}
+                                                    onClick={() => linkCustomerMutation.mutate(cust.id)}
+                                                    className="p-3 hover:bg-white hover:shadow-sm rounded-lg cursor-pointer text-left text-sm transition-all border border-transparent hover:border-emerald-100"
+                                                >
+                                                    <p className="font-semibold text-gray-900">{cust.name}</p>
+                                                    <p className="text-xs text-gray-500">{cust.phone || 'Sem telefone'}</p>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-xs text-center py-4 text-gray-400">Nenhum cliente encontrado</p>
+                                        )}
+                                    </div>
+                                    <Button onClick={() => setIsLinking(false)} variant="ghost" className="w-full text-gray-400">Cancelar</Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
