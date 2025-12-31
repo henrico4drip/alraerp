@@ -88,6 +88,7 @@ export default function CRM() {
 
             console.log('Raw messages fetched:', data?.length)
 
+            const map = new Map()
             data.forEach(msg => {
                 if (!msg.contact_phone) return
                 const key = normalizeForMatch(msg.contact_phone)
