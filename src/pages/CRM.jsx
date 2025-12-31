@@ -178,8 +178,8 @@ export default function CRM() {
         },
         onSuccess: () => {
             setMessageText('')
-            queryClient.invalidateQueries(['whatsapp_messages', selectedPhone])
-            queryClient.invalidateQueries(['whatsapp_conversations'])
+            queryClient.invalidateQueries({ queryKey: ['whatsapp_messages', selectedPhone] })
+            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
         }
     })
 
@@ -200,8 +200,8 @@ export default function CRM() {
         onSuccess: () => {
             setIsRegistering(false)
             setNewCustomerName('')
-            queryClient.invalidateQueries(['customers'])
-            queryClient.invalidateQueries(['whatsapp_conversations'])
+            queryClient.invalidateQueries({ queryKey: ['customers'] })
+            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
         }
     })
 
@@ -215,8 +215,8 @@ export default function CRM() {
         onSuccess: () => {
             setIsLinking(false)
             setLinkSearch('')
-            queryClient.invalidateQueries(['customers'])
-            queryClient.invalidateQueries(['whatsapp_conversations'])
+            queryClient.invalidateQueries({ queryKey: ['customers'] })
+            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
         }
     })
 
@@ -236,8 +236,8 @@ export default function CRM() {
             return data
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['customers'])
-            queryClient.invalidateQueries(['whatsapp_conversations'])
+            queryClient.invalidateQueries({ queryKey: ['customers'] })
+            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
         }
     })
 
@@ -318,8 +318,8 @@ export default function CRM() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => {
-                                    queryClient.invalidateQueries(['whatsapp_conversations'])
-                                    queryClient.invalidateQueries(['whatsapp_messages'])
+                                    queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+                                    queryClient.invalidateQueries({ queryKey: ['whatsapp_messages'] })
                                 }}
                                 disabled={isLoadingConv}
                                 className="h-8 w-8 text-gray-400 hover:text-emerald-600"
@@ -494,24 +494,24 @@ export default function CRM() {
                                         </Button>
                                     </div>
 
-                                    {activeCustomer.ai_score !== undefined ? (
+                                    {activeCustomer?.ai_score !== undefined ? (
                                         <div className="space-y-3 relative z-10">
                                             <div className="flex items-end justify-between">
                                                 <div>
                                                     <p className="text-[10px] text-indigo-500 uppercase font-black">Lead Score</p>
-                                                    <p className="text-2xl font-black text-indigo-900 leading-none">{activeCustomer.ai_score}%</p>
+                                                    <p className="text-2xl font-black text-indigo-900 leading-none">{activeCustomer?.ai_score}%</p>
                                                 </div>
-                                                <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeCustomer.ai_score > 70 ? 'bg-emerald-100 text-emerald-700' :
-                                                    activeCustomer.ai_score > 40 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
+                                                <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${(activeCustomer?.ai_score || 0) > 70 ? 'bg-emerald-100 text-emerald-700' :
+                                                    (activeCustomer?.ai_score || 0) > 40 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
                                                     }`}>
-                                                    {activeCustomer.ai_status || 'Neutro'}
+                                                    {activeCustomer?.ai_status || 'Neutro'}
                                                 </div>
                                             </div>
 
                                             <div className="pt-2 border-t border-indigo-100/50">
                                                 <p className="text-[10px] text-indigo-500 uppercase font-black mb-1">Recomendação IA</p>
                                                 <p className="text-xs text-indigo-900 font-medium italic leading-relaxed">
-                                                    "{activeCustomer.ai_recommendation || 'Gere uma análise para receber recomendações.'}"
+                                                    "{activeCustomer?.ai_recommendation || 'Gere uma análise para receber recomendações.'}"
                                                 </p>
                                             </div>
                                         </div>
