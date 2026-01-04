@@ -192,6 +192,56 @@ serve(async (req) => {
                 addLog('Error saving inbound message', error)
             } else {
                 addLog(`Inbound message saved for ${user_id} from ${contactPhone}`)
+                
+                // Trigger AI Analysis for this customer immediately
+                try {
+                    // Check if customer exists
+                    let { data: customer } = await adminClient
+                        .from('customers')
+                        .select('id')
+                        .eq('phone', contactPhone)
+                        .maybeSingle()
+
+                    // Auto-create "Semi-Lead" if missing
+                    if (!customer) {
+                        const pushName = msgData.sender?.pushname || msgData.notifyName || contactPhone
+                        const { data: newCustomer, error: createError } = await adminClient
+                            .from('customers')
+                            .insert({
+                                name: pushName,
+                                phone: contactPhone,
+                                ai_status: 'Novo Lead (Auto)'
+                            })
+                            .select('id')
+                            .single()
+                        
+                        if (!createError && newCustomer) {
+                            addLog(`Created auto-lead for ${contactPhone} (${pushName})`)
+                            customer = newCustomer
+                        } else {
+                            console.error('Failed to auto-create lead:', createError)
+                        }
+                    }
+
+                    if (customer) {
+                        // Invoke whatsapp-ai-analyzer via REST
+                        fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/whatsapp-ai-analyzer`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${secret}`, // Use the same service role key
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ 
+                                customerId: customer.id, 
+                                phone: contactPhone 
+                            })
+                        }).catch(err => console.error('Failed to trigger AI trigger:', err))
+                        
+                        addLog(`AI Analysis triggered for customer ${customer.id}`)
+                    }
+                } catch (aiError) {
+                    console.error('Error triggering AI:', aiError)
+                }
             }
 
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
@@ -211,7 +261,7 @@ serve(async (req) => {
                 if (!Array.isArray(messages)) return 0
 
                 let count = 0
-                const recentMessages = messages.slice(-20)
+                const recentMessages = messages.slice(-100)
                 for (const msg of recentMessages) {
                     const content = msg.content || msg.body || msg.message || ''
                     if (!content || typeof content !== 'string') continue
@@ -258,11 +308,17 @@ serve(async (req) => {
                     .slice(0, 50)
 
                 let total = 0
+                const updatedPhones: string[] = []
+                
                 for (const chat of recentChats) {
                     const phone = (chat.id?._serialized || chat.id).replace(/\D/g, '')
-                    total += await syncChatMessages(phone, chat.name || chat.contact?.name || chat.pushname || phone)
+                    const syncedCount = await syncChatMessages(phone, chat.name || chat.contact?.name || chat.pushname || phone)
+                    total += syncedCount
+                    if (syncedCount > 0) {
+                        updatedPhones.push(phone)
+                    }
                 }
-                return new Response(JSON.stringify({ success: true, count: total, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+                return new Response(JSON.stringify({ success: true, count: total, updatedPhones, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
             } catch (e: any) {
                 return new Response(JSON.stringify({ error: true, message: e.message, log }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
             }

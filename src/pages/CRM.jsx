@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/api/supabaseClient'
 import { base44 } from '@/api/base44Client'
-import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar, RefreshCw, Brain, Sparkles, TrendingUp, CheckCircle2, Clock } from 'lucide-react'
+import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar, RefreshCw, Brain, Sparkles, TrendingUp, CheckCircle2, Clock, Trophy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -11,6 +12,7 @@ import { ptBR } from 'date-fns/locale'
 
 export default function CRM() {
     const queryClient = useQueryClient()
+    const navigate = useNavigate()
     const [selectedPhone, setSelectedPhone] = useState(null)
     const [messageText, setMessageText] = useState('')
     const [searchTerm, setSearchTerm] = useState('')
@@ -20,6 +22,8 @@ export default function CRM() {
     const [newCustomerName, setNewCustomerName] = useState('')
     const [linkSearch, setLinkSearch] = useState('')
     const [sortBy, setSortBy] = useState('recent') // 'recent' or 'ai'
+
+    const [isRerankingAll, setIsRerankingAll] = useState(false)
 
     // Reset customer management states when selection changes
     useEffect(() => {
@@ -31,6 +35,9 @@ export default function CRM() {
 
     const normalizeForMatch = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
+        // Ignore extremely long numbers (likely IDs or broadcast lists) - Strict limit 14 digits (standard is 13 max: 55 + 2 DDD + 9 + 8 digits)
+        if (s.length > 14) return null 
+        
         if (s.startsWith('55') && s.length > 10) s = s.slice(2)
         if (s.length === 11 && s[2] === '9') return s.slice(0, 2) + s.slice(3)
         return s
@@ -38,6 +45,7 @@ export default function CRM() {
 
     const formatPhoneDisplay = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
+        if (s.length > 14) return 'ID: ' + s.slice(0, 6) + '...' // Handle weird long IDs
         if (s.startsWith('55')) s = s.slice(2)
         if (s.length === 11) return `(${s.slice(0, 2)}) ${s.slice(2, 7)}-${s.slice(7)}`
         if (s.length === 10) return `(${s.slice(0, 2)}) ${s.slice(2, 6)}-${s.slice(6)}`
@@ -75,7 +83,7 @@ export default function CRM() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('whatsapp_messages')
-                .select('contact_phone, content, created_at, status, direction')
+                .select('contact_phone, contact_name, content, created_at, status, direction')
                 .order('created_at', { ascending: false })
                 .limit(2000)
 
@@ -84,11 +92,27 @@ export default function CRM() {
             const map = new Map()
             data.forEach(msg => {
                 if (!msg.contact_phone) return
+                
+                // Filter out weird long IDs (Status updates / Broadcast lists)
+                // Also ensure we only process valid phone numbers
+                const rawPhone = String(msg.contact_phone).replace(/\D/g, '')
+                if (rawPhone.length > 14 || rawPhone.length < 8) return 
+
                 const key = normalizeForMatch(msg.contact_phone)
+                if (!key) return // Skip invalid numbers
+
+                // Try to find a good name (not just phone number)
+                const candidateName = msg.contact_name && msg.contact_name !== msg.contact_phone ? msg.contact_name : null
+
                 if (!map.has(key)) {
                     map.set(key, { ...msg, relatedPhones: new Set([msg.contact_phone]) })
                 } else {
-                    map.get(key).relatedPhones.add(msg.contact_phone)
+                    const existing = map.get(key)
+                    existing.relatedPhones.add(msg.contact_phone)
+                    // If we don't have a good name yet, and this message has one, use it
+                    if ((!existing.contact_name || existing.contact_name === existing.contact_phone) && candidateName) {
+                        existing.contact_name = candidateName
+                    }
                 }
             })
 
@@ -113,9 +137,13 @@ export default function CRM() {
             const clientMatch = normalizeForMatch(c.phone)
             return clientMatch === convMatch && clientMatch !== ''
         })
+        
+        // Use WhatsApp pushname if no customer record
+        const displayName = customer?.name || (conv.contact_name && conv.contact_name !== conv.contact_phone ? conv.contact_name : formatPhoneDisplay(conv.contact_phone))
+        
         return {
             ...conv,
-            customerName: customer?.name || formatPhoneDisplay(conv.contact_phone),
+            customerName: displayName,
             customerData: customer,
             aiScore: customer?.ai_score || 0,
             isWaiting: conv.direction === 'inbound'
@@ -198,16 +226,166 @@ export default function CRM() {
         }
     })
 
+    const performAiAnalysis = async (customerId, phone) => {
+        console.log(`[Analysis] Starting for ${phone}...`)
+        
+        // --- 0. CHECK IF MARKED AS DONE ---
+        // Fetch current customer status first
+        const { data: currentCustomer } = await supabase.from('customers').select('ai_status, last_ai_analysis').eq('id', customerId).single()
+        
+        let backendResult = { data: null, error: null }
+        try {
+            backendResult = await supabase.functions.invoke('whatsapp-ai-analyzer', {
+                body: { customerId: customerId, phone: phone }
+            })
+        } catch (e) {
+            console.error(`[Analysis] Backend failed for ${phone}`, e)
+            backendResult.error = e
+        }
+
+        let frontendSuccess = false
+        let finalData = backendResult.data || { insights: {} }
+
+        // CLIENT-SIDE OVERRIDE
+        try {
+            const raw = phone.replace(/\D/g, '')
+            const phonesToSearch = [raw]
+            if (raw.startsWith('55')) phonesToSearch.push(raw.slice(2))
+            if (raw.length > 10 && raw.startsWith('55') && raw[4] === '9') {
+                 phonesToSearch.push(raw.slice(0, 4) + raw.slice(5))
+                 phonesToSearch.push(raw.slice(2, 4) + raw.slice(5))
+            }
+            
+            const { data: recentMsgs } = await supabase
+                .from('whatsapp_messages')
+                .select('*')
+                .in('contact_phone', phonesToSearch)
+                .order('created_at', { ascending: true })
+            
+            if (recentMsgs && recentMsgs.length > 0) {
+                const sorted = recentMsgs
+                const lastMsg = sorted[sorted.length - 1]
+                const lastSender = lastMsg.direction === 'inbound' ? 'CLIENTE' : 'ATENDENTE'
+                const lastMsgTime = new Date(lastMsg.created_at)
+                const diffMs = new Date().getTime() - lastMsgTime.getTime()
+                const minutesSinceLast = Math.floor(diffMs / 60000)
+
+                let consecutiveClientMessages = 0
+                for (let i = sorted.length - 1; i >= 0; i--) {
+                    if (sorted[i].direction === 'inbound') consecutiveClientMessages++
+                    else break
+                }
+
+                console.log(`[Analysis] Logic for ${phone}:`, { lastSender, consecutiveClientMessages, minutesSinceLast })
+
+                // --- CHECK IF DONE ---
+                const isDone = currentCustomer?.ai_status === 'Concluído'
+                const lastAnalysisTime = currentCustomer?.last_ai_analysis ? new Date(currentCustomer.last_ai_analysis) : new Date(0)
+                const isNewMessage = lastMsgTime > lastAnalysisTime
+
+                if (isDone && !isNewMessage) {
+                    console.log(`[Analysis] Skipping ${phone}: Marked as Done and no new messages.`)
+                    return { insights: { score: 0, status: 'Concluído', recommendation: 'Atendimento finalizado.' } }
+                }
+
+                if (lastSender === 'CLIENTE') {
+                    let forcedScore = 90
+                    let urgencyReason = ''
+                    
+                    if (consecutiveClientMessages >= 2) {
+                        forcedScore = 100
+                        urgencyReason = ' (Cliente insistente - 2+ msgs)'
+                    } else if (minutesSinceLast < 60) {
+                        forcedScore = 99
+                        urgencyReason = ' (Recente < 1h)'
+                    } else {
+                        forcedScore = 95
+                        urgencyReason = ' (Aguardando resposta)'
+                    }
+
+                    const currentScore = finalData?.insights?.score || 0
+                    
+                    if (currentScore < forcedScore) {
+                        console.log(`[Analysis] Overriding score for ${phone}: ${currentScore} -> ${forcedScore}`)
+                        
+                        await supabase.from('customers').update({
+                            ai_score: forcedScore,
+                            ai_status: `URGENTE${urgencyReason}`,
+                            ai_recommendation: finalData?.insights?.recommendation || 'Responda o cliente imediatamente.',
+                            last_ai_analysis: new Date().toISOString()
+                        }).eq('id', customerId)
+                        
+                        frontendSuccess = true
+                        
+                        if (!finalData.insights) finalData.insights = {}
+                        finalData.insights.score = forcedScore
+                        finalData.insights.status = `URGENTE${urgencyReason}`
+                        
+                        // Optimistic Cache Update
+                        queryClient.setQueryData(['customers'], (old) => {
+                            if (!old) return old
+                            return old.map(c => c.id === customerId ? {
+                                ...c, ai_score: forcedScore, ai_status: `URGENTE${urgencyReason}`
+                            } : c)
+                        })
+                    }
+                }
+            }
+        } catch (err) {
+            console.error(`[Analysis] Frontend Override Error for ${phone}`, err)
+        }
+
+        if (frontendSuccess) return finalData
+        if (backendResult.error || (backendResult.data && backendResult.data.error)) {
+             throw new Error(backendResult.error?.message || backendResult.data?.error || "IA falhou")
+        }
+        return finalData
+    }
+
+    const markAsDoneMutation = useMutation({
+        mutationFn: async (customerId) => {
+            if (!customerId) return
+            await supabase.from('customers').update({
+                ai_score: 0,
+                ai_status: 'Concluído',
+                ai_recommendation: 'Atendimento marcado como concluído.',
+                last_ai_analysis: new Date().toISOString()
+            }).eq('id', customerId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['customers'] })
+        }
+    })
+
     const analyzeAiMutation = useMutation({
         mutationFn: async (targetPhone = selectedPhone) => {
             const conversation = allEnriched.find(c => c.contact_phone === targetPhone)
-            const customer = conversation?.customerData
-            if (!customer?.id || !targetPhone) return
-            const { data, error } = await supabase.functions.invoke('whatsapp-ai-analyzer', {
-                body: { customerId: customer.id, phone: targetPhone }
-            })
-            if (error) throw error
-            return data
+            let customer = conversation?.customerData
+            let customerId = customer?.id
+
+            // Create customer if it doesn't exist
+            if (!customerId && targetPhone) {
+                console.log(`[Analysis] Creating new lead for ${targetPhone}`)
+                const { data: newCustomer, error: createError } = await supabase
+                    .from('customers')
+                    .insert({
+                        name: conversation?.contact_name || targetPhone,
+                        phone: targetPhone,
+                        ai_status: 'Novo Lead'
+                    })
+                    .select()
+                    .single()
+                
+                if (createError) {
+                    console.error("Failed to create lead", createError)
+                    throw new Error("Falha ao criar lead: " + createError.message)
+                }
+                customerId = newCustomer.id
+                customer = newCustomer
+            }
+
+            if (!customerId || !targetPhone) return
+            return performAiAnalysis(customerId, targetPhone)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['customers'] })
@@ -215,23 +393,7 @@ export default function CRM() {
         }
     })
 
-    // Batch analysis mutation
-    const analyzeBatchMutation = useMutation({
-        mutationFn: async (contacts) => {
-            // Process in sequence to be safe with limits, but could be Promise.all
-            for (const contact of contacts) {
-                if (contact.customerData?.id) {
-                    await supabase.functions.invoke('whatsapp-ai-analyzer', {
-                        body: { customerId: contact.customerData.id, phone: contact.contact_phone }
-                    })
-                }
-            }
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['customers'] })
-            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
-        }
-    })
+
 
     const { data: activeCustomerSales = [] } = useQuery({
         queryKey: ['customer_sales', activeCustomer?.id],
@@ -275,17 +437,51 @@ export default function CRM() {
                         <div className="flex items-center gap-1">
                             <Button
                                 variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    const toAnalyze = enrichedConversations
-                                        .filter(c => c.customerData?.id && !c.aiScore)
-                                        .slice(0, 5)
-                                    if (toAnalyze.length > 0) analyzeBatchMutation.mutate(toAnalyze)
+                                size="icon"
+                                title="Reanalisar IA de todos os contatos"
+                                onClick={async () => {
+                                    if (isRerankingAll) return
+                                    setIsRerankingAll(true)
+                                    try {
+                                        // Include ALL enriched conversations (registered or not)
+                                        const targets = enrichedConversations.filter(c => c.contact_phone)
+                                        
+                                        // Process in parallel (batches of 5 to avoid rate limits if needed, or all)
+                                        // Using Promise.allSettled to not stop on individual errors
+                                        await Promise.allSettled(targets.map(async c => {
+                                            let customerId = c.customerData?.id
+                                            
+                                            // Create if missing
+                                            if (!customerId) {
+                                                const { data: newCustomer } = await supabase
+                                                    .from('customers')
+                                                    .insert({
+                                                        name: c.contact_name || c.contact_phone,
+                                                        phone: c.contact_phone,
+                                                        ai_status: 'Novo Lead'
+                                                    })
+                                                    .select()
+                                                    .single()
+                                                if (newCustomer) customerId = newCustomer.id
+                                            }
+
+                                            if (customerId) {
+                                                return performAiAnalysis(customerId, c.contact_phone)
+                                            }
+                                        }))
+                                        
+                                        queryClient.invalidateQueries({ queryKey: ['customers'] })
+                                        queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+                                    } catch(e) {
+                                        console.error("Batch AI Error", e)
+                                    } finally {
+                                        setIsRerankingAll(false)
+                                    }
                                 }}
-                                disabled={analyzeBatchMutation.isPending || enrichedConversations.filter(c => c.customerData?.id && !c.aiScore).length === 0}
-                                className="h-8 px-2 text-[10px] font-bold uppercase text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                disabled={isRerankingAll}
+                                className={`h-8 w-8 ${isRerankingAll ? 'text-purple-600 animate-pulse' : 'text-purple-400 hover:text-purple-600'}`}
                             >
-                                {analyzeBatchMutation.isPending ? '...' : 'Analisar Fila'}
+                                <Sparkles className="w-4 h-4" />
                             </Button>
                             <Button
                                 variant={sortBy === 'ai' ? 'default' : 'ghost'}
@@ -294,6 +490,14 @@ export default function CRM() {
                                 className={`h-8 px-2 text-[10px] font-bold uppercase transition-all ${sortBy === 'ai' ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-gray-400'}`}
                             >
                                 <Brain className="w-3 h-3 mr-1" /> IA Rank
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigate('/lead-ranking')}
+                                className="h-8 px-2 text-[10px] font-bold uppercase text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                            >
+                                <Trophy className="w-3 h-3 mr-1" /> Ver Ranking
                             </Button>
                             <Button
                                 variant="ghost" size="icon"
@@ -426,13 +630,27 @@ export default function CRM() {
                                     <span className="flex items-center gap-1"><Sparkles className="w-3 h-3" /> IA Insights</span>
                                     <Button variant="ghost" size="sm" onClick={() => analyzeAiMutation.mutate()} className="h-6 w-6 p-0"><RefreshCw className={`w-3 h-3 ${analyzeAiMutation.isPending ? 'animate-spin' : ''}`} /></Button>
                                 </div>
-                                {activeCustomer.ai_score !== undefined ? (
+                                {analyzeAiMutation.isError ? (
+                                    <div className="py-2 text-center relative z-10">
+                                        <p className="text-[10px] text-red-500 font-bold mb-2">Erro: {analyzeAiMutation.error.message}</p>
+                                        <Button variant="outline" size="sm" onClick={() => analyzeAiMutation.mutate()} className="h-7 text-[9px] px-2 border-red-200 text-red-600">Tentar de novo</Button>
+                                    </div>
+                                ) : activeCustomer.ai_score !== undefined ? (
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-end">
                                             <span className="text-2xl font-black text-indigo-900">{activeCustomer.ai_score}%</span>
                                             <span className="text-[10px] font-bold text-indigo-600">{activeCustomer.ai_status}</span>
                                         </div>
                                         <p className="text-xs text-indigo-800 italic leading-tight">"{activeCustomer.ai_recommendation}"</p>
+                                        
+                                        <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            onClick={() => markAsDoneMutation.mutate(activeCustomer.id)} 
+                                            className="w-full mt-2 h-7 text-[10px] text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                        >
+                                            <CheckCircle2 className="w-3 h-3 mr-1" /> Marcar como Concluído
+                                        </Button>
                                     </div>
                                 ) : (
                                     <Button size="sm" onClick={() => analyzeAiMutation.mutate()} className="w-full bg-indigo-600 text-[10px] h-8">Analisar agora</Button>

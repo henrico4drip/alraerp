@@ -16,6 +16,7 @@ import Customers from './pages/Customers'
 import Inventory from './pages/Inventory'
 import Reports from './pages/Reports'
 import CRM from './pages/CRM'
+import LeadRanking from './pages/LeadRanking'
 import Marketing from './pages/stubs/Marketing'
 import Settings from './pages/Settings'
 import Billing from './pages/Billing'
@@ -252,6 +253,10 @@ function App() {
               <Route
                 path="/crm"
                 element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="CRM"><CRM /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/lead-ranking"
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Lead Ranking"><LeadRanking /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route
                 path="/marketing"

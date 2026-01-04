@@ -97,6 +97,7 @@ export default function CashierPayment() {
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDiscountDialog, setShowDiscountDialog] = useState(false);
+  const [discountMode, setDiscountMode] = useState('percent'); // 'percent' | 'fixed'
   const [showPaymentPopover, setShowPaymentPopover] = useState(false);
   const [newPaymentMethod, setNewPaymentMethod] = useState('');
   const [savingPaymentMethod, setSavingPaymentMethod] = useState(false);
@@ -1218,30 +1219,97 @@ export default function CashierPayment() {
           }}
         />
 
-        {/* Discount Dialog - percent only */}
+        {/* Discount Dialog - Updated with Toggle */}
         <Dialog open={showDiscountDialog} onOpenChange={setShowDiscountDialog}>
-          <DialogContent className="w-[95vw] sm:w-[800px] lg:w-[1000px] max-w-none rounded-2xl">
+          <DialogContent className="w-[95vw] sm:w-[500px] max-w-none rounded-2xl">
             <DialogHeader>
               <DialogTitle>Aplicar Desconto</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm">Desconto (%)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={discountPercent}
-                  onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                  className="rounded-xl"
-                  placeholder="0"
-                />
-                <div className="text-xs text-gray-600 mt-1">Equivale a R$ {discountAmount().toFixed(2)} de desconto.</div>
+            <div className="space-y-6">
+              
+              {/* Toggle entre % e R$ */}
+              <div className="flex p-1 bg-gray-100 rounded-xl">
+                <button
+                  onClick={() => setDiscountMode('percent')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                    discountMode === 'percent' 
+                      ? 'bg-white text-pink-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Porcentagem (%)
+                </button>
+                <button
+                  onClick={() => setDiscountMode('fixed')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                    discountMode === 'fixed' 
+                      ? 'bg-white text-pink-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Valor Fixo (R$)
+                </button>
               </div>
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowDiscountDialog(false)}>Fechar</Button>
-                <Button className="flex-1 rounded-xl" onClick={() => setShowDiscountDialog(false)}>Aplicar</Button>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">
+                  {discountMode === 'percent' ? 'Porcentagem de Desconto' : 'Valor do Desconto'}
+                </Label>
+                <div className="mt-2 relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    autoFocus
+                    className="h-12 text-lg font-bold rounded-xl pr-12"
+                    placeholder="0,00"
+                    value={
+                      discountMode === 'percent'
+                        ? discountPercent
+                        : discountAmount().toFixed(2) // Mostra o valor calculado em R$
+                    }
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      
+                      if (discountMode === 'percent') {
+                        // Modo Porcentagem: Salva direto (max 100%)
+                        setDiscountPercent(Math.min(100, Math.max(0, val)));
+                      } else {
+                        // Modo Valor Fixo: Converte R$ para % baseado no total
+                        const total = calculateTotal();
+                        if (total > 0) {
+                          const percent = (val / total) * 100;
+                          setDiscountPercent(Math.min(100, Math.max(0, percent)));
+                        }
+                      }
+                    }}
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
+                    {discountMode === 'percent' ? '%' : 'R$'}
+                  </div>
+                </div>
+
+                {/* Feedback visual do valor oposto */}
+                <div className="mt-3 p-3 bg-pink-50 rounded-xl flex justify-between items-center text-sm">
+                  <span className="text-pink-800">
+                    {discountMode === 'percent' ? 'Valor correspondente:' : 'Porcentagem correspondente:'}
+                  </span>
+                  <span className="font-bold text-pink-700">
+                    {discountMode === 'percent' 
+                      ? `R$ ${discountAmount().toFixed(2)}`
+                      : `${discountPercent.toFixed(2)}%`
+                    }
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" className="flex-1 h-11 rounded-xl border-gray-200" onClick={() => setShowDiscountDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1 h-11 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold" onClick={() => setShowDiscountDialog(false)}>
+                  Confirmar
+                </Button>
               </div>
             </div>
           </DialogContent>
