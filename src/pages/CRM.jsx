@@ -347,6 +347,7 @@ export default function CRM() {
                             ai_score: forcedScore,
                             ai_status: `URGENTE${urgencyReason}`,
                             ai_recommendation: finalData?.insights?.recommendation || 'Responda o cliente imediatamente.',
+                            ai_suggested_message: finalData?.insights?.suggested_message || finalData?.insights?.recommendation || '',
                             last_ai_analysis: new Date().toISOString()
                         }).eq('id', customerId)
 
@@ -680,9 +681,17 @@ export default function CRM() {
 
                                         <Button
                                             size="sm"
+                                            onClick={() => setMessageText(activeCustomer.ai_suggested_message || activeCustomer.ai_recommendation)}
+                                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] h-7 mb-2"
+                                        >
+                                            <Send className="w-3 h-3 mr-1" /> Enviar agora
+                                        </Button>
+
+                                        <Button
+                                            size="sm"
                                             variant="outline"
                                             onClick={() => markAsDoneMutation.mutate(activeCustomer.id)}
-                                            className="w-full mt-2 h-7 text-[10px] text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                            className="w-full h-7 text-[10px] text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                                         >
                                             <CheckCircle2 className="w-3 h-3 mr-1" /> Marcar como Concluído
                                         </Button>
