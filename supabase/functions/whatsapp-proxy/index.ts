@@ -85,6 +85,96 @@ serve(async (req) => {
             try { json = JSON.parse(text) } catch { json = null }
             return { status: res.status, json, text }
         }
+
+        // Helper for syncing a chat (Moved up for Webhook usage)
+        const syncChatMessages = async (inputPhone: string, chatName: string, dbClient: any, userId: string) => {
+            try {
+                // Ensure we have a clean phone for DB and a proper JID for API
+                const cleanPhone = inputPhone.replace(/\D/g, '')
+                const jid = inputPhone.includes('@') ? inputPhone : `${cleanPhone}@c.us`
+
+                addLog(`Syncing history for ${cleanPhone} (JID: ${jid})...`)
+
+                // Strategy 1: WPPConnect Standard
+                let msgsRes = await safeFetch(`/api/${sessionName}/all-messages-in-chat/${jid}?isGroup=false&includeMe=true&includeNotifications=false`)
+
+                // Strategy 1.5: Try without @c.us if failed (some WPP v2+ servers)
+                if (msgsRes.status !== 200 && msgsRes.status !== 201) {
+                    msgsRes = await safeFetch(`/api/${sessionName}/all-messages-in-chat/${cleanPhone}?isGroup=false&includeMe=true&includeNotifications=false`)
+                }
+
+                // Strategy 2: Evolution API style
+                if (msgsRes.status !== 200 && msgsRes.status !== 201) {
+                    addLog(`WPP strategies failed (${msgsRes.status}). Trying Evolution API style...`)
+                    const apiKey = Deno.env.get('WPPCONNECT_SECRET_KEY') || 'THISISMYSECURETOKEN'
+
+                    // Evolution v2 fetchMessages
+                    const evoRes = await fetch(`${WPP_URL}/chat/fetchMessages/${sessionName}?number=${jid}&count=100`, {
+                        headers: { 'apikey': apiKey }
+                    })
+
+                    const evoText = await evoRes.text()
+                    let evoJson: any
+                    try { evoJson = JSON.parse(evoText) } catch { evoJson = null }
+
+                    // Evolution returns messages in 'response' or directly
+                    const evoMessages = Array.isArray(evoJson) ? evoJson : (evoJson?.messages || evoJson?.response || [])
+
+                    msgsRes = { status: evoRes.status, json: evoMessages, text: evoText }
+                }
+
+                if (msgsRes.status !== 200 && msgsRes.status !== 201) {
+                    addLog(`Failed to fetch msgs for ${cleanPhone}: Status ${msgsRes.status}`)
+                    return 0
+                }
+
+                const messages = Array.isArray(msgsRes.json) ? msgsRes.json : []
+                if (messages.length === 0) return 0
+
+                let count = 0
+                // Fetch more history for new contacts (e.g. 100)
+                const recentMessages = messages.slice(-100)
+
+                for (const msg of recentMessages) {
+                    // Extract content from various formats (WPP/Evolution)
+                    const content = msg.content || msg.body || msg.message?.conversation || msg.message?.extendedTextMessage?.text || (msg.message?.imageMessage ? '[Imagem]' : '') || ''
+                    if (!content || typeof content !== 'string') continue
+
+                    const waId = msg.id || msg.key?.id
+                    if (!waId) continue
+
+                    const fromMe = msg.fromMe ?? msg.key?.fromMe
+                    const direction = fromMe ? 'outbound' : 'inbound'
+
+                    // Handle timestamp formats
+                    let ts = new Date()
+                    if (msg.timestamp) ts = new Date(msg.timestamp * 1000)
+                    else if (msg.messageTimestamp) ts = new Date(msg.messageTimestamp * 1000)
+
+                    // Deduplicate
+                    const { data: existing } = await dbClient.from('whatsapp_messages').select('id').eq('wa_message_id', waId).single()
+                    if (!existing) {
+                        const { error: insertError } = await dbClient.from('whatsapp_messages').insert({
+                            user_id: userId,
+                            contact_phone: cleanPhone,
+                            contact_name: chatName,
+                            content: content,
+                            direction: direction,
+                            status: fromMe ? 'sent' : 'received',
+                            created_at: ts.toISOString(),
+                            wa_message_id: waId
+                        })
+                        if (!insertError) count++
+                    }
+                }
+                addLog(`Synced ${count} historical messages for ${cleanPhone}`)
+                return count
+            } catch (err: any) {
+                addLog(`Error syncing chat ${inputPhone}: ${err.message}`)
+                return 0
+            }
+        }
+
         // LOG ALL WEBHOOKS FOR DEBUGGING
         if (body.event) console.log('Webhook Event:', body.event, JSON.stringify(body))
 
@@ -192,7 +282,23 @@ serve(async (req) => {
                 addLog('Error saving inbound message', error)
             } else {
                 addLog(`Inbound message saved for ${user_id} from ${contactPhone}`)
-                
+
+                // AUTO-SYNC HISTORY ON FIRST MESSAGE
+                try {
+                    const { count } = await adminClient
+                        .from('whatsapp_messages')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('contact_phone', contactPhone)
+
+                    // If this is the first (or only) message we have, fetch history
+                    if (count !== null && count <= 1) {
+                        addLog(`New contact detected (${contactPhone}). Syncing history...`)
+                        await syncChatMessages(contactPhone, msgData.sender?.pushname || contactPhone, adminClient, user_id)
+                    }
+                } catch (syncErr) {
+                    console.error('Auto-sync failed:', syncErr)
+                }
+
                 // Trigger AI Analysis for this customer immediately
                 try {
                     // Check if customer exists
@@ -214,7 +320,7 @@ serve(async (req) => {
                             })
                             .select('id')
                             .single()
-                        
+
                         if (!createError && newCustomer) {
                             addLog(`Created auto-lead for ${contactPhone} (${pushName})`)
                             customer = newCustomer
@@ -231,12 +337,12 @@ serve(async (req) => {
                                 'Authorization': `Bearer ${secret}`, // Use the same service role key
                                 'Content-Type': 'application/json'
                             },
-                            body: JSON.stringify({ 
-                                customerId: customer.id, 
-                                phone: contactPhone 
+                            body: JSON.stringify({
+                                customerId: customer.id,
+                                phone: contactPhone
                             })
                         }).catch(err => console.error('Failed to trigger AI trigger:', err))
-                        
+
                         addLog(`AI Analysis triggered for customer ${customer.id}`)
                     }
                 } catch (aiError) {
@@ -247,52 +353,7 @@ serve(async (req) => {
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
-        // Helper for syncing a chat
-        const syncChatMessages = async (phone: string, chatName: string) => {
-            try {
-                const msgsRes = await safeFetch(`/api/${sessionName}/all-messages-in-chat/${phone}?isGroup=false&includeMe=true&includeNotifications=false`)
-                if (msgsRes.status !== 200 && msgsRes.status !== 201) {
-                    addLog(`Failed to fetch msgs for ${phone}: Status ${msgsRes.status}`)
-                    return 0
-                }
 
-                const msgsData = msgsRes.json
-                const messages = Array.isArray(msgsData) ? msgsData : (msgsData?.response || [])
-                if (!Array.isArray(messages)) return 0
-
-                let count = 0
-                const recentMessages = messages.slice(-100)
-                for (const msg of recentMessages) {
-                    const content = msg.content || msg.body || msg.message || ''
-                    if (!content || typeof content !== 'string') continue
-
-                    const waId = msg.id
-                    const fromMe = msg.fromMe
-                    const direction = fromMe ? 'outbound' : 'inbound'
-                    const ts = msg.timestamp ? new Date(msg.timestamp * 1000) : new Date()
-
-                    // Deduplicate
-                    const { data: existing } = await supabaseClient.from('whatsapp_messages').select('id').eq('wa_message_id', waId).single()
-                    if (!existing) {
-                        const { error: insertError } = await supabaseClient.from('whatsapp_messages').insert({
-                            user_id: user.id,
-                            contact_phone: phone,
-                            contact_name: chatName,
-                            content: content,
-                            direction: direction,
-                            status: fromMe ? 'sent' : 'received',
-                            created_at: ts.toISOString(),
-                            wa_message_id: waId
-                        })
-                        if (!insertError) count++
-                    }
-                }
-                return count
-            } catch (err: any) {
-                addLog(`Error syncing chat ${phone}: ${err.message}`)
-                return 0
-            }
-        }
 
         // --- SYNC RECENT CHATS ---
         if (body.action === 'sync_recent') {
@@ -309,10 +370,11 @@ serve(async (req) => {
 
                 let total = 0
                 const updatedPhones: string[] = []
-                
+
                 for (const chat of recentChats) {
-                    const phone = (chat.id?._serialized || chat.id).replace(/\D/g, '')
-                    const syncedCount = await syncChatMessages(phone, chat.name || chat.contact?.name || chat.pushname || phone)
+                    const originalId = chat.id?._serialized || chat.id || ''
+                    const phone = originalId.replace(/\D/g, '')
+                    const syncedCount = await syncChatMessages(originalId, chat.name || chat.contact?.name || chat.pushname || phone, supabaseClient, user.id)
                     total += syncedCount
                     if (syncedCount > 0) {
                         updatedPhones.push(phone)
@@ -326,39 +388,55 @@ serve(async (req) => {
 
         // --- SYNC HISTORY HANDLER ---
         if (body.action === 'sync_history') {
+            addLog('Starting Sync V2 (Filtered)...') // Version marker
             try {
                 // Use safeFetch which handles auth and baseUrl
 
                 // 1. Get Chats
                 // WPPConnect Server: GET /api/{session}/all-chats or POST /api/{session}/list-chats
+                addLog('Fetching chats list...')
                 let chatsRes = await safeFetch(`/api/${sessionName}/all-chats`)
 
                 // If all-chats fails or returns empty, try list-chats
                 if (!chatsRes.json || (Array.isArray(chatsRes.json) && chatsRes.json.length === 0) || chatsRes.json.status === 'error') {
-                    chatsRes = await safeFetch(`/api/${sessionName}/list-chats`, { method: 'GET' }) // sometimes GET, sometimes POST
+                    addLog('all-chats failed or empty, trying list-chats...')
+                    chatsRes = await safeFetch(`/api/${sessionName}/list-chats`, { method: 'GET' })
                 }
 
                 const chatsData = chatsRes.json
                 const chats = Array.isArray(chatsData) ? chatsData : (chatsData?.response || [])
 
+                addLog(`Chats fetched: ${chats.length}`)
+
                 if (!Array.isArray(chats)) {
                     throw new Error('Failed to list chats or invalid response format')
                 }
 
-                // 2. Filter & Limit
+                // 2. Filter & Limit (REDUCED LIMIT TO AVOID TIMEOUT)
                 const recentChats = chats
-                    .filter((c: any) => !c.archive && !c.isGroup) // Skip archived & groups for now
-                    .slice(0, 50) // More for history
+                    .filter((c: any) => {
+                        const id = (c.id?._serialized || c.id || '').replace(/\D/g, '')
+                        // Skip groups, status broadcast, and weird long IDs
+                        // Real phones: 55 + 2 (DDD) + 8/9 digits = 12/13 digits.
+                        // Max reasonable length = 14.
+                        if (c.archive || c.isGroup || id.length > 14 || id.length < 10) return false
+                        return true
+                    })
+                    .slice(0, 15) // Reduced from 50 to 15 to prevent timeouts
 
                 let importedCount = 0
 
                 // 3. Loop and fetch messages
                 for (const chat of recentChats) {
-                    // Slight delay to avoid overwhelming the server
-                    await sleep(500) // Lower sleep for bulk
+                    const originalId = chat.id?._serialized || chat.id || ''
+                    const phone = originalId.replace(/\D/g, '')
 
-                    const phone = (chat.id?._serialized || chat.id).replace(/\D/g, '')
-                    importedCount += await syncChatMessages(phone, chat.name || chat.contact?.name || chat.pushname || phone)
+                    addLog(`Processing chat: ${phone} (ID: ${originalId})`)
+
+                    // Add delay to prevent rate limits
+                    await sleep(250)
+
+                    importedCount += await syncChatMessages(originalId, chat.name || chat.contact?.name || chat.pushname || phone, supabaseClient, user.id)
                 }
 
                 return new Response(JSON.stringify({ success: true, count: importedCount, log }), {
@@ -531,39 +609,53 @@ serve(async (req) => {
             // Attempt 3: WPPConnect Standard - using start-session to update config
             if (res.status === 404) {
                 addLog('Trying WPPConnect start-session with webhook...')
-                res = await safeFetch(`/api/${sessionName}/start-session`, {
+                const wppRes = await safeFetch(`/api/${sessionName}/start-session`, {
                     method: 'POST',
                     body: JSON.stringify({
                         webhook: webhookUrl,
                         waitQrCode: true
                     })
                 })
-                json = res.json
-                addLog(`WPPConnect start-session status: ${res.status}`, json)
+                let wppJson = wppRes.json
+                addLog(`WPPConnect start-session status: ${wppRes.status}`, wppJson)
 
                 // Attempt 4: Explicit /set-webhook (Standard for WPPConnect Server 2.x)
-                if (res.status !== 200 && res.status !== 201) {
-                    res = await safeFetch(`/api/${sessionName}/set-webhook`, {
+                if (wppRes.status !== 200 && wppRes.status !== 201) {
+                    const swRes = await safeFetch(`/api/${sessionName}/set-webhook`, {
                         method: 'POST',
                         body: JSON.stringify({
                             url: webhookUrl,
                             enabled: enabled !== false
                         })
                     })
-                    addLog(`WPPConnect /set-webhook status: ${res.status}`, res.json)
+                    addLog(`WPPConnect /set-webhook status: ${swRes.status}`, swRes.json)
+                    if (swRes.status === 200 || swRes.status === 201) {
+                        return new Response(JSON.stringify({ success: true, response: swRes.json, log }), {
+                            headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+                        })
+                    }
                 }
 
                 // Attempt 5: Explicit /webhook (Fallback)
-                if (res.status !== 200 && res.status !== 201) {
-                    res = await safeFetch(`/api/${sessionName}/webhook`, {
+                if (wppRes.status !== 200 && wppRes.status !== 201) {
+                    const fallbackRes = await safeFetch(`/api/${sessionName}/webhook`, {
                         method: 'POST',
                         body: JSON.stringify({
                             url: webhookUrl,
                             enabled: enabled !== false
                         })
                     })
-                    addLog(`WPPConnect /webhook status: ${res.status}`, res.json)
+                    addLog(`WPPConnect /webhook status: ${fallbackRes.status}`, fallbackRes.json)
+                    if (fallbackRes.status === 200 || fallbackRes.status === 201) {
+                        return new Response(JSON.stringify({ success: true, response: fallbackRes.json, log }), {
+                            headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+                        })
+                    }
                 }
+
+                return new Response(JSON.stringify({ success: wppRes.status === 200 || wppRes.status === 201, response: wppJson, log }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200
+                })
             }
 
             return new Response(JSON.stringify({ success: res.status === 200 || res.status === 201, response: json, log }), {

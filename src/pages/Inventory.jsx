@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Plus, Edit, Trash2, Printer } from "lucide-react";
+import { Package, Plus, Edit, Trash2, Printer, TrendingUp } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function Inventory() {
   const settingsEff = useEffectiveSettings();
+  const navigate = useNavigate();
   const wholesaleEnabled = !!settingsEff?.wholesale_enabled;
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -199,6 +201,14 @@ export default function Inventory() {
             <p className="text-gray-500 mt-1">Gerencie seus produtos</p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/inventory/insights')}
+              className="rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Insights
+            </Button>
             <Button onClick={() => setShowImportDialog(true)} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">Importar</Button>
             <Button onClick={() => setShowExportDialog(true)} className="rounded-xl bg-slate-600 hover:bg-slate-700">Exportar</Button>
             <Button

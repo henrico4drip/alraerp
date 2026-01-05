@@ -438,6 +438,36 @@ export default function CRM() {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                title="Sincronizar Histórico Retroativo (Todas as mensagens)"
+                                onClick={async () => {
+                                    if (isSyncing) return
+                                    setIsSyncing(true)
+                                    try {
+                                        // Feedback imediato
+                                        const { data } = await supabase.functions.invoke('whatsapp-proxy', {
+                                            body: { action: 'sync_history' }
+                                        })
+                                        console.log("Sync Response:", data) // Log full response to see "log" array
+                                        if (data?.success) {
+                                            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+                                            queryClient.invalidateQueries({ queryKey: ['whatsapp_messages'] })
+                                            // Optional: Toast or small notification instead of alert
+                                            console.log(`Sync complete: ${data.count} messages`)
+                                        }
+                                    } catch (e) {
+                                        console.error('Manual sync failed:', e)
+                                    } finally {
+                                        setIsSyncing(false)
+                                    }
+                                }}
+                                disabled={isSyncing}
+                                className={`h-8 w-8 ${isSyncing ? 'text-blue-600 animate-spin' : 'text-blue-400 hover:text-blue-600'}`}
+                            >
+                                <Clock className="w-4 h-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
                                 title="Reanalisar IA de todos os contatos"
                                 onClick={async () => {
                                     if (isRerankingAll) return

@@ -14,6 +14,7 @@ import Cashier from './pages/Cashier'
 import Sales from './pages/Sales'
 import Customers from './pages/Customers'
 import Inventory from './pages/Inventory'
+import InventoryInsights from './pages/InventoryInsights'
 import Reports from './pages/Reports'
 import CRM from './pages/CRM'
 import LeadRanking from './pages/LeadRanking'
@@ -245,6 +246,10 @@ function App() {
               <Route
                 path="/inventory"
                 element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Inventory"><Inventory /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+              />
+              <Route
+                path="/inventory/insights"
+                element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Inventory Insights"><InventoryInsights /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
               />
               <Route
                 path="/reports"
