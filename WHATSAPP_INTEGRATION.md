@@ -39,33 +39,39 @@ O recurso **"Ocultar do CRM"** implementa uma "quarentena de dados":
 - **Blacklist via Settings**: Números ocultados são armazenados no array de segurança do usuário.
 - **Expurgo Ativo**: Uma vez ocultado, o Proxy executa um comando de `DELETE` imediato e recorrente em mensagens associadas àquele telefone, garantindo que dados confidenciais não persistam no servidor de CRM.
 
----
-
-## 🧠 3. Intelligence Layer (IA Engine)
+### 3. Intelligence Layer (IA Engine)
 
 Cada mensagem recebida é processada por uma camada de inteligência baseada em **LLM (Gemini 1.5 Pro)**.
 
 1.  **Ingestão de Lead**: Novos números são automaticamente convertidos em Leads no banco de dados.
 2.  **Scoring Predictivo**: Análise de sentimento e intenção de compra geram um score de 0 a 100.
-3.  **Recomendação Prática**: A IA sugere a próxima ação para o vendedor, reduzindo o tempo de resposta e aumentando a taxa de conversão.
+3.  **Sugestão de Resposta (Edit-Before-Send)**: A IA gera uma mensagem personalizada. O sistema utiliza um fluxo de "Cópia para Edição", onde o atendente clica em **"Enviar agora"** e a sugestão é carregada no input do chat para revisão humana final, evitando envios automáticos indesejados.
 
 ---
 
-## 🛠️ 4. Protocolo de Manutenção e Diagnóstico
+## 🛰️ 4. Fluxo Cross-Page e Mapeamento Canônico
 
-### 4.1. Diagnóstico de Saúde (Health Check)
+Para garantir que o Lead Ranking se comunique perfeitamente com o CRM:
+- **Navegação Inteligente**: Ao clicar em enviar no Ranking, o sistema transporta o contexto (telefone e mensagem) via URL.
+- **Mapeamento Canônico**: O CRM agora possui um resolvedor de identidade que traduz números de telefone simples (do banco de dados) para IDs exatos do WhatsApp (da API), garantindo que o chat correto seja aberto instantaneamente.
+
+---
+
+## 🛠️ 5. Protocolo de Manutenção e Diagnóstico
+
+### 5.1. Diagnóstico de Saúde (Health Check)
 O sistema mantém logs auditáveis diretamente na porta segura do Proxy. Para verificar a saúde do sistema:
 - Acessar o Painel de **Configurações > WhatsApp**.
 - Consultar o **Log de Diagnóstico do Proxy** para visualizar timestamps de sucesso/erro de cada requisição.
 
-### 4.2. Recuperação de Sessão
+### 5.2. Recuperação de Sessão
 Em caso de desconexão (Status `NOTLOGGED`):
 - O sistema tentará o `Auto-Reconnect` 3 vezes com segredos alternativos.
 - Se persistir, o usuário deve utilizar o **Reset Total da Instância** para limpar o cache de sessão e gerar um novo QR Code baseado em sua identidade UUID única.
 
 ---
 
-## 📈 5. Roadmap de Evolução
+## 📈 6. Roadmap de Evolução
 - [x] **v1.0 (Lançada)**: Sincronismo estável, Realtime e CRM Básico.
 - [x] **v1.1 (Atual)**: Camada de Privacidade Premium, IA Lead Scoring e Dashboard de Configuração.
 - [ ] **v1.2 (Próxima)**: Suporte a arquivos multimídia e mensagens de voz transcritas por IA.
