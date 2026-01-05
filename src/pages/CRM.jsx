@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/api/supabaseClient'
 import { base44 } from '@/api/base44Client'
-import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar, RefreshCw, Brain, Sparkles, TrendingUp, CheckCircle2, Clock, Trophy } from 'lucide-react'
+import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar, RefreshCw, Brain, Sparkles, TrendingUp, CheckCircle2, Clock, Trophy, EyeOff } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -22,8 +22,17 @@ export default function CRM() {
     const [newCustomerName, setNewCustomerName] = useState('')
     const [linkSearch, setLinkSearch] = useState('')
     const [sortBy, setSortBy] = useState('recent') // 'recent' or 'ai'
-
     const [isRerankingAll, setIsRerankingAll] = useState(false)
+
+    const { data: settings = {} } = useQuery({
+        queryKey: ['settings'],
+        queryFn: async () => {
+            const list = await base44.entities.Settings.list()
+            return list[0] || {}
+        }
+    })
+
+    const hiddenPhones = settings.whatsapp_hidden_phones || []
 
     // Reset customer management states when selection changes
     useEffect(() => {
@@ -36,8 +45,8 @@ export default function CRM() {
     const normalizeForMatch = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
         // Ignore extremely long numbers (likely IDs or broadcast lists) - Strict limit 14 digits (standard is 13 max: 55 + 2 DDD + 9 + 8 digits)
-        if (s.length > 14) return null 
-        
+        if (s.length > 14) return null
+
         if (s.startsWith('55') && s.length > 10) s = s.slice(2)
         if (s.length === 11 && s[2] === '9') return s.slice(0, 2) + s.slice(3)
         return s
@@ -52,10 +61,12 @@ export default function CRM() {
         return phone
     }
 
+    const syncLock = React.useRef(false)
     // Periodic Sync Effect
     useEffect(() => {
         const interval = setInterval(async () => {
-            if (isSyncing) return
+            if (syncLock.current) return
+            syncLock.current = true
             setIsSyncing(true)
             try {
                 const { data } = await supabase.functions.invoke('whatsapp-proxy', {
@@ -70,12 +81,13 @@ export default function CRM() {
             } catch (e) {
                 console.error('Background sync failed:', e)
             } finally {
+                syncLock.current = false
                 setIsSyncing(false)
             }
         }, 30000)
 
         return () => clearInterval(interval)
-    }, [selectedPhone, isSyncing, queryClient])
+    }, [selectedPhone, queryClient])
 
     // 1. Fetch Conversations
     const { data: conversations = [], isLoading: isLoadingConv } = useQuery({
@@ -92,11 +104,11 @@ export default function CRM() {
             const map = new Map()
             data.forEach(msg => {
                 if (!msg.contact_phone) return
-                
+
                 // Filter out weird long IDs (Status updates / Broadcast lists)
                 // Also ensure we only process valid phone numbers
                 const rawPhone = String(msg.contact_phone).replace(/\D/g, '')
-                if (rawPhone.length > 14 || rawPhone.length < 8) return 
+                if (rawPhone.length > 14 || rawPhone.length < 8) return
 
                 const key = normalizeForMatch(msg.contact_phone)
                 if (!key) return // Skip invalid numbers
@@ -137,10 +149,10 @@ export default function CRM() {
             const clientMatch = normalizeForMatch(c.phone)
             return clientMatch === convMatch && clientMatch !== ''
         })
-        
+
         // Use WhatsApp pushname if no customer record
         const displayName = customer?.name || (conv.contact_name && conv.contact_name !== conv.contact_phone ? conv.contact_name : formatPhoneDisplay(conv.contact_phone))
-        
+
         return {
             ...conv,
             customerName: displayName,
@@ -150,10 +162,13 @@ export default function CRM() {
         }
     })
 
-    const enrichedConversations = allEnriched.filter(c =>
-        c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.contact_phone.includes(searchTerm)
-    ).sort((a, b) => {
+    const enrichedConversations = allEnriched.filter(c => {
+        const isHidden = hiddenPhones.includes(normalizeForMatch(c.contact_phone)) || hiddenPhones.includes(c.contact_phone)
+        if (isHidden) return false
+
+        return c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.contact_phone.includes(searchTerm)
+    }).sort((a, b) => {
         if (sortBy === 'ai') return (b.aiScore || 0) - (a.aiScore || 0)
         return 0
     })
@@ -226,13 +241,33 @@ export default function CRM() {
         }
     })
 
+    const hideContactMutation = useMutation({
+        mutationFn: async (phone) => {
+            if (!phone) return
+            const normalized = normalizeForMatch(phone)
+            const currentHidden = Array.isArray(settings.whatsapp_hidden_phones) ? settings.whatsapp_hidden_phones : []
+            const newHidden = [...new Set([...currentHidden, normalized || phone])]
+
+            if (settings.id) {
+                return base44.entities.Settings.update(settings.id, { whatsapp_hidden_phones: newHidden })
+            } else {
+                return base44.entities.Settings.create({ whatsapp_hidden_phones: newHidden })
+            }
+        },
+        onSuccess: () => {
+            setSelectedPhone(null)
+            queryClient.invalidateQueries({ queryKey: ['settings'] })
+            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+        }
+    })
+
     const performAiAnalysis = async (customerId, phone) => {
         console.log(`[Analysis] Starting for ${phone}...`)
-        
+
         // --- 0. CHECK IF MARKED AS DONE ---
         // Fetch current customer status first
         const { data: currentCustomer } = await supabase.from('customers').select('ai_status, last_ai_analysis').eq('id', customerId).single()
-        
+
         let backendResult = { data: null, error: null }
         try {
             backendResult = await supabase.functions.invoke('whatsapp-ai-analyzer', {
@@ -252,16 +287,16 @@ export default function CRM() {
             const phonesToSearch = [raw]
             if (raw.startsWith('55')) phonesToSearch.push(raw.slice(2))
             if (raw.length > 10 && raw.startsWith('55') && raw[4] === '9') {
-                 phonesToSearch.push(raw.slice(0, 4) + raw.slice(5))
-                 phonesToSearch.push(raw.slice(2, 4) + raw.slice(5))
+                phonesToSearch.push(raw.slice(0, 4) + raw.slice(5))
+                phonesToSearch.push(raw.slice(2, 4) + raw.slice(5))
             }
-            
+
             const { data: recentMsgs } = await supabase
                 .from('whatsapp_messages')
                 .select('*')
                 .in('contact_phone', phonesToSearch)
                 .order('created_at', { ascending: true })
-            
+
             if (recentMsgs && recentMsgs.length > 0) {
                 const sorted = recentMsgs
                 const lastMsg = sorted[sorted.length - 1]
@@ -291,7 +326,7 @@ export default function CRM() {
                 if (lastSender === 'CLIENTE') {
                     let forcedScore = 90
                     let urgencyReason = ''
-                    
+
                     if (consecutiveClientMessages >= 2) {
                         forcedScore = 100
                         urgencyReason = ' (Cliente insistente - 2+ msgs)'
@@ -304,23 +339,23 @@ export default function CRM() {
                     }
 
                     const currentScore = finalData?.insights?.score || 0
-                    
+
                     if (currentScore < forcedScore) {
                         console.log(`[Analysis] Overriding score for ${phone}: ${currentScore} -> ${forcedScore}`)
-                        
+
                         await supabase.from('customers').update({
                             ai_score: forcedScore,
                             ai_status: `URGENTE${urgencyReason}`,
                             ai_recommendation: finalData?.insights?.recommendation || 'Responda o cliente imediatamente.',
                             last_ai_analysis: new Date().toISOString()
                         }).eq('id', customerId)
-                        
+
                         frontendSuccess = true
-                        
+
                         if (!finalData.insights) finalData.insights = {}
                         finalData.insights.score = forcedScore
                         finalData.insights.status = `URGENTE${urgencyReason}`
-                        
+
                         // Optimistic Cache Update
                         queryClient.setQueryData(['customers'], (old) => {
                             if (!old) return old
@@ -337,7 +372,7 @@ export default function CRM() {
 
         if (frontendSuccess) return finalData
         if (backendResult.error || (backendResult.data && backendResult.data.error)) {
-             throw new Error(backendResult.error?.message || backendResult.data?.error || "IA falhou")
+            throw new Error(backendResult.error?.message || backendResult.data?.error || "IA falhou")
         }
         return finalData
     }
@@ -375,7 +410,7 @@ export default function CRM() {
                     })
                     .select()
                     .single()
-                
+
                 if (createError) {
                     console.error("Failed to create lead", createError)
                     throw new Error("Falha ao criar lead: " + createError.message)
@@ -438,36 +473,6 @@ export default function CRM() {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                title="Sincronizar Histórico Retroativo (Todas as mensagens)"
-                                onClick={async () => {
-                                    if (isSyncing) return
-                                    setIsSyncing(true)
-                                    try {
-                                        // Feedback imediato
-                                        const { data } = await supabase.functions.invoke('whatsapp-proxy', {
-                                            body: { action: 'sync_history' }
-                                        })
-                                        console.log("Sync Response:", data) // Log full response to see "log" array
-                                        if (data?.success) {
-                                            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
-                                            queryClient.invalidateQueries({ queryKey: ['whatsapp_messages'] })
-                                            // Optional: Toast or small notification instead of alert
-                                            console.log(`Sync complete: ${data.count} messages`)
-                                        }
-                                    } catch (e) {
-                                        console.error('Manual sync failed:', e)
-                                    } finally {
-                                        setIsSyncing(false)
-                                    }
-                                }}
-                                disabled={isSyncing}
-                                className={`h-8 w-8 ${isSyncing ? 'text-blue-600 animate-spin' : 'text-blue-400 hover:text-blue-600'}`}
-                            >
-                                <Clock className="w-4 h-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
                                 title="Reanalisar IA de todos os contatos"
                                 onClick={async () => {
                                     if (isRerankingAll) return
@@ -475,12 +480,12 @@ export default function CRM() {
                                     try {
                                         // Include ALL enriched conversations (registered or not)
                                         const targets = enrichedConversations.filter(c => c.contact_phone)
-                                        
+
                                         // Process in parallel (batches of 5 to avoid rate limits if needed, or all)
                                         // Using Promise.allSettled to not stop on individual errors
                                         await Promise.allSettled(targets.map(async c => {
                                             let customerId = c.customerData?.id
-                                            
+
                                             // Create if missing
                                             if (!customerId) {
                                                 const { data: newCustomer } = await supabase
@@ -499,10 +504,10 @@ export default function CRM() {
                                                 return performAiAnalysis(customerId, c.contact_phone)
                                             }
                                         }))
-                                        
+
                                         queryClient.invalidateQueries({ queryKey: ['customers'] })
                                         queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
-                                    } catch(e) {
+                                    } catch (e) {
                                         console.error("Batch AI Error", e)
                                     } finally {
                                         setIsRerankingAll(false)
@@ -672,11 +677,11 @@ export default function CRM() {
                                             <span className="text-[10px] font-bold text-indigo-600">{activeCustomer.ai_status}</span>
                                         </div>
                                         <p className="text-xs text-indigo-800 italic leading-tight">"{activeCustomer.ai_recommendation}"</p>
-                                        
-                                        <Button 
-                                            size="sm" 
+
+                                        <Button
+                                            size="sm"
                                             variant="outline"
-                                            onClick={() => markAsDoneMutation.mutate(activeCustomer.id)} 
+                                            onClick={() => markAsDoneMutation.mutate(activeCustomer.id)}
                                             className="w-full mt-2 h-7 text-[10px] text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                                         >
                                             <CheckCircle2 className="w-3 h-3 mr-1" /> Marcar como Concluído
@@ -685,6 +690,21 @@ export default function CRM() {
                                 ) : (
                                     <Button size="sm" onClick={() => analyzeAiMutation.mutate()} className="w-full bg-indigo-600 text-[10px] h-8">Analisar agora</Button>
                                 )}
+                            </div>
+
+                            <div className="space-y-2 pt-4">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (confirm('Deseja ocultar este contato do CRM? Você poderá reverter isso nas configurações.')) {
+                                            hideContactMutation.mutate(selectedPhone)
+                                        }
+                                    }}
+                                    className="w-full text-gray-400 hover:text-red-500 hover:border-red-200 text-[10px] h-7"
+                                >
+                                    <EyeOff className="w-3 h-3 mr-1" /> Ocultar do CRM
+                                </Button>
                             </div>
 
                             <div className="space-y-4 pt-4 border-t border-gray-100">

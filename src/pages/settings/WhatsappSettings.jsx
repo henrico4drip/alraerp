@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, QrCode, Smartphone, RefreshCw, LogOut, CheckCircle2, Send, AlertCircle, Settings, Terminal } from 'lucide-react'
+import { Loader2, QrCode, Smartphone, RefreshCw, LogOut, CheckCircle2, Send, AlertCircle, Settings, Terminal, Eye, X } from 'lucide-react'
 import { supabase } from '@/api/supabaseClient'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -40,6 +40,20 @@ export default function WhatsappSettings() {
             await supabase.from('settings').update({ whatsapp_auto_send_cashback: enabled }).eq('user_id', user.id)
         } catch (e) {
             console.error('Failed to update whatsapp settings:', e)
+        }
+    }
+
+    const removeHiddenPhone = async (phone) => {
+        try {
+            const { user } = (await supabase.auth.getUser()).data
+            if (!user) return
+            const currentHidden = effectiveDetails.whatsapp_hidden_phones || []
+            const next = currentHidden.filter(p => p !== phone)
+            await supabase.from('settings').update({ whatsapp_hidden_phones: next }).eq('user_id', user.id)
+            alert('Contato restaurado! Ele voltará a aparecer no CRM.')
+            window.location.reload() // Dynamic refresh
+        } catch (e) {
+            alert('Erro ao remover: ' + e.message)
         }
     }
 
@@ -464,6 +478,29 @@ export default function WhatsappSettings() {
                                     Sincronizar Agora
                                 </Button>
                             </div>
+
+                            {effectiveDetails?.whatsapp_hidden_phones?.length > 0 && (
+                                <div className="pt-6 border-t border-gray-100 space-y-4">
+                                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                        <Eye className="w-4 h-4 text-orange-500" /> Contatos Ocultos do CRM
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {effectiveDetails.whatsapp_hidden_phones.map(phone => (
+                                            <div key={phone} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group">
+                                                <span className="text-sm font-medium text-gray-600">{phone}</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => removeHiddenPhone(phone)}
+                                                    className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

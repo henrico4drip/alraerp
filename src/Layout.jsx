@@ -39,9 +39,7 @@ export default function Layout({ children, currentPageName }) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const { currentProfile, logoutProfile } = useProfile();
-  const [settings, setSettings] = useState(null);
-  const effective = useEffectiveSettings();
-  useEffect(() => { setSettings(effective) }, [effective])
+  const settings = useEffectiveSettings();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [showAgendaDialog, setShowAgendaDialog] = useState(false);

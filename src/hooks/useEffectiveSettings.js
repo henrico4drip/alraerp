@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { base44 } from '@/api/base44Client'
+import { useMemo } from 'react'
 
 function getLocalSettingsArray() {
   try {
@@ -21,15 +22,18 @@ const DEFAULT_SETTINGS = {
 }
 
 export function useEffectiveSettings() {
-  const initial = getLocalSettingsArray()
-  const { data = initial } = useQuery({
+  const initial = useMemo(() => getLocalSettingsArray(), [])
+  const { data } = useQuery({
     queryKey: ['settings'],
     queryFn: () => base44.entities.Settings.list(),
     initialData: initial,
     retry: 0,
-    staleTime: 1000,
+    staleTime: 60000, // Increase stale time to avoid excessive refetching
   })
-  const arr = Array.isArray(data) ? data : []
-  const first = arr.length > 0 ? arr[0] : null
-  return first || (initial.length > 0 ? initial[0] : DEFAULT_SETTINGS)
+
+  return useMemo(() => {
+    const arr = Array.isArray(data) ? data : []
+    const first = arr.length > 0 ? arr[0] : null
+    return first || (initial.length > 0 ? initial[0] : DEFAULT_SETTINGS)
+  }, [data, initial])
 }
