@@ -34,6 +34,38 @@ export default function CRM() {
 
     const hiddenPhones = settings.whatsapp_hidden_phones || []
 
+    // URL Params for pre-filling
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const phone = params.get('phone')
+        const msg = params.get('message')
+        if (phone) setSelectedPhone(phone)
+        if (msg) setMessageText(msg)
+
+        // Clean up URL without refreshing
+        if (phone || msg) {
+            const newUrl = window.location.pathname
+            window.history.replaceState({}, '', newUrl)
+        }
+    }, [])
+
+    // Canonicalize phone (find the actual contact_phone string in metadata)
+    useEffect(() => {
+        if (!selectedPhone || !conversations.length) return
+
+        // If strict match already exists, do nothing
+        if (conversations.find(c => c.contact_phone === selectedPhone)) return
+
+        // Try normalized match
+        const targetNorm = normalizeForMatch(selectedPhone)
+        const match = conversations.find(c => normalizeForMatch(c.contact_phone) === targetNorm)
+
+        if (match) {
+            console.log(`[CRM] Canonical mapping: ${selectedPhone} -> ${match.contact_phone}`)
+            setSelectedPhone(match.contact_phone)
+        }
+    }, [selectedPhone, conversations])
+
     // Reset customer management states when selection changes
     useEffect(() => {
         setIsRegistering(false)

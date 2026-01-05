@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { base44 } from '@/api/base44Client'
 import { supabase } from '@/api/supabaseClient'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -11,6 +12,7 @@ import { ptBR } from 'date-fns/locale'
 
 export default function LeadRanking() {
     const queryClient = useQueryClient()
+    const navigate = useNavigate()
     const [sentMessages, setSentMessages] = useState({}) // Track sent messages by customer ID
     const [copiedId, setCopiedId] = useState(null) // Track copied message
     const [generatingId, setGeneratingId] = useState(null) // Track AI generation per customer
@@ -28,24 +30,24 @@ export default function LeadRanking() {
                 const { data } = await supabase.functions.invoke('whatsapp-proxy', {
                     body: { action: 'sync_recent' }
                 })
-                
+
                 // If new messages found, trigger AI Analysis and refresh
                 if (data?.success && data?.updatedPhones?.length > 0) {
                     console.log('LeadRanking: New messages for', data.updatedPhones)
-                    
+
                     // Fetch all customers to find matching IDs (robust against formatting)
                     const { data: allCustomers } = await supabase
                         .from('customers')
                         .select('id, phone')
-                    
+
                     if (allCustomers) {
-                        const targets = allCustomers.filter(c => 
+                        const targets = allCustomers.filter(c =>
                             c.phone && data.updatedPhones.includes(String(c.phone).replace(/\D/g, ''))
                         )
 
                         if (targets.length > 0) {
                             // Trigger AI for affected customers
-                            await Promise.allSettled(targets.map(c => 
+                            await Promise.allSettled(targets.map(c =>
                                 supabase.functions.invoke('whatsapp-ai-analyzer', {
                                     body: { customerId: c.id, phone: c.phone }
                                 })
@@ -73,16 +75,16 @@ export default function LeadRanking() {
                 body: { action: 'send_message', payload: { phone, message } }
             })
             if (error || data?.error) throw error || new Error(data?.message || 'Erro ao enviar')
-            
+
             // Mark as completed after sending
             if (customerId) {
                 await supabase.from('customers').update({
-                   ai_score: 0,
-                   ai_status: 'Concluído',
-                   ai_recommendation: 'Atendimento marcado como concluído (Mensagem enviada).',
-                   last_ai_analysis: new Date().toISOString()
-               }).eq('id', customerId)
-           }
+                    ai_score: 0,
+                    ai_status: 'Concluído',
+                    ai_recommendation: 'Atendimento marcado como concluído (Mensagem enviada).',
+                    last_ai_analysis: new Date().toISOString()
+                }).eq('id', customerId)
+            }
 
             return data
         },
@@ -91,7 +93,7 @@ export default function LeadRanking() {
             setSentMessages(prev => ({ ...prev, [variables.customerId]: true }))
             // Show success feedback
             // alert('✅ Mensagem enviada com sucesso!') // Removed alert to be less intrusive or keep it? User didn't ask to remove.
-            
+
             queryClient.invalidateQueries({ queryKey: ['customers_ranking'] })
             queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations_ranking'] })
         },
@@ -211,9 +213,9 @@ export default function LeadRanking() {
                         </h1>
                         <p className="text-sm text-gray-500 mt-1">Top 10 oportunidades de venda identificadas por IA</p>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
-                         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full shadow-sm border border-gray-200">
                             <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
                             <span className="text-xs font-medium text-gray-600">Tempo real</span>
                         </div>
@@ -278,7 +280,7 @@ export default function LeadRanking() {
                             )
                             // We keep colors but make them less overwhelming
                             const scoreColor = getScoreColor(customer.ai_score)
-                            
+
                             return (
                                 <Card
                                     key={customer.id}
@@ -294,11 +296,10 @@ export default function LeadRanking() {
                                             <div className={`h-px w-full sm:w-px sm:h-8 bg-gray-100`}></div>
                                             <div className="flex flex-col items-center">
                                                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Score</span>
-                                                <div className={`flex items-center gap-1 font-black text-xl ${
-                                                    customer.ai_score >= 80 ? 'text-green-600' : 
-                                                    customer.ai_score >= 60 ? 'text-blue-600' : 
-                                                    customer.ai_score >= 40 ? 'text-orange-500' : 'text-gray-500'
-                                                }`}>
+                                                <div className={`flex items-center gap-1 font-black text-xl ${customer.ai_score >= 80 ? 'text-green-600' :
+                                                    customer.ai_score >= 60 ? 'text-blue-600' :
+                                                        customer.ai_score >= 40 ? 'text-orange-500' : 'text-gray-500'
+                                                    }`}>
                                                     {customer.ai_score}
                                                 </div>
                                             </div>
@@ -323,22 +324,21 @@ export default function LeadRanking() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Meta Badges */}
                                                 <div className="flex flex-col items-end gap-1.5">
-                                                     <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
-                                                        customer.ai_status?.includes('URGENTE') ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-50 text-gray-600 border-gray-100'
-                                                     }`}>
+                                                    <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${customer.ai_status?.includes('URGENTE') ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-50 text-gray-600 border-gray-100'
+                                                        }`}>
                                                         {customer.ai_status || 'Neutro'}
-                                                     </div>
-                                                     <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
                                                         {conversation && (
                                                             <span className={`flex items-center gap-1 ${conversation.direction === 'inbound' ? 'text-orange-500 font-bold' : ''}`}>
                                                                 <div className={`w-1.5 h-1.5 rounded-full ${conversation.direction === 'inbound' ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
                                                                 {conversation.direction === 'inbound' ? 'Esperando' : 'Respondido'}
                                                             </span>
                                                         )}
-                                                     </div>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -365,7 +365,7 @@ export default function LeadRanking() {
                                                             size="sm"
                                                             onClick={() => {
                                                                 setGeneratingId(customer.id)
-                                                                analyzeAiMutation.mutate({ customerId: c.id, phone: c.phone })
+                                                                analyzeAiMutation.mutate({ customerId: customer.id, phone: customer.phone })
                                                             }}
                                                             disabled={generatingId === customer.id || analyzeAiMutation.isPending}
                                                             className="h-5 text-[10px] px-2 text-indigo-600 hover:text-indigo-700"
@@ -374,7 +374,7 @@ export default function LeadRanking() {
                                                         </Button>
                                                     )}
                                                 </div>
-                                                
+
                                                 {customer.ai_suggested_message ? (
                                                     <div className="relative group/msg">
                                                         <div className="text-xs text-gray-600 bg-white border border-gray-200 rounded p-2 italic leading-relaxed min-h-[60px]">
@@ -404,31 +404,14 @@ export default function LeadRanking() {
                                             {customer.ai_suggested_message && (
                                                 <Button
                                                     size="sm"
-                                                    onClick={() => sendMessageMutation.mutate({
-                                                        phone: customer.phone,
-                                                        message: customer.ai_suggested_message,
-                                                        customerId: customer.id
-                                                    })}
-                                                    disabled={sendMessageMutation.isPending || sentMessages[customer.id]}
-                                                    className={`w-full h-8 text-xs font-semibold shadow-sm transition-all ${
-                                                        sentMessages[customer.id] 
-                                                        ? 'bg-green-100 text-green-700 hover:bg-green-200 border border-green-200' 
-                                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                                    }`}
+                                                    onClick={() => {
+                                                        const targetPhone = conversation?.contact_phone || customer.phone;
+                                                        navigate(`/crm?phone=${targetPhone}&message=${encodeURIComponent(customer.ai_suggested_message)}`);
+                                                    }}
+                                                    className="w-full h-8 text-xs font-semibold shadow-sm transition-all bg-emerald-600 hover:bg-emerald-700 text-white"
                                                 >
-                                                    {sentMessages[customer.id] ? (
-                                                        <>✓ Enviado</>
-                                                    ) : sendMessageMutation.isPending ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                            <span>Enviando...</span>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <Send className="w-3 h-3 mr-1.5" />
-                                                            Enviar Agora
-                                                        </>
-                                                    )}
+                                                    <Send className="w-3 h-3 mr-1.5" />
+                                                    Enviar Agora
                                                 </Button>
                                             )}
                                         </div>
