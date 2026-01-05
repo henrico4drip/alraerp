@@ -24,6 +24,25 @@ export default function CRM() {
     const [sortBy, setSortBy] = useState('recent') // 'recent' or 'ai'
     const [isRerankingAll, setIsRerankingAll] = useState(false)
 
+    const normalizeForMatch = (phone) => {
+        let s = String(phone || '').replace(/\D/g, '')
+        // Ignore extremely long numbers (likely IDs or broadcast lists) - Strict limit 14 digits (standard is 13 max: 55 + 2 DDD + 9 + 8 digits)
+        if (s.length > 14) return null
+
+        if (s.startsWith('55') && s.length > 10) s = s.slice(2)
+        if (s.length === 11 && s[2] === '9') return s.slice(0, 2) + s.slice(3)
+        return s
+    }
+
+    const formatPhoneDisplay = (phone) => {
+        let s = String(phone || '').replace(/\D/g, '')
+        if (s.length > 14) return 'ID: ' + s.slice(0, 6) + '...' // Handle weird long IDs
+        if (s.startsWith('55')) s = s.slice(2)
+        if (s.length === 11) return `(${s.slice(0, 2)}) ${s.slice(2, 7)}-${s.slice(7)}`
+        if (s.length === 10) return `(${s.slice(0, 2)}) ${s.slice(2, 6)}-${s.slice(6)}`
+        return phone
+    }
+
     const { data: settings = {} } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
@@ -33,6 +52,50 @@ export default function CRM() {
     })
 
     const hiddenPhones = settings.whatsapp_hidden_phones || []
+
+    // 1. Fetch Conversations
+    const { data: conversations = [], isLoading: isLoadingConv } = useQuery({
+        queryKey: ['whatsapp_conversations'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('whatsapp_messages')
+                .select('contact_phone, contact_name, content, created_at, status, direction')
+                .order('created_at', { ascending: false })
+                .limit(2000)
+
+            if (error) throw error
+
+            const map = new Map()
+            data.forEach(msg => {
+                if (!msg.contact_phone) return
+
+                // Filter out weird long IDs (Status updates / Broadcast lists)
+                if (msg.contact_phone.length > 20) return
+
+                const norm = normalizeForMatch(msg.contact_phone)
+                if (!norm) return
+
+                if (!map.has(norm)) {
+                    map.set(norm, {
+                        ...msg,
+                        relatedPhones: new Set([msg.contact_phone])
+                    })
+                } else {
+                    const existing = map.get(norm)
+                    existing.relatedPhones.add(msg.contact_phone)
+                    // If we don't have a good name yet, and this message has one, use it
+                    if ((!existing.contact_name || existing.contact_name === existing.contact_phone) && msg.contact_name && msg.contact_name !== msg.contact_phone) {
+                        existing.contact_name = msg.contact_name
+                    }
+                }
+            })
+
+            return Array.from(map.values()).map(c => ({
+                ...c,
+                relatedPhones: Array.from(c.relatedPhones)
+            }))
+        }
+    })
 
     // URL Params for pre-filling
     useEffect(() => {
@@ -74,25 +137,6 @@ export default function CRM() {
         setLinkSearch('')
     }, [selectedPhone])
 
-    const normalizeForMatch = (phone) => {
-        let s = String(phone || '').replace(/\D/g, '')
-        // Ignore extremely long numbers (likely IDs or broadcast lists) - Strict limit 14 digits (standard is 13 max: 55 + 2 DDD + 9 + 8 digits)
-        if (s.length > 14) return null
-
-        if (s.startsWith('55') && s.length > 10) s = s.slice(2)
-        if (s.length === 11 && s[2] === '9') return s.slice(0, 2) + s.slice(3)
-        return s
-    }
-
-    const formatPhoneDisplay = (phone) => {
-        let s = String(phone || '').replace(/\D/g, '')
-        if (s.length > 14) return 'ID: ' + s.slice(0, 6) + '...' // Handle weird long IDs
-        if (s.startsWith('55')) s = s.slice(2)
-        if (s.length === 11) return `(${s.slice(0, 2)}) ${s.slice(2, 7)}-${s.slice(7)}`
-        if (s.length === 10) return `(${s.slice(0, 2)}) ${s.slice(2, 6)}-${s.slice(6)}`
-        return phone
-    }
-
     const syncLock = React.useRef(false)
     // Periodic Sync Effect
     useEffect(() => {
@@ -120,52 +164,6 @@ export default function CRM() {
 
         return () => clearInterval(interval)
     }, [selectedPhone, queryClient])
-
-    // 1. Fetch Conversations
-    const { data: conversations = [], isLoading: isLoadingConv } = useQuery({
-        queryKey: ['whatsapp_conversations'],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('whatsapp_messages')
-                .select('contact_phone, contact_name, content, created_at, status, direction')
-                .order('created_at', { ascending: false })
-                .limit(2000)
-
-            if (error) throw error
-
-            const map = new Map()
-            data.forEach(msg => {
-                if (!msg.contact_phone) return
-
-                // Filter out weird long IDs (Status updates / Broadcast lists)
-                // Also ensure we only process valid phone numbers
-                const rawPhone = String(msg.contact_phone).replace(/\D/g, '')
-                if (rawPhone.length > 14 || rawPhone.length < 8) return
-
-                const key = normalizeForMatch(msg.contact_phone)
-                if (!key) return // Skip invalid numbers
-
-                // Try to find a good name (not just phone number)
-                const candidateName = msg.contact_name && msg.contact_name !== msg.contact_phone ? msg.contact_name : null
-
-                if (!map.has(key)) {
-                    map.set(key, { ...msg, relatedPhones: new Set([msg.contact_phone]) })
-                } else {
-                    const existing = map.get(key)
-                    existing.relatedPhones.add(msg.contact_phone)
-                    // If we don't have a good name yet, and this message has one, use it
-                    if ((!existing.contact_name || existing.contact_name === existing.contact_phone) && candidateName) {
-                        existing.contact_name = candidateName
-                    }
-                }
-            })
-
-            return Array.from(map.values()).map(c => ({
-                ...c,
-                relatedPhones: Array.from(c.relatedPhones)
-            }))
-        }
-    })
 
     // 2. Fetch Customers
     const { data: customers = [] } = useQuery({
