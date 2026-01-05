@@ -680,8 +680,14 @@ export default function CRM() {
                                         <p className="text-xs text-indigo-800 italic leading-tight">"{activeCustomer.ai_recommendation}"</p>
 
                                         <Button
+                                            type="button"
                                             size="sm"
-                                            onClick={() => setMessageText(activeCustomer.ai_suggested_message || activeCustomer.ai_recommendation)}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                console.log("Copying AI suggestion to input...");
+                                                setMessageText(activeCustomer.ai_suggested_message || activeCustomer.ai_recommendation);
+                                            }}
                                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] h-7 mb-2"
                                         >
                                             <Send className="w-3 h-3 mr-1" /> Enviar agora
