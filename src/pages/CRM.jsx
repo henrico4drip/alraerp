@@ -661,14 +661,14 @@ export default function CRM() {
 
                         <div className="p-4 bg-gray-50 border-t border-gray-200">
                             <div className="flex items-end gap-2">
-                                <Textarea
+                                <textarea
                                     ref={textareaRef}
                                     value={messageText}
                                     onChange={e => {
                                         setMessageText(e.target.value)
                                         // Auto-resize
                                         e.target.style.height = 'auto'
-                                        e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px'
+                                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
                                     }}
                                     onKeyDown={e => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -678,14 +678,15 @@ export default function CRM() {
                                         }
                                     }}
                                     placeholder="Mensagem..."
-                                    className="bg-white rounded-2xl resize-none min-h-[40px] max-h-[150px] py-2.5 px-4 border-gray-200 focus-visible:ring-emerald-500 overflow-y-auto"
+                                    className="w-full bg-white rounded-2xl resize-none min-h-[40px] max-h-[200px] py-2.5 px-4 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 overflow-y-auto text-sm"
                                     rows={1}
                                 />
                                 <Button
                                     onClick={() => {
                                         handleSend()
-                                        // Reset height after sending (if ref was used it would be cleaner, but let's try to reset via event or just wait for state clear to trigger re-render if we had controlled height)
-                                        // For now, state clear will trigger re-render, but we might need to manually reset the style if it doesn't.
+                                        if (textareaRef.current) {
+                                            textareaRef.current.style.height = 'auto'
+                                        }
                                     }}
                                     disabled={sendMessageMutation.isPending || !messageText.trim()}
                                     className="rounded-full w-12 h-10 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 mb-0.5"
