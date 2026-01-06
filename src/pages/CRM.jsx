@@ -181,31 +181,77 @@ export default function CRM() {
     })
 
     // Enriched Logic
-    const allEnriched = conversations.map(conv => {
-        const convMatch = normalizeForMatch(conv.contact_phone)
-        const customer = customers.find(c => {
-            const clientMatch = normalizeForMatch(c.phone)
-            return clientMatch === convMatch && clientMatch !== ''
+    // Enriched Logic
+    const allEnriched = React.useMemo(() => {
+        // 1. Map existing conversations
+        const mapped = conversations.map(conv => {
+            const convMatch = normalizeForMatch(conv.contact_phone)
+            const customer = customers.find(c => {
+                const clientMatch = normalizeForMatch(c.phone)
+                return clientMatch === convMatch && clientMatch !== ''
+            })
+
+            // Use WhatsApp pushname if no customer record
+            const displayName = customer?.name || (conv.contact_name && conv.contact_name !== conv.contact_phone ? conv.contact_name : formatPhoneDisplay(conv.contact_phone))
+
+            return {
+                ...conv,
+                customerName: displayName,
+                customerData: customer,
+                aiScore: customer?.ai_score || 0,
+                isWaiting: conv.direction === 'inbound'
+            }
         })
 
-        // Use WhatsApp pushname if no customer record
-        const displayName = customer?.name || (conv.contact_name && conv.contact_name !== conv.contact_phone ? conv.contact_name : formatPhoneDisplay(conv.contact_phone))
+        // 2. Inject selectedPhone if missing (e.g. coming from Marketing/LeadRanking)
+        if (selectedPhone) {
+            const alreadyExists = mapped.find(c => normalizeForMatch(c.contact_phone) === normalizeForMatch(selectedPhone))
+            if (!alreadyExists) {
+                // Try to find customer data for this phone
+                const targetNorm = normalizeForMatch(selectedPhone)
+                const customer = customers.find(c => normalizeForMatch(c.phone) === targetNorm)
 
-        return {
-            ...conv,
-            customerName: displayName,
-            customerData: customer,
-            aiScore: customer?.ai_score || 0,
-            isWaiting: conv.direction === 'inbound'
+                if (customer) {
+                    mapped.unshift({
+                        id: 'temp_' + customer.id,
+                        contact_phone: customer.phone, // Use customer's stored phone to match
+                        contact_name: customer.name,
+                        direction: 'outbound', // Default to outbound so it doesn't look like a waiting msg
+                        created_at: new Date().toISOString(),
+                        customerName: customer.name,
+                        customerData: customer,
+                        aiScore: customer.ai_score || 0,
+                        isWaiting: false,
+                        isVirtual: true, // Marker
+                        content: 'Iniciar conversa'
+                    })
+                } else {
+                    // Even if no customer found, show it as a new unknown contact so user can message
+                    mapped.unshift({
+                        id: 'temp_unknown_' + selectedPhone,
+                        contact_phone: selectedPhone,
+                        contact_name: formatPhoneDisplay(selectedPhone),
+                        direction: 'outbound',
+                        created_at: new Date().toISOString(),
+                        customerName: formatPhoneDisplay(selectedPhone),
+                        customerData: null,
+                        aiScore: 0,
+                        isWaiting: false,
+                        isVirtual: true,
+                        content: 'Novo contato'
+                    })
+                }
+            }
         }
-    })
+        return mapped
+    }, [conversations, customers, selectedPhone])
 
     const enrichedConversations = allEnriched.filter(c => {
         const isHidden = hiddenPhones.includes(normalizeForMatch(c.contact_phone)) || hiddenPhones.includes(c.contact_phone)
         if (isHidden) return false
 
-        return c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.contact_phone.includes(searchTerm)
+        return (c.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (c.contact_phone || '').includes(searchTerm)
     }).sort((a, b) => {
         if (sortBy === 'ai') return (b.aiScore || 0) - (a.aiScore || 0)
         return 0
