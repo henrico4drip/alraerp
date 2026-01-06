@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/api/supabaseClient'
 import { base44 } from '@/api/base44Client'
 import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar, RefreshCw, Brain, Sparkles, TrendingUp, CheckCircle2, Clock, Trophy, EyeOff } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { format } from 'date-fns'
@@ -23,6 +24,13 @@ export default function CRM() {
     const [linkSearch, setLinkSearch] = useState('')
     const [sortBy, setSortBy] = useState('recent') // 'recent' or 'ai'
     const [isRerankingAll, setIsRerankingAll] = useState(false)
+    const textareaRef = useRef(null)
+
+    useEffect(() => {
+        if (messageText === '' && textareaRef.current) {
+            textareaRef.current.style.height = 'auto'
+        }
+    }, [messageText])
 
     const normalizeForMatch = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
@@ -652,15 +660,36 @@ export default function CRM() {
                         </div>
 
                         <div className="p-4 bg-gray-50 border-t border-gray-200">
-                            <div className="flex gap-2">
-                                <Input
+                            <div className="flex items-end gap-2">
+                                <Textarea
+                                    ref={textareaRef}
                                     value={messageText}
-                                    onChange={e => setMessageText(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleSend()}
+                                    onChange={e => {
+                                        setMessageText(e.target.value)
+                                        // Auto-resize
+                                        e.target.style.height = 'auto'
+                                        e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px'
+                                    }}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault()
+                                            handleSend()
+                                            e.target.style.height = 'auto'
+                                        }
+                                    }}
                                     placeholder="Mensagem..."
-                                    className="bg-white rounded-full"
+                                    className="bg-white rounded-2xl resize-none min-h-[40px] max-h-[150px] py-2.5 px-4 border-gray-200 focus-visible:ring-emerald-500 overflow-y-auto"
+                                    rows={1}
                                 />
-                                <Button onClick={handleSend} disabled={sendMessageMutation.isPending || !messageText.trim()} className="rounded-full w-12 h-10 bg-emerald-600 hover:bg-emerald-700 text-white">
+                                <Button
+                                    onClick={() => {
+                                        handleSend()
+                                        // Reset height after sending (if ref was used it would be cleaner, but let's try to reset via event or just wait for state clear to trigger re-render if we had controlled height)
+                                        // For now, state clear will trigger re-render, but we might need to manually reset the style if it doesn't.
+                                    }}
+                                    disabled={sendMessageMutation.isPending || !messageText.trim()}
+                                    className="rounded-full w-12 h-10 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 mb-0.5"
+                                >
                                     <Send className="w-5 h-5" />
                                 </Button>
                             </div>
