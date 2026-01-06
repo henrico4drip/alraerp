@@ -676,7 +676,7 @@ export default function CRM() {
 
             {/* Info Panel */}
             {selectedPhone && (
-                <div className="w-80 bg-white border-l border-gray-200 p-6 hidden lg:block">
+                <div className="w-80 bg-white border-l border-gray-200 p-6 hidden lg:flex flex-col overflow-y-auto">
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6">Informações</h3>
 
                     {activeCustomer ? (
