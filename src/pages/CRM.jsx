@@ -498,93 +498,91 @@ export default function CRM() {
             {/* Conversations List */}
             <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
                 <div className="p-4 border-b border-gray-100">
-                    <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-lg font-bold text-gray-800">Mensagens</h2>
-                        <div className="flex items-center gap-1">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Reanalisar IA de todos os contatos"
-                                onClick={async () => {
-                                    if (isRerankingAll) return
-                                    setIsRerankingAll(true)
-                                    try {
-                                        // Include ALL enriched conversations (registered or not)
-                                        const targets = enrichedConversations.filter(c => c.contact_phone)
-
-                                        // Process in parallel (batches of 5 to avoid rate limits if needed, or all)
-                                        // Using Promise.allSettled to not stop on individual errors
-                                        await Promise.allSettled(targets.map(async c => {
-                                            let customerId = c.customerData?.id
-
-                                            // Create if missing
-                                            if (!customerId) {
-                                                const { data: newCustomer } = await supabase
-                                                    .from('customers')
-                                                    .insert({
-                                                        name: c.contact_name || c.contact_phone,
-                                                        phone: c.contact_phone,
-                                                        ai_status: 'Novo Lead'
-                                                    })
-                                                    .select()
-                                                    .single()
-                                                if (newCustomer) customerId = newCustomer.id
-                                            }
-
-                                            if (customerId) {
-                                                return performAiAnalysis(customerId, c.contact_phone)
-                                            }
-                                        }))
-
-                                        queryClient.invalidateQueries({ queryKey: ['customers'] })
+                    <div className="flex flex-col gap-3 mb-3">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-gray-800">Mensagens</h2>
+                            <div className="flex items-center gap-1 group">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Reanalisar IA de todos os contatos"
+                                    onClick={async () => {
+                                        if (isRerankingAll) return
+                                        setIsRerankingAll(true)
+                                        try {
+                                            const targets = enrichedConversations.filter(c => c.contact_phone)
+                                            await Promise.allSettled(targets.map(async c => {
+                                                let customerId = c.customerData?.id
+                                                if (!customerId) {
+                                                    const { data: newCustomer } = await supabase
+                                                        .from('customers')
+                                                        .insert({
+                                                            name: c.contact_name || c.contact_phone,
+                                                            phone: c.contact_phone,
+                                                            ai_status: 'Novo Lead'
+                                                        })
+                                                        .select()
+                                                        .single()
+                                                    if (newCustomer) customerId = newCustomer.id
+                                                }
+                                                if (customerId) {
+                                                    return performAiAnalysis(customerId, c.contact_phone)
+                                                }
+                                            }))
+                                            queryClient.invalidateQueries({ queryKey: ['customers'] })
+                                            queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+                                        } catch (e) {
+                                            console.error("Batch AI Error", e)
+                                        } finally {
+                                            setIsRerankingAll(false)
+                                        }
+                                    }}
+                                    disabled={isRerankingAll}
+                                    className={`h-7 w-7 ${isRerankingAll ? 'text-purple-600 animate-pulse' : 'text-purple-400 hover:text-purple-600'}`}
+                                >
+                                    <Sparkles className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
                                         queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
-                                    } catch (e) {
-                                        console.error("Batch AI Error", e)
-                                    } finally {
-                                        setIsRerankingAll(false)
-                                    }
-                                }}
-                                disabled={isRerankingAll}
-                                className={`h-8 w-8 ${isRerankingAll ? 'text-purple-600 animate-pulse' : 'text-purple-400 hover:text-purple-600'}`}
-                            >
-                                <Sparkles className="w-4 h-4" />
-                            </Button>
+                                        queryClient.invalidateQueries({ queryKey: ['whatsapp_messages'] })
+                                    }}
+                                    disabled={isLoadingConv}
+                                    className="h-7 w-7 text-gray-400"
+                                >
+                                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingConv ? 'animate-spin' : ''}`} />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
                             <Button
-                                variant={sortBy === 'ai' ? 'default' : 'ghost'}
+                                variant={sortBy === 'ai' ? 'default' : 'outline'}
                                 size="sm"
                                 onClick={() => setSortBy(sortBy === 'ai' ? 'recent' : 'ai')}
-                                className={`h-8 px-2 text-[10px] font-bold uppercase transition-all ${sortBy === 'ai' ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-gray-400'}`}
+                                className={`flex-1 h-7 text-[9px] font-bold uppercase transition-all ${sortBy === 'ai' ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent' : 'text-gray-500 border-gray-200'}`}
                             >
                                 <Brain className="w-3 h-3 mr-1" /> IA Rank
                             </Button>
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => navigate('/lead-ranking')}
-                                className="h-8 px-2 text-[10px] font-bold uppercase text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                className="flex-1 h-7 text-[9px] font-bold uppercase text-amber-600 border-amber-100 hover:bg-amber-50"
                             >
                                 <Trophy className="w-3 h-3 mr-1" /> Ver Ranking
                             </Button>
-                            <Button
-                                variant="ghost" size="icon"
-                                onClick={() => {
-                                    queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
-                                    queryClient.invalidateQueries({ queryKey: ['whatsapp_messages'] })
-                                }}
-                                disabled={isLoadingConv}
-                                className="h-8 w-8 text-gray-400"
-                            >
-                                <RefreshCw className={`w-4 h-4 ${isLoadingConv ? 'animate-spin' : ''}`} />
-                            </Button>
                         </div>
                     </div>
+
                     <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <Input
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             placeholder="Buscar..."
-                            className="pl-9 bg-gray-50 border-none"
+                            className="bg-gray-50 border-none h-9 text-sm"
                         />
                     </div>
                 </div>
