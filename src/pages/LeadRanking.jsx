@@ -6,7 +6,7 @@ import { supabase } from '@/api/supabaseClient'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Brain, TrendingUp, Phone, DollarSign, Calendar, Sparkles, Send, MessageSquare, Copy } from 'lucide-react'
+import { Brain, TrendingUp, Phone, DollarSign, Calendar, Sparkles, Send, MessageSquare, Copy, ArrowLeft } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -205,19 +205,31 @@ export default function LeadRanking() {
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
             <div className="max-w-5xl mx-auto">
                 {/* Header */}
-                <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                            <Brain className="w-6 h-6 text-indigo-600" />
-                            Ranking de Leads
-                        </h1>
-                        <p className="text-sm text-gray-500 mt-1">Top 10 oportunidades de venda identificadas por IA</p>
-                    </div>
+                <div className="mb-6">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate('/crm')}
+                        className="mb-4 text-gray-500 hover:text-indigo-600 p-0 h-auto"
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-1.5" />
+                        Voltar ao CRM
+                    </Button>
 
-                    <div className="flex items-center gap-2">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full shadow-sm border border-gray-200">
-                            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                            <span className="text-xs font-medium text-gray-600">Tempo real</span>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                <Brain className="w-6 h-6 text-indigo-600" />
+                                Ranking de Leads
+                            </h1>
+                            <p className="text-sm text-gray-500 mt-1">Top 10 oportunidades de venda identificadas por IA</p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                <span className="text-xs font-medium text-gray-600">Tempo real</span>
+                            </div>
                         </div>
                     </div>
                 </div>
