@@ -45,15 +45,24 @@ Cada mensagem recebida é processada por uma camada de inteligência baseada em 
 
 1.  **Ingestão de Lead**: Novos números são automaticamente convertidos em Leads no banco de dados.
 2.  **Scoring Predictivo**: Análise de sentimento e intenção de compra geram um score de 0 a 100.
-3.  **Sugestão de Resposta (Edit-Before-Send)**: A IA gera uma mensagem personalizada. O sistema utiliza um fluxo de "Cópia para Edição", onde o atendente clica em **"Enviar agora"** e a sugestão é carregada no input do chat para revisão humana final, evitando envios automáticos indesejados.
+3.  **Sugestão de Resposta (Edit-Before-Send)**: A IA gera uma mensagem personalizada. O sistema utiliza um fluxo de "Cópia para Edição", onde o atendente clica em **"Enviar agora"** e a sugestão é carregada no input do chat (agora com redimensionamento automático para textos longos) para revisão humana final, evitando envios automáticos indesejados.
 
 ---
 
-## 🛰️ 4. Fluxo Cross-Page e Mapeamento Canônico
+## 🛰️ 4. Fluxo Cross-Page e Convergência de Dados
 
-Para garantir que o Lead Ranking se comunique perfeitamente com o CRM:
-- **Navegação Inteligente**: Ao clicar em enviar no Ranking, o sistema transporta o contexto (telefone e mensagem) via URL.
-- **Mapeamento Canônico**: O CRM agora possui um resolvedor de identidade que traduz números de telefone simples (do banco de dados) para IDs exatos do WhatsApp (da API), garantindo que o chat correto seja aberto instantaneamente.
+### 4.1. Integração com Marketing (Recall)
+O módulo de Marketing agora atua como um gerador de demanda ativo para o CRM:
+- **Botões de Ação Direta**: Cards de oportunidades (Cashback/Inatividade) possuem botões que levam diretamente ao CRM.
+- **Deep Linking**: A navegação transporta a intenção (Telefone + Mensagem de Lembrete Personalizada) para dentro da interface do chat.
+
+### 4.2. Conversas Virtuais (Virtual Conversations)
+Para resolver o "Cold Start Problem" (quando um cliente do Marketing nunca interagiu no WhatsApp):
+- **Injeção de Contexto**: Se o CRM recebe uma solicitação de chat para um telefone sem histórico de mensagens, ele cria uma **Conversa Virtual Temporária**.
+- **Identificação Imediata**: O sistema cruza o telefone com a base de clientes do ERP para exibir Nome, Foto e Dados de Vendas instantaneamente, eliminando a experiência de "Número Desconhecido".
+
+### 4.3. Mapeamento Canônico
+O CRM possui um resolvedor de identidade que traduz variações de números (com/sem 9º dígito) para garantir que a conversa correta seja carregada, independente do formato armazenado no cadastro do cliente.
 
 ---
 
@@ -74,8 +83,9 @@ Em caso de desconexão (Status `NOTLOGGED`):
 ## 📈 6. Roadmap de Evolução
 - [x] **v1.0 (Lançada)**: Sincronismo estável, Realtime e CRM Básico.
 - [x] **v1.1 (Atual)**: Camada de Privacidade Premium, IA Lead Scoring e Dashboard de Configuração.
-- [ ] **v1.2 (Próxima)**: Suporte a arquivos multimídia e mensagens de voz transcritas por IA.
+- [x] **v1.2 (Implementada)**: Integração Marketing-CRM, Interface de Chat Expansiva e Fluxo de Ranking de Leads.
+- [ ] **v1.3 (Próxima)**: Suporte a arquivos multimídia e mensagens de voz transcritas por IA.
 - [ ] **v1.5**: Automação total de pós-venda via fluxos conversacionais.
 
 ---
-> **Audit Trail**: *Atualizado em 05 de Janeiro de 2026. Revisado para estabilidade plena e máxima performance de UX.*
+> **Audit Trail**: *Atualizado em 05 de Janeiro de 2026. Integração completa Marketing > CRM e UX aprimorada.*
