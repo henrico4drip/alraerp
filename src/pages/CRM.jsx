@@ -735,21 +735,6 @@ export default function CRM() {
                                 )}
                             </div>
 
-                            <div className="space-y-2 pt-4">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                        if (confirm('Deseja ocultar este contato do CRM? Você poderá reverter isso nas configurações.')) {
-                                            hideContactMutation.mutate(selectedPhone)
-                                        }
-                                    }}
-                                    className="w-full text-gray-400 hover:text-red-500 hover:border-red-200 text-[10px] h-7"
-                                >
-                                    <EyeOff className="w-3 h-3 mr-1" /> Ocultar do CRM
-                                </Button>
-                            </div>
-
                             <div className="space-y-4 pt-4 border-t border-gray-100">
                                 <div className="flex items-center gap-3 text-sm">
                                     <ShoppingBag className="w-4 h-4 text-gray-400" />
@@ -769,6 +754,21 @@ export default function CRM() {
                                         ))}
                                     </div>
                                 )}
+                            </div>
+
+                            <div className="pt-6 mt-6 border-t border-gray-50">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (confirm('Deseja ocultar este contato do CRM? Você poderá reverter isso nas configurações.')) {
+                                            hideContactMutation.mutate(selectedPhone)
+                                        }
+                                    }}
+                                    className="w-full text-gray-400 hover:text-red-500 hover:border-red-200 text-[10px] h-7 border-dashed"
+                                >
+                                    <EyeOff className="w-3 h-3 mr-1" /> Ocultar do CRM
+                                </Button>
                             </div>
                         </div>
                     ) : (
