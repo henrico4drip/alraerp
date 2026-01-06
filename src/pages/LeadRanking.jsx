@@ -6,7 +6,7 @@ import { supabase } from '@/api/supabaseClient'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Brain, TrendingUp, Phone, DollarSign, Calendar, Sparkles, Send, MessageSquare, Copy, ArrowLeft } from 'lucide-react'
+import { Brain, TrendingUp, Phone, DollarSign, Calendar, Sparkles, Send, MessageSquare, Copy, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -118,6 +118,20 @@ export default function LeadRanking() {
         },
         onSettled: () => {
             setGeneratingId(null)
+        }
+    })
+    const markAsDoneMutation = useMutation({
+        mutationFn: async (customerId) => {
+            if (!customerId) return
+            await supabase.from('customers').update({
+                ai_score: 0,
+                ai_status: 'Concluído',
+                ai_recommendation: 'Atendimento marcado como concluído.',
+                last_ai_analysis: new Date().toISOString()
+            }).eq('id', customerId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['customers_ranking'] })
         }
     })
 
@@ -400,10 +414,14 @@ export default function LeadRanking() {
                                                                 setCopiedId(customer.id)
                                                                 setTimeout(() => setCopiedId(null), 2000)
                                                             }}
-                                                            className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover/msg:opacity-100 transition-opacity bg-white border border-gray-200 shadow-sm"
+                                                            className="absolute top-1 right-1 h-6 w-6 p-0 hover:bg-gray-100 transition-all bg-white/80 border border-gray-100 shadow-sm"
                                                             title="Copiar"
                                                         >
-                                                            <Copy className="w-3 h-3 text-gray-400" />
+                                                            {copiedId === customer.id ? (
+                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                                            ) : (
+                                                                <Copy className="w-3.5 h-3.5 text-gray-400" />
+                                                            )}
                                                         </Button>
                                                     </div>
                                                 ) : (
@@ -414,17 +432,30 @@ export default function LeadRanking() {
                                             </div>
 
                                             {customer.ai_suggested_message && (
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        const targetPhone = conversation?.contact_phone || customer.phone;
-                                                        navigate(`/crm?phone=${targetPhone}&message=${encodeURIComponent(customer.ai_suggested_message)}`);
-                                                    }}
-                                                    className="w-full h-8 text-xs font-semibold shadow-sm transition-all bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                >
-                                                    <Send className="w-3 h-3 mr-1.5" />
-                                                    Enviar Agora
-                                                </Button>
+                                                <div className="space-y-2">
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            const targetPhone = conversation?.contact_phone || customer.phone;
+                                                            navigate(`/crm?phone=${targetPhone}&message=${encodeURIComponent(customer.ai_suggested_message)}`);
+                                                        }}
+                                                        className="w-full h-8 text-xs font-semibold shadow-sm transition-all bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                    >
+                                                        <Send className="w-3 h-3 mr-1.5" />
+                                                        Enviar Agora
+                                                    </Button>
+
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => markAsDoneMutation.mutate(customer.id)}
+                                                        disabled={markAsDoneMutation.isPending}
+                                                        className="w-full h-8 text-[10px] text-gray-500 border-gray-200 hover:bg-gray-50 uppercase font-bold tracking-tight"
+                                                    >
+                                                        <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                                        Marcar como Concluído
+                                                    </Button>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
