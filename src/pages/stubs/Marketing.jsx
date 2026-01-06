@@ -1,7 +1,7 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { base44 } from '@/api/base44Client'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { createPageUrl } from '@/utils'
 import { Zap, DollarSign, TrendingUp, MessageCircle, Star } from 'lucide-react'
 
@@ -55,13 +55,16 @@ export default function Marketing() {
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
+  const navigate = useNavigate();
+
   const handleWhatsAppAction = (customer) => {
     const firstName = customer.name.split(' ')[0];
     const balance = Number(customer.cashback_balance || 0).toFixed(2);
     const msg = `Olá ${firstName}! Tudo bem? Conferi aqui que você tem R$ ${balance} em cashback disponível na nossa loja. 🎁 Que tal aproveitar para nos visitar esta semana?`;
     const phone = String(customer.phone).replace(/\D/g, '');
+
     if (phone) {
-      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+      navigate(`/crm?phone=${phone}&message=${encodeURIComponent(msg)}`);
     } else {
       alert('Cliente sem telefone cadastrado.');
     }
