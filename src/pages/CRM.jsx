@@ -34,13 +34,16 @@ export default function CRM() {
 
     const normalizeForMatch = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
-        // Ignore extremely long numbers (likely IDs or broadcast lists) - Strict limit 13 digits (standard is 13 max: 55 + 2 DDD + 9 + 8 digits)
-        if (s.length > 13) return null
+        // Ignore extremely long numbers (likely IDs or broadcast lists)
+        if (s.length > 15) return null
 
+        // Remove Brazilian Country Code if present
         if (s.startsWith('55') && s.length > 10) s = s.slice(2)
+
+        // Remove 9th digit for Brazilian mobiles (standardizes 11-digit numbers to 10)
         if (s.length === 11 && s[2] === '9') s = s.slice(0, 2) + s.slice(3)
 
-        // CORRECTION: Avoid matching empty or very short fragments (prevent linking to bad customer records)
+        // CORRECTION: Avoid matching empty or very short fragments
         if (s.length < 8) return null
 
         return s
@@ -48,7 +51,7 @@ export default function CRM() {
 
     const formatPhoneDisplay = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
-        if (s.length > 14) return 'ID: ' + s.slice(0, 6) + '...' // Handle weird long IDs
+        if (s.length > 14) return 'ID: ' + s.slice(0, 6) + '...'
         if (s.startsWith('55')) s = s.slice(2)
         if (s.length === 11) return `(${s.slice(0, 2)}) ${s.slice(2, 7)}-${s.slice(7)}`
         if (s.length === 10) return `(${s.slice(0, 2)}) ${s.slice(2, 6)}-${s.slice(6)}`
@@ -69,36 +72,18 @@ export default function CRM() {
     const { data: conversations = [], isLoading: isLoadingConv } = useQuery({
         queryKey: ['whatsapp_conversations'],
         queryFn: async () => {
-            // 1. Try optimized View first
-            const { data: viewData, error: viewError } = await supabase
-                .from('distinct_chats')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(50)
-
-            if (!viewError && viewData && viewData.length > 0) {
-                return viewData.map(c => ({
-                    ...c,
-                    relatedPhones: [c.contact_phone] // View implies singular distinct chats
-                }))
-            }
-
-            // 2. Fallback to raw table (Legacy/Backup)
+            // Fetch raw data - we need to group by normalized phone in JS 
+            // because SQL DISTINCT ON (contact_phone) is too strict for variations
             const { data, error } = await supabase
                 .from('whatsapp_messages')
                 .select('contact_phone, contact_name, content, created_at, status, direction')
                 .order('created_at', { ascending: false })
-                .limit(10000)
+                .limit(2000) // Fetch enough to find unique recent chats
 
             if (error) throw error
 
             const map = new Map()
             data.forEach(msg => {
-                if (!msg.contact_phone) return
-
-                // Filter out weird long IDs (Status updates / Broadcast lists)
-                if (msg.contact_phone.length > 20) return
-
                 const norm = normalizeForMatch(msg.contact_phone)
                 if (!norm) return
 
@@ -110,7 +95,6 @@ export default function CRM() {
                 } else {
                     const existing = map.get(norm)
                     existing.relatedPhones.add(msg.contact_phone)
-                    // If we don't have a good name yet, and this message has one, use it
                     if ((!existing.contact_name || existing.contact_name === existing.contact_phone) && msg.contact_name && msg.contact_name !== msg.contact_phone) {
                         existing.contact_name = msg.contact_name
                     }
