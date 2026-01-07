@@ -34,11 +34,15 @@ export default function CRM() {
 
     const normalizeForMatch = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
-        // Ignore extremely long numbers (likely IDs or broadcast lists) - Strict limit 14 digits (standard is 13 max: 55 + 2 DDD + 9 + 8 digits)
-        if (s.length > 14) return null
+        // Ignore extremely long numbers (likely IDs or broadcast lists) - Strict limit 13 digits (standard is 13 max: 55 + 2 DDD + 9 + 8 digits)
+        if (s.length > 13) return null
 
         if (s.startsWith('55') && s.length > 10) s = s.slice(2)
-        if (s.length === 11 && s[2] === '9') return s.slice(0, 2) + s.slice(3)
+        if (s.length === 11 && s[2] === '9') s = s.slice(0, 2) + s.slice(3)
+
+        // CORRECTION: Avoid matching empty or very short fragments (prevent linking to bad customer records)
+        if (s.length < 8) return null
+
         return s
     }
 
@@ -65,11 +69,26 @@ export default function CRM() {
     const { data: conversations = [], isLoading: isLoadingConv } = useQuery({
         queryKey: ['whatsapp_conversations'],
         queryFn: async () => {
+            // 1. Try optimized View first
+            const { data: viewData, error: viewError } = await supabase
+                .from('distinct_chats')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50)
+
+            if (!viewError && viewData && viewData.length > 0) {
+                return viewData.map(c => ({
+                    ...c,
+                    relatedPhones: [c.contact_phone] // View implies singular distinct chats
+                }))
+            }
+
+            // 2. Fallback to raw table (Legacy/Backup)
             const { data, error } = await supabase
                 .from('whatsapp_messages')
                 .select('contact_phone, contact_name, content, created_at, status, direction')
                 .order('created_at', { ascending: false })
-                .limit(2000)
+                .limit(10000)
 
             if (error) throw error
 
@@ -201,6 +220,10 @@ export default function CRM() {
                 aiScore: customer?.ai_score || 0,
                 isWaiting: conv.direction === 'inbound'
             }
+        }).filter(c => {
+            // FILTER: Remove entries with invalid/ghost phones
+            const norm = normalizeForMatch(c.contact_phone)
+            return norm !== null
         })
 
         // 2. Inject selectedPhone if missing (e.g. coming from Marketing/LeadRanking)
@@ -254,7 +277,7 @@ export default function CRM() {
             (c.contact_phone || '').includes(searchTerm)
     }).sort((a, b) => {
         if (sortBy === 'ai') return (b.aiScore || 0) - (a.aiScore || 0)
-        return 0
+        return new Date(b.created_at) - new Date(a.created_at)
     })
 
     const activeConversation = allEnriched.find(c => c.contact_phone === selectedPhone)
@@ -547,6 +570,39 @@ export default function CRM() {
         !(c.phone && normalizeForMatch(c.phone) === normalizeForMatch(selectedPhone))
     ).slice(0, 10)
 
+    const handleManualSync = async () => {
+        if (isSyncing) return
+        if (!supabase) {
+            console.error("Supabase client not initialized")
+            return
+        }
+
+        setIsSyncing(true)
+        try {
+            // Using 'sync_history' to force a deeper fetch (0-50 chats) as requested
+            // 'sync_recent' might be limited to 10 in the currently deployed function
+            console.log("Starting manual sync (sync_history)...")
+            const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+                body: { action: 'sync_history' }
+            })
+
+            if (error) throw error
+
+            console.log("Sync result:", data)
+
+            if (data?.success || data?.count > 0) {
+                await queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+                if (selectedPhone) {
+                    await queryClient.invalidateQueries({ queryKey: ['whatsapp_messages', selectedPhone] })
+                }
+            }
+        } catch (e) {
+            console.error('Manual sync failed:', e)
+        } finally {
+            setIsSyncing(false)
+        }
+    }
+
     return (
         <div className="flex h-[calc(100vh-64px-48px)] bg-gray-50 border-t border-gray-200 overflow-hidden">
             {/* Conversations List */}
@@ -599,14 +655,11 @@ export default function CRM() {
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => {
-                                        queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
-                                        queryClient.invalidateQueries({ queryKey: ['whatsapp_messages'] })
-                                    }}
-                                    disabled={isLoadingConv}
-                                    className="h-7 w-7 text-gray-400"
+                                    onClick={handleManualSync}
+                                    disabled={isLoadingConv || isSyncing}
+                                    className={`h-7 w-7 ${isSyncing ? 'text-indigo-600' : 'text-gray-400 hover:text-indigo-600'}`}
                                 >
-                                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingConv ? 'animate-spin' : ''}`} />
+                                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingConv || isSyncing ? 'animate-spin' : ''}`} />
                                 </Button>
                             </div>
                         </div>
