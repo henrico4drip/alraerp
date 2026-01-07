@@ -34,16 +34,17 @@ export default function CRM() {
 
     const normalizeForMatch = (phone) => {
         let s = String(phone || '').replace(/\D/g, '')
-        // Ignore extremely long numbers (likely IDs or broadcast lists)
-        if (s.length > 15) return null
+        // STRICT LIMIT: WhatsApp ghost IDs are usually 15+ digits.
+        // Standard BR phone (55 + DDD + 9 + 8) is 13 digits.
+        if (s.length > 13) return null
 
         // Remove Brazilian Country Code if present
         if (s.startsWith('55') && s.length > 10) s = s.slice(2)
 
-        // Remove 9th digit for Brazilian mobiles (standardizes 11-digit numbers to 10)
+        // Remove 9th digit for Brazilian mobiles to standardize
         if (s.length === 11 && s[2] === '9') s = s.slice(0, 2) + s.slice(3)
 
-        // CORRECTION: Avoid matching empty or very short fragments
+        // Avoid matching empty or very short fragments
         if (s.length < 8) return null
 
         return s
@@ -72,18 +73,17 @@ export default function CRM() {
     const { data: conversations = [], isLoading: isLoadingConv } = useQuery({
         queryKey: ['whatsapp_conversations'],
         queryFn: async () => {
-            // Fetch raw data - we need to group by normalized phone in JS 
-            // because SQL DISTINCT ON (contact_phone) is too strict for variations
-            const { data, error } = await supabase
-                .from('whatsapp_messages')
-                .select('contact_phone, contact_name, content, created_at, status, direction')
+            // Restore use of the optimized View for performance and coverage
+            const { data: viewData, error: viewError } = await supabase
+                .from('distinct_chats')
+                .select('*')
                 .order('created_at', { ascending: false })
-                .limit(2000) // Fetch enough to find unique recent chats
+                .limit(200)
 
-            if (error) throw error
+            if (viewError) throw viewError
 
             const map = new Map()
-            data.forEach(msg => {
+            viewData.forEach(msg => {
                 const norm = normalizeForMatch(msg.contact_phone)
                 if (!norm) return
 
