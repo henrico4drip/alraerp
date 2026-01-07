@@ -106,6 +106,7 @@ export default function Payments() {
 
   // State for Installments List Dialog
   const [selectedSaleId, setSelectedSaleId] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
 
   // Estado do pop-up de boletos
   const [showBoletoDialog, setShowBoletoDialog] = useState(false)
@@ -161,17 +162,18 @@ export default function Payments() {
 
   // Filtered List based on Range
   const filteredList = useMemo(() => {
-    if (!dateRange.from) {
-      // Se não tem range, mostra os próximos 30 dias ou todos? Vamos mostrar todos os vencidos e próximos.
-      // O usuário pediu "os que estão pendentes nessa linha de racioncínio".
-      // Se nada selecionado, vamos listar atrasados primeiro, depois próximos.
-      return openCarnes
-    }
-    const from = startOfDay(dateRange.from)
-    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from)
+    const base = !dateRange.from
+      ? openCarnes
+      : openCarnes.filter(i => isWithinInterval(i.due_date, { start: startOfDay(dateRange.from), end: dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from) }))
 
-    return openCarnes.filter(i => isWithinInterval(i.due_date, { start: from, end: to }))
-  }, [openCarnes, dateRange])
+    if (!searchTerm) return base
+
+    const lowerTerm = searchTerm.toLowerCase()
+    return base.filter(i =>
+      i.customer_name?.toLowerCase().includes(lowerTerm) ||
+      String(i.installment_amount).includes(lowerTerm)
+    )
+  }, [openCarnes, dateRange, searchTerm])
 
   const totalSelected = useMemo(() =>
     filteredList.reduce((sum, i) => sum + i.installment_amount, 0),
@@ -612,21 +614,37 @@ export default function Payments() {
               {/* List Section (Right Side) */}
               <div className="lg:col-span-8">
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
-                  <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <div>
-                      <h2 className="text-lg font-bold text-gray-900">
-                        {dateRange.from ? 'Extrato do Período' : 'Todos os Lançamentos'}
-                      </h2>
-                      <p className="text-sm text-gray-500">
+                  <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/50">
+                    <div className="flex-1 w-full">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold text-gray-900">
+                          {dateRange.from ? 'Extrato do Período' : 'Todos os Lançamentos'}
+                        </h2>
+                        <div className="text-right">
+                          <div className="text-[10px] text-gray-400 uppercase font-semibold">Total Listado</div>
+                          <div className="text-lg font-bold text-gray-900 leading-none">R$ {totalSelected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        </div>
+                      </div>
+
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Buscar cliente ou valor..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                        />
+                      </div>
+
+                      <p className="text-[10px] text-gray-400 mt-2">
                         {dateRange.from
                           ? `${dateRange.from.toLocaleDateString('pt-BR')} ${dateRange.to ? 'até ' + dateRange.to.toLocaleDateString('pt-BR') : ''}`
                           : 'Exibindo lista completa de pendências e atrasos'
                         }
                       </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-400 uppercase font-semibold">Total Listado</div>
-                      <div className="text-lg font-bold text-gray-900">R$ {totalSelected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
                     </div>
                   </div>
 
