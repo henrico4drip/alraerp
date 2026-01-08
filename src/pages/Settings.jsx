@@ -42,6 +42,7 @@ export default function Settings() {
   const [companyZip, setCompanyZip] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
+  const [blockPayables, setBlockPayables] = useState(false)
   const [newPaymentMethod, setNewPaymentMethod] = useState('')
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
   const [methodToRemove, setMethodToRemove] = useState(null)
@@ -117,6 +118,7 @@ export default function Settings() {
     setCompanyZip(effective.company_zip || '')
     setCompanyEmail(effective.contact_email || '')
     setCompanyPhone(effective.company_phone || '')
+    setBlockPayables(!!effective.block_payables)
 
     // Wholesale load
     setWholesaleEnabled(!!effective.wholesale_enabled)
@@ -152,6 +154,7 @@ export default function Settings() {
       company_zip: companyZip,
       contact_email: companyEmail,
       company_phone: companyPhone,
+      block_payables: blockPayables,
       // Wholesale save
       wholesale_enabled: wholesaleEnabled,
       wholesale_type: wholesaleType,
@@ -391,6 +394,41 @@ export default function Settings() {
                         </div>
                       ))}
                       {paymentMethods.length === 0 && <span className="text-sm text-gray-400 italic">Nenhum meio extra configurado.</span>}
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-gray-100">
+                    <div className="space-y-4">
+                      <Label className="text-gray-900 font-semibold flex items-center gap-2">
+                        Nível de Acesso Financeiro para Staff
+                      </Label>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div
+                          onClick={() => setBlockPayables(false)}
+                          className={`cursor-pointer border-2 rounded-2xl p-4 transition-all hover:bg-gray-50 ${!blockPayables ? 'border-blue-500 bg-blue-50/10' : 'border-gray-100'}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${!blockPayables ? 'border-blue-600' : 'border-gray-300'}`}>
+                              {!blockPayables && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                            </div>
+                            <span className="font-semibold text-gray-900">Financeiro Completo</span>
+                          </div>
+                          <p className="text-xs text-gray-500 italic">Inclui A Receber, A Pagar e Balanço.</p>
+                        </div>
+
+                        <div
+                          onClick={() => setBlockPayables(true)}
+                          className={`cursor-pointer border-2 rounded-2xl p-4 transition-all hover:bg-gray-50 ${blockPayables ? 'border-amber-500 bg-amber-50/20' : 'border-gray-100'}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${blockPayables ? 'border-amber-600' : 'border-gray-300'}`}>
+                              {blockPayables && <div className="w-2 h-2 rounded-full bg-amber-600" />}
+                            </div>
+                            <span className="font-semibold text-gray-900">Apenas Contas a Receber</span>
+                          </div>
+                          <p className="text-xs text-gray-500 italic">Oculta o "A Pagar" para quem não é Admin.</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -694,21 +732,53 @@ export default function Settings() {
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { key: 'financial', label: 'Financeiro' },
-                      { key: 'settings', label: 'Configurações' },
                       { key: 'inventory', label: 'Estoque' },
-                      { key: 'reports', label: 'Relatórios' }
+                      { key: 'reports', label: 'Relatórios' },
+                      { key: 'settings', label: 'Configurações' },
                     ].map(perm => (
-                      <label key={perm.key} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={!!staffForm.permissions[perm.key]}
-                          onChange={(e) => setStaffForm({
-                            ...staffForm,
-                            permissions: { ...staffForm.permissions, [perm.key]: e.target.checked }
-                          })}
-                        />
-                        <span>{perm.label}</span>
-                      </label>
+                      <div key={perm.key} className="space-y-2 p-3 border rounded-xl bg-gray-50/50">
+                        <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!staffForm.permissions[perm.key]}
+                            onChange={(e) => setStaffForm({
+                              ...staffForm,
+                              permissions: { ...staffForm.permissions, [perm.key]: e.target.checked }
+                            })}
+                            className="w-4 h-4 rounded text-blue-600"
+                          />
+                          <span>{perm.label}</span>
+                        </label>
+
+                        {perm.key === 'financial' && staffForm.permissions.financial && (
+                          <div className="pl-6 space-y-2 mt-2 border-l-2 border-blue-200">
+                            <label className="flex items-center gap-2 text-xs cursor-pointer">
+                              <input
+                                type="radio"
+                                name="fin_type"
+                                checked={!staffForm.permissions.financial_receivables_only}
+                                onChange={() => setStaffForm({
+                                  ...staffForm,
+                                  permissions: { ...staffForm.permissions, financial_receivables_only: false }
+                                })}
+                              />
+                              <span className={!staffForm.permissions.financial_receivables_only ? 'text-blue-700 font-bold' : 'text-gray-500'}>Completo</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-xs cursor-pointer">
+                              <input
+                                type="radio"
+                                name="fin_type"
+                                checked={!!staffForm.permissions.financial_receivables_only}
+                                onChange={() => setStaffForm({
+                                  ...staffForm,
+                                  permissions: { ...staffForm.permissions, financial_receivables_only: true }
+                                })}
+                              />
+                              <span className={staffForm.permissions.financial_receivables_only ? 'text-amber-700 font-bold' : 'text-gray-500'}>Apenas Receber</span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>

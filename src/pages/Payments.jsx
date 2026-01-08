@@ -13,6 +13,7 @@ import { jsPDF } from 'jspdf'
 import RequirePermission from '@/components/RequirePermission'
 import Receipt from '@/components/Receipt'
 import AccountsPayable from '@/components/AccountsPayable'
+import { useProfile } from '@/context/ProfileContext'
 
 const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -86,7 +87,14 @@ export default function Payments() {
   const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list('-created_date'), initialData: [] })
   const { data: customers = [] } = useQuery({ queryKey: ['customers'], queryFn: () => base44.entities.Customer.list('-created_date'), initialData: [] })
   const effectiveSettings = useEffectiveSettings()
+  const { isAdmin, currentProfile } = useProfile()
   const hasPixConfigured = Boolean(effectiveSettings?.pix_key)
+
+  const isPayablesBlocked = useMemo(() => {
+    if (isAdmin()) return false
+    // Bloqueia se a configuração global estiver ativa OU se o perfil específico tiver a restrição
+    return effectiveSettings?.block_payables || currentProfile?.permissions?.financial_receivables_only
+  }, [isAdmin, effectiveSettings, currentProfile])
 
   const customerById = useMemo(() => {
     const m = new Map()
@@ -97,6 +105,14 @@ export default function Payments() {
   // --- STATE ---
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('receivables') // 'receivables' | 'payables'
+
+  // Force receivables if payables is blocked and user is on payables tab
+  React.useEffect(() => {
+    if (isPayablesBlocked && activeTab === 'payables') {
+      setActiveTab('receivables')
+    }
+  }, [isPayablesBlocked, activeTab])
+
   const [currentMonth, setCurrentMonth] = useState(new Date()) // Mês exibido no calendário
   const [dateRange, setDateRange] = useState({
     from: startOfMonth(new Date()),
@@ -523,16 +539,18 @@ export default function Payments() {
             >
               A Receber
             </button>
-            <button
-              onClick={() => setActiveTab('payables')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'payables' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              A Pagar
-            </button>
+            {!isPayablesBlocked && (
+              <button
+                onClick={() => setActiveTab('payables')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'payables' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                A Pagar
+              </button>
+            )}
           </div>
         </div>
 
-        {activeTab === 'payables' ? (
+        {activeTab === 'payables' && !isPayablesBlocked ? (
           <AccountsPayable />
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -871,6 +889,6 @@ export default function Payments() {
           </DialogContent>
         </Dialog>
       </div>
-    </RequirePermission>
+    </RequirePermission >
   )
 }

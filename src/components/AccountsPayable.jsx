@@ -5,14 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Plus, Filter, Calendar as CalendarIcon, DollarSign, Trash2, Pencil, CheckCircle2, AlertCircle } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, isAfter, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Scale, TrendingUp, TrendingDown, Target, Package } from 'lucide-react';
 
 export default function AccountsPayable() {
     const queryClient = useQueryClient();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddDialog, setShowAddDialog] = useState(false);
+    const [showBalanceDialog, setShowBalanceDialog] = useState(false);
     const [editingExpense, setEditingExpense] = useState(null);
     const [expenseForm, setExpenseForm] = useState({
         description: '',
@@ -31,6 +33,18 @@ export default function AccountsPayable() {
     const { data: expenses = [] } = useQuery({
         queryKey: ['expenses'],
         queryFn: () => base44.entities.Expense.list('-due_date'),
+        initialData: []
+    });
+
+    const { data: sales = [] } = useQuery({
+        queryKey: ['sales'],
+        queryFn: () => base44.entities.Sale.list('-sale_date'),
+        initialData: []
+    });
+
+    const { data: products = [] } = useQuery({
+        queryKey: ['products'],
+        queryFn: () => base44.entities.Product.list(),
         initialData: []
     });
 
@@ -280,6 +294,9 @@ export default function AccountsPayable() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <div className="flex gap-2">
+                        <Button onClick={() => setShowBalanceDialog(true)} variant="outline" className="rounded-xl border-blue-200 text-blue-600 bg-blue-50/50 hover:bg-blue-50 gap-2">
+                            <Scale className="w-4 h-4" /> Balanço
+                        </Button>
                         <Button onClick={() => setShowImportDialog(true)} variant="outline" className="rounded-xl border-gray-200 text-gray-600">
                             Importar
                         </Button>
@@ -460,6 +477,16 @@ export default function AccountsPayable() {
                 </DialogContent>
             </Dialog>
 
+            {/* Balance Dialog */}
+            <BalanceModal
+                open={showBalanceDialog}
+                onOpenChange={setShowBalanceDialog}
+                sales={sales}
+                expenses={expenses}
+                products={products}
+                currentMonth={currentMonth}
+            />
+
             {/* Import Dialog */}
             <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
                 <DialogContent className="max-w-md rounded-3xl">
@@ -518,4 +545,143 @@ export default function AccountsPayable() {
             </Dialog>
         </div>
     );
+}
+
+function BalanceModal({ open, onOpenChange, sales, expenses, products, currentMonth }) {
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+
+    const metrics = useMemo(() => {
+        // 1. Vendido (Total sales of the month)
+        const soldMonth = sales
+            .filter(s => isWithinInterval(new Date(s.sale_date), { start, end }))
+            .reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0);
+
+        // 2. A Receber (Open installments in this month)
+        let receivablesMonth = 0;
+        sales.forEach(s => {
+            const payments = Array.isArray(s.payments) ? s.payments : (s.payments ? [s.payments] : []);
+            payments.forEach(p => {
+                if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
+                    p.schedule.forEach(inst => {
+                        const due = new Date(inst.due_date);
+                        if (inst.status !== 'paid' && isWithinInterval(due, { start, end })) {
+                            receivablesMonth += Number(inst.amount) || 0;
+                        }
+                    });
+                }
+            });
+        });
+
+        // 3. A Pagar (Expenses of the month)
+        const payablesMonth = expenses
+            .filter(e => isWithinInterval(new Date(e.due_date), { start, end }) && e.status !== 'paid')
+            .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+        const paidMonth = expenses
+            .filter(e => isWithinInterval(new Date(e.due_date), { start, end }) && e.status === 'paid')
+            .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+        // 4. Potencial de Venda (Stock value)
+        const stockPotential = products.reduce((sum, p) => sum + ((Number(p.stock) || 0) * (Number(p.price) || 0)), 0);
+
+        const balanceActual = soldMonth - paidMonth;
+        const balanceProjected = (soldMonth + receivablesMonth) - (payablesMonth + paidMonth);
+
+        return { soldMonth, receivablesMonth, payablesMonth, paidMonth, stockPotential, balanceActual, balanceProjected };
+    }, [sales, expenses, products, start, end]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+                <div className="bg-gradient-to-br from-slate-900 to-blue-950 p-8 text-white">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h2 className="text-2xl font-bold">Balanço Financeiro</h2>
+                            <p className="text-blue-300 text-sm mt-1 capitalize">
+                                {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+                            </p>
+                        </div>
+                        <Scale className="w-10 h-10 text-blue-400 opacity-50" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8 mt-10">
+                        <div>
+                            <p className="text-blue-200 text-xs uppercase font-bold tracking-wider">Saldo Atual</p>
+                            <h3 className="text-4xl font-black mt-1">R$ {metrics.balanceActual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                            <p className="text-[10px] text-blue-300 mt-1">Vendas realizadas - Despesas pagas</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-blue-200 text-xs uppercase font-bold tracking-wider">Projeção Final</p>
+                            <h3 className={`text-4xl font-black mt-1 ${metrics.balanceProjected >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                R$ {metrics.balanceProjected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </h3>
+                            <p className="text-[10px] text-blue-300 mt-1">Considerando tudo a receber e a pagar</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-8 bg-white grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                <TrendingUp className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Total Vendido</p>
+                                <p className="text-lg font-bold text-gray-900">R$ {metrics.soldMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <Target className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">A Receber (Carnês)</p>
+                                <p className="text-lg font-bold text-gray-900">R$ {metrics.receivablesMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                                <TrendingDown className="w-5 h-5 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">A Pagar (Despesas)</p>
+                                <p className="text-lg font-bold text-gray-900 text-red-600">R$ {(metrics.payablesMonth + metrics.paidMonth).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <Package className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-indigo-500 uppercase font-bold">Potencial em Estoque</p>
+                                <p className="text-lg font-bold text-indigo-900">R$ {metrics.stockPotential.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="md:col-span-2 pt-4 border-t border-gray-100">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase">Liquidez do Período</span>
+                            <span className="text-xs font-bold text-gray-900">
+                                {metrics.soldMonth > 0 ? ((metrics.balanceActual / metrics.soldMonth) * 100).toFixed(1) : 0}% Lucro Bruto
+                            </span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-green-500 transition-all duration-1000"
+                                style={{ width: `${Math.max(0, Math.min(100, (metrics.balanceActual / (metrics.soldMonth || 1)) * 100))}%` }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
 }
