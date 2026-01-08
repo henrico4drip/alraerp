@@ -595,7 +595,16 @@ export default function CRM() {
                     <div className="flex flex-col gap-3 mb-3">
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-bold text-gray-800">Mensagens</h2>
-                            <div className="flex items-center gap-1 group">
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Ver Ranking de Leads"
+                                    onClick={() => navigate('/lead-ranking')}
+                                    className="h-8 w-8 text-amber-500 hover:bg-amber-50 rounded-full"
+                                >
+                                    <Trophy className="w-4 h-4" />
+                                </Button>
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -632,39 +641,11 @@ export default function CRM() {
                                         }
                                     }}
                                     disabled={isRerankingAll}
-                                    className={`h-7 w-7 ${isRerankingAll ? 'text-purple-600 animate-pulse' : 'text-purple-400 hover:text-purple-600'}`}
+                                    className={`h-8 w-8 ${isRerankingAll ? 'text-purple-600 animate-pulse' : 'text-purple-400 hover:text-purple-600'} rounded-full`}
                                 >
                                     <Sparkles className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={handleManualSync}
-                                    disabled={isLoadingConv || isSyncing}
-                                    className={`h-7 w-7 ${isSyncing ? 'text-indigo-600' : 'text-gray-400 hover:text-indigo-600'}`}
-                                >
-                                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingConv || isSyncing ? 'animate-spin' : ''}`} />
-                                </Button>
                             </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant={sortBy === 'ai' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setSortBy(sortBy === 'ai' ? 'recent' : 'ai')}
-                                className={`flex-1 h-7 text-[9px] font-bold uppercase transition-all ${sortBy === 'ai' ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent' : 'text-gray-500 border-gray-200'}`}
-                            >
-                                <Brain className="w-3 h-3 mr-1" /> IA Rank
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => navigate('/lead-ranking')}
-                                className="flex-1 h-7 text-[9px] font-bold uppercase text-amber-600 border-amber-100 hover:bg-amber-50"
-                            >
-                                <Trophy className="w-3 h-3 mr-1" /> Ver Ranking
-                            </Button>
                         </div>
                     </div>
 
@@ -702,9 +683,6 @@ export default function CRM() {
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs text-gray-500 truncate flex-1">{conv.content}</p>
-                                        {conv.aiScore > 0 && (
-                                            <span className="ml-2 text-[9px] font-bold px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded">{conv.aiScore}%</span>
-                                        )}
                                         {conv.isWaiting && <div className="ml-1 w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
                                     </div>
                                 </div>
@@ -802,17 +780,11 @@ export default function CRM() {
                                 <p className="text-xs text-gray-500">Saldo: R$ {Number(activeCustomer.cashback_balance || 0).toFixed(2)}</p>
                             </div>
 
-                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-4 border border-indigo-100">
-                                <div className="flex items-center justify-between mb-3 text-indigo-700 font-bold text-xs uppercase">
-                                    <span className="flex items-center gap-1"><Sparkles className="w-3 h-3" /> IA Insights</span>
-                                    <Button variant="ghost" size="sm" onClick={() => analyzeAiMutation.mutate()} className="h-6 w-6 p-0"><RefreshCw className={`w-3 h-3 ${analyzeAiMutation.isPending ? 'animate-spin' : ''}`} /></Button>
-                                </div>
-                                {analyzeAiMutation.isError ? (
-                                    <div className="py-2 text-center relative z-10">
-                                        <p className="text-[10px] text-red-500 font-bold mb-2">Erro: {analyzeAiMutation.error.message}</p>
-                                        <Button variant="outline" size="sm" onClick={() => analyzeAiMutation.mutate()} className="h-7 text-[9px] px-2 border-red-200 text-red-600">Tentar de novo</Button>
+                            {activeCustomer.ai_score >= 50 && (
+                                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-4 border border-indigo-100">
+                                    <div className="flex items-center justify-between mb-3 text-indigo-700 font-bold text-xs uppercase">
+                                        <span className="flex items-center gap-1"><Sparkles className="w-3 h-3" /> IA Insights</span>
                                     </div>
-                                ) : activeCustomer.ai_score !== undefined ? (
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-end">
                                             <span className="text-2xl font-black text-indigo-900">{activeCustomer.ai_score}%</span>
@@ -826,7 +798,6 @@ export default function CRM() {
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
-                                                console.log("Copying AI suggestion to input...");
                                                 setMessageText(activeCustomer.ai_suggested_message || activeCustomer.ai_recommendation);
                                             }}
                                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] h-7 mb-2"
@@ -843,10 +814,8 @@ export default function CRM() {
                                             <CheckCircle2 className="w-3 h-3 mr-1" /> Marcar como Concluído
                                         </Button>
                                     </div>
-                                ) : (
-                                    <Button size="sm" onClick={() => analyzeAiMutation.mutate()} className="w-full bg-indigo-600 text-[10px] h-8">Analisar agora</Button>
-                                )}
-                            </div>
+                                </div>
+                            )}
 
                             <div className="space-y-4 pt-4 border-t border-gray-100">
                                 <div className="flex items-center gap-3 text-sm">
