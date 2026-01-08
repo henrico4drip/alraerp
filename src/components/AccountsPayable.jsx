@@ -25,6 +25,9 @@ export default function AccountsPayable() {
         installments_count: 1
     });
 
+    const [showImportDialog, setShowImportDialog] = useState(false);
+    const [showExportDialog, setShowExportDialog] = useState(false);
+
     const { data: expenses = [] } = useQuery({
         queryKey: ['expenses'],
         queryFn: () => base44.entities.Expense.list('-due_date'),
@@ -139,6 +142,71 @@ export default function AccountsPayable() {
         });
     };
 
+    const downloadTemplateCSV = () => {
+        const headers = ['description', 'amount', 'due_date', 'provider', 'category', 'status']
+        const content = headers.join(',') + '\n'
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'despesas_template.csv'
+        a.click()
+        URL.revokeObjectURL(url)
+    }
+
+    const exportCSV = () => {
+        const headers = ['description', 'amount', 'due_date', 'provider', 'category', 'status']
+        const rows = expenses.map(e => [
+            e.description || '',
+            e.amount || 0,
+            e.due_date ? e.due_date.split('T')[0] : '',
+            e.provider || '',
+            e.category || '',
+            e.status || 'open'
+        ])
+        const content = [headers, ...rows].map(r => r.map(v => String(v).replace(/"/g, '""')).join(',')).join('\n')
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'despesas_export.csv'
+        a.click()
+        URL.revokeObjectURL(url)
+    }
+
+    const importCSV = async (file) => {
+        if (!file) return
+        const text = await file.text()
+        const lines = text.split(/\r?\n/).filter(Boolean)
+        if (lines.length === 0) return
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+        const idx = (name) => headers.indexOf(name)
+
+        const creations = []
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',')
+            const payload = {
+                description: cols[idx('description')] || '',
+                amount: parseFloat(cols[idx('amount')]) || 0,
+                due_date: cols[idx('due_date')] ? new Date(cols[idx('due_date')]).toISOString() : new Date().toISOString(),
+                provider: cols[idx('provider')] || '',
+                category: cols[idx('category')] || '',
+                status: cols[idx('status')] || 'open',
+            }
+            if (payload.description) {
+                creations.push(base44.entities.Expense.create(payload))
+            }
+        }
+
+        try {
+            await Promise.all(creations)
+            queryClient.invalidateQueries(['expenses'])
+            setShowImportDialog(false)
+        } catch (err) {
+            alert('Erro ao importar despesas')
+        }
+    }
+
     // Filter Logic
     const filteredExpenses = useMemo(() => {
         const start = startOfMonth(currentMonth);
@@ -211,9 +279,17 @@ export default function AccountsPayable() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <Button onClick={() => { resetForm(); setShowAddDialog(true); }} className="bg-red-600 hover:bg-red-700 text-white rounded-xl gap-2 shadow-lg shadow-red-200">
-                        <Plus className="w-4 h-4" /> Nova Despesa
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button onClick={() => setShowImportDialog(true)} variant="outline" className="rounded-xl border-gray-200 text-gray-600">
+                            Importar
+                        </Button>
+                        <Button onClick={() => setShowExportDialog(true)} variant="outline" className="rounded-xl border-gray-200 text-gray-600">
+                            Exportar
+                        </Button>
+                        <Button onClick={() => { resetForm(); setShowAddDialog(true); }} className="bg-red-600 hover:bg-red-700 text-white rounded-xl gap-2 shadow-lg shadow-red-200">
+                            <Plus className="w-4 h-4" /> Nova Despesa
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -381,6 +457,63 @@ export default function AccountsPayable() {
                             <Button type="submit" className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white">Salvar</Button>
                         </div>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Import Dialog */}
+            <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+                <DialogContent className="max-w-md rounded-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Importar Despesas</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                        <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex gap-3">
+                            <AlertCircle className="w-5 h-5 text-blue-600 shrink-0" />
+                            <div>
+                                <p className="text-sm font-medium text-blue-900">Instruções</p>
+                                <p className="text-xs text-blue-700 mt-1">O arquivo deve ser um CSV com os cabeçalhos: description, amount, due_date, provider, category, status.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Button onClick={downloadTemplateCSV} variant="outline" className="w-full rounded-xl justify-start gap-2 h-12">
+                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                                    <Plus className="w-4 h-4 text-gray-600" />
+                                </div>
+                                <span>Baixar Modelo CSV</span>
+                            </Button>
+
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={(e) => importCSV(e.target.files?.[0])}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                <Button variant="outline" className="w-full rounded-xl justify-start gap-2 h-12 border-dashed border-2">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                        <Plus className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <span>Selecionar Arquivo CSV</span>
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Export Dialog */}
+            <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+                <DialogContent className="max-w-sm rounded-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Exportar Despesas</DialogTitle>
+                    </DialogHeader>
+                    <div className="pt-4 space-y-4">
+                        <p className="text-sm text-gray-500">Deseja exportar todas as despesas cadastradas para um arquivo CSV?</p>
+                        <Button onClick={() => { exportCSV(); setShowExportDialog(false); }} className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-12 gap-2">
+                            Download CSV
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

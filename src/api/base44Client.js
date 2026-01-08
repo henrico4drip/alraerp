@@ -82,6 +82,8 @@ function normalizePayload(table, obj) {
     if (n.total_amount !== undefined) n.total_amount = normalizeNumber(n.total_amount)
   } else if (table === 'settings') {
     if (n.cashback_percentage !== undefined) n.cashback_percentage = normalizeNumber(n.cashback_percentage)
+  } else if (table === 'expenses') {
+    if (n.amount !== undefined) n.amount = normalizeNumber(n.amount)
   }
   return n
 }
