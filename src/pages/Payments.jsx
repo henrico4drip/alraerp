@@ -1,15 +1,18 @@
 import React, { useMemo, useState, useRef } from 'react'
-import { startOfDay, endOfDay, isWithinInterval, isSameDay, isAfter, isBefore, addMonths, subMonths, format, isValid } from 'date-fns'
+import { startOfDay, endOfDay, isWithinInterval, isSameDay, isAfter, isBefore, addMonths, subMonths, format, isValid, startOfMonth, endOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { base44 } from '@/api/base44Client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Banknote } from 'lucide-react'
+import { Banknote, FileText, Search, MessageCircle } from 'lucide-react'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import RequirePermission from '@/components/RequirePermission'
+import Receipt from '@/components/Receipt'
+import AccountsPayable from '@/components/AccountsPayable'
 
 const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -77,7 +80,6 @@ const buildPixEmvPayload = ({ key, amount, name, city, txid, description }) => {
 
 const asPaymentsArray = (p) => Array.isArray(p) ? p : (p ? [p] : [])
 
-import AccountsPayable from '@/components/AccountsPayable'
 
 export default function Payments() {
   const queryClient = useQueryClient()
@@ -93,9 +95,13 @@ export default function Payments() {
   }, [customers])
 
   // --- STATE ---
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('receivables') // 'receivables' | 'payables'
   const [currentMonth, setCurrentMonth] = useState(new Date()) // Mês exibido no calendário
-  const [dateRange, setDateRange] = useState({ from: null, to: null }) // Seleção de data
+  const [dateRange, setDateRange] = useState({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date())
+  })
 
   // State for Abate Dialog
   const [abateDialogOpen, setAbateDialogOpen] = useState(false)
@@ -107,6 +113,10 @@ export default function Payments() {
   // State for Installments List Dialog
   const [selectedSaleId, setSelectedSaleId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+
+  // Invoice/Receipt Modal State
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [invoiceSale, setInvoiceSale] = useState(null)
 
   // Estado do pop-up de boletos
   const [showBoletoDialog, setShowBoletoDialog] = useState(false)
@@ -413,10 +423,8 @@ export default function Payments() {
     return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${data}`
   }
 
-  const handleOpenWhatsapp = (installment) => {
-    const phoneRaw = installment?.customer_phone || ''
-    const digits = String(phoneRaw).replace(/\D/g, '')
-    const phoneWithCountry = digits ? `55${digits}` : ''
+  const handleOpenCrm = (installment) => {
+    const phone = installment?.customer_phone || ''
     const dueStr = isValid(new Date(installment.due_date)) ? new Date(installment.due_date).toLocaleDateString('pt-BR') : ''
     const txid = `${installment.sale_id}-${String(installment.installment_index).padStart(2, '0')}`
     const payload = buildPixEmvPayload({
@@ -428,13 +436,16 @@ export default function Payments() {
       description: `Parcela ${installment.installment_index}/${installment.installments_total}`,
     })
     const msg = `Olá${installment.customer_name ? ` ${installment.customer_name.split(' ')[0]}` : ''}!\nSegue boleto PIX da parcela ${installment.installment_index}/${installment.installments_total}.\nValor: R$ ${Number(installment.installment_amount).toFixed(2)}\nVencimento: ${dueStr}\nChave PIX: ${effectiveSettings?.pix_key || ''}\nCódigo copia-e-cola:\n${payload}`
-    if (!phoneWithCountry) {
-      try { navigator.clipboard.writeText(msg) } catch { }
-      alert('Cliente sem telefone válido. Mensagem copiada para a área de transferência.')
-      return
+
+    navigate(`/crm?phone=${phone}&message=${encodeURIComponent(msg)}`)
+  }
+
+  const handleOpenReceipt = (saleId) => {
+    const sale = sales.find(s => s.id === saleId)
+    if (sale) {
+      setInvoiceSale(sale)
+      setShowInvoiceModal(true)
     }
-    const url = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(msg)}`
-    window.open(url, '_blank')
   }
 
   const handleGenerateBoletoPix = (installment) => {
@@ -685,13 +696,16 @@ export default function Payments() {
                               </div>
                               <div className="flex gap-1">
                                 <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-gray-200" onClick={() => handleGenerateBoletoPix(item)} title="QR Code">
-                                  <span className="text-xs">QR</span>
+                                  <span className="text-[10px] font-bold">QR</span>
                                 </Button>
-                                <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-green-100 text-green-600" onClick={() => handleOpenWhatsapp(item)} title="WhatsApp">
-                                  <span className="text-xs">WA</span>
+                                <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-emerald-50 text-emerald-600" onClick={() => handleOpenCrm(item)} title="Enviar pelo CRM">
+                                  <MessageCircle className="w-4 h-4" />
                                 </Button>
-                                <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => setSelectedSaleId(item.sale_id)} title="Ver parcelas">
+                                <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-blue-50 text-blue-600" onClick={() => setSelectedSaleId(item.sale_id)} title="Ver parcelas">
                                   <Banknote className="w-4 h-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 hover:bg-amber-50 text-amber-600" onClick={() => handleOpenReceipt(item.sale_id)} title="Ver Nota Fiscal">
+                                  <FileText className="w-4 h-4" />
                                 </Button>
                               </div>
                             </div>
@@ -837,6 +851,22 @@ export default function Payments() {
             </div>
             <div className="flex justify-end pt-2">
               <Button variant="outline" className="rounded-xl" onClick={() => setSelectedSaleId(null)}>Fechar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Invoice/Receipt Modal */}
+        <Dialog open={showInvoiceModal} onOpenChange={setShowInvoiceModal}>
+          <DialogContent className="sm:max-w-lg rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Nota Fiscal / Comprovante</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Receipt sale={invoiceSale} settings={effectiveSettings} />
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" className="rounded-xl" onClick={() => window.print()}>Imprimir</Button>
+                <Button className="rounded-xl" onClick={() => setShowInvoiceModal(false)}>Fechar</Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
