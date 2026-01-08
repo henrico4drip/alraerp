@@ -32,6 +32,7 @@ A privacidade do usuário é tratada como prioridade arquitetural, indo além de
 ### 2.1. Filtros de Relevância
 O sistema purifica o fluxo de informações, removendo ruído:
 - **Exclusão de Grupos & Broadcasts**: Foco total no atendimento 1:1.
+- **Whitelist de Comprimento**: IDs com mais de 13 dígitos (comuns em transmissões e metadados internos) são automaticamente descartados para evitar "contatos fantasmas".
 - **Detecção de Chats Trancados**: Integração com a funcionalidade de "Locked Chats" do WhatsApp nativo.
 
 ### 2.2. Ocultamento Dinâmico (Hide Mode)
@@ -61,8 +62,11 @@ Para resolver o "Cold Start Problem" (quando um cliente do Marketing nunca inter
 - **Injeção de Contexto**: Se o CRM recebe uma solicitação de chat para um telefone sem histórico de mensagens, ele cria uma **Conversa Virtual Temporária**.
 - **Identificação Imediata**: O sistema cruza o telefone com a base de clientes do ERP para exibir Nome, Foto e Dados de Vendas instantaneamente, eliminando a experiência de "Número Desconhecido".
 
-### 4.3. Mapeamento Canônico
-O CRM possui um resolvedor de identidade que traduz variações de números (com/sem 9º dígito) para garantir que a conversa correta seja carregada, independente do formato armazenado no cadastro do cliente.
+### 4.3. Resolvedor de Identidade (Normalization & Mapping)
+O CRM possui um algoritmo de normalização robusto para estabilizar a base de contatos:
+- **Padronização do 9º Dígito**: Remove automaticamente o nono dígito de celulares brasileiros (`519...` vira `51...`) apenas para comparação e agrupamento, permitindo que contatos salvos de formas diferentes sejam unificados.
+- **Supressão de DDI**: Trata números com e sem prefixo `55` como uma única entidade.
+- **Mapeamento Canônico**: Traduz variações de números para garantir que a conversa correta seja carregada, independente do formato original.
 
 ---
 

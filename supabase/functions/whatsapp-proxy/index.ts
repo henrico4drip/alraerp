@@ -290,7 +290,7 @@ serve(async (req) => {
                     const waId = msg.id
                     const fromMe = msg.fromMe
                     const direction = fromMe ? 'outbound' : 'inbound'
-                    const ts = msg.timestamp ? new Date(msg.timestamp * 1000) : new Date()
+                    const ts = msg.timestamp ? new Date(msg.timestamp * 1000) : new Date(0)
 
                     // Deduplicate
                     const { data: existing } = await supabaseClient.from('whatsapp_messages').select('id').eq('wa_message_id', waId).single()
@@ -334,7 +334,7 @@ serve(async (req) => {
                         return !c.archive && !isGroup && !isLocked && !isBroadcast;
                     })
                     .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
-                    .slice(0, 10)
+                    .slice(0, 50)
 
                 const lockedPhones = chats
                     .filter((c: any) => {
