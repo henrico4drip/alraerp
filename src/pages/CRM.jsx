@@ -588,7 +588,7 @@ export default function CRM() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-64px-48px)] bg-gray-50 border-t border-gray-200 overflow-hidden">
+        <div className="flex fixed inset-0 top-[112px] bg-gray-50 border-t border-gray-200 overflow-hidden max-w-full">
             {/* Conversations List */}
             <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
                 <div className="p-4 border-b border-gray-100">
@@ -693,7 +693,7 @@ export default function CRM() {
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 flex flex-col bg-[#e5ddd5]/30 relative">
+            <div className="flex-1 min-w-0 flex flex-col bg-[#e5ddd5]/30 relative h-full">
                 {selectedPhone ? (
                     <>
                         <div className="p-4 bg-white border-b border-gray-200 flex items-center gap-3 shadow-sm z-10">
@@ -767,14 +767,14 @@ export default function CRM() {
 
             {/* Info Panel */}
             {selectedPhone && (
-                <div className="w-80 bg-white border-l border-gray-200 p-6 hidden lg:flex flex-col overflow-y-auto">
+                <div className="w-80 shrink-0 bg-white border-l border-gray-200 p-6 hidden lg:flex flex-col overflow-y-auto h-full">
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6">Informações</h3>
 
                     {activeCustomer ? (
                         <div className="space-y-6">
                             <div className="text-center">
                                 <Avatar className="h-20 w-20 mx-auto mb-3 bg-emerald-100 text-emerald-700 text-xl font-bold">
-                                    <AvatarFallback>{activeCustomer.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                    <AvatarFallback>{(activeCustomer.name || '??').substring(0, 2).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <h2 className="font-bold text-gray-900">{activeCustomer.name}</h2>
                                 <p className="text-xs text-gray-500">Saldo: R$ {Number(activeCustomer.cashback_balance || 0).toFixed(2)}</p>
