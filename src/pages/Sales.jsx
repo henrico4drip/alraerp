@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Plus, FileText, Download, Pencil, Trash2 } from "lucide-react";
+import { Search, Filter, Plus, FileText, Download, Pencil, Trash2, Wallet } from "lucide-react";
 import Receipt from "@/components/Receipt";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -108,11 +108,15 @@ export default function Sales() {
               <p className="text-gray-500 mt-1">Histórico de movimentações</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap md:flex-nowrap justify-end">
+              <Button variant="outline" className="gap-2 border-gray-200 text-gray-700 hover:bg-gray-50 bg-green-50 shadow-sm" onClick={() => navigate('/payments')}>
+                <Wallet className="w-4 h-4 text-green-600" />
+                Pagamentos
+              </Button>
               <Button variant="outline" className="gap-2 border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => navigate('/reports')}>
                 <FileText className="w-4 h-4" />
                 Relatórios
               </Button>
-              <Button className="bg-[#3b9cdb] hover:bg-[#2c8ac2] text-white gap-2 px-5 rounded-xl">
+              <Button className="bg-[#3b9cdb] hover:bg-[#2c8ac2] text-white gap-2 px-5 rounded-xl" onClick={() => navigate('/cashier')}>
                 <Plus className="w-4 h-4" />
                 Nova Venda
               </Button>

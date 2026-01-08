@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X, Users, Package } from 'lucide-react'
+import { Palette, Wallet, Building2, Crown, ExternalLink, QrCode, Mail, MapPin, Upload, ImageIcon, X, Users, Package, Instagram, Megaphone, Target, Brain } from 'lucide-react'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import { useTutorial } from '@/hooks/useTutorial'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -47,6 +47,10 @@ export default function Settings() {
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
   const [methodToRemove, setMethodToRemove] = useState(null)
   const [portalBusy, setPortalBusy] = useState(false)
+  const [instagramHandle, setInstagramHandle] = useState('')
+  const [brandVoice, setBrandVoice] = useState('')
+  const [targetAudience, setTargetAudience] = useState('')
+  const [mainProducts, setMainProducts] = useState('')
 
   // Wholesale State
   const [wholesaleEnabled, setWholesaleEnabled] = useState(false)
@@ -124,6 +128,10 @@ export default function Settings() {
     setWholesaleEnabled(!!effective.wholesale_enabled)
     setWholesaleType(effective.wholesale_type || 'global')
     setWholesaleMinCount(typeof effective.wholesale_min_count === 'number' ? effective.wholesale_min_count : 5)
+    setInstagramHandle(effective.instagram_handle || '')
+    setBrandVoice(effective.brand_voice || '')
+    setTargetAudience(effective.target_audience || '')
+    setMainProducts(effective.main_products || '')
 
     setIsLoading(false)
   }, [effective])
@@ -159,6 +167,10 @@ export default function Settings() {
       wholesale_enabled: wholesaleEnabled,
       wholesale_type: wholesaleType,
       wholesale_min_count: Number(wholesaleMinCount) || 1,
+      instagram_handle: instagramHandle,
+      brand_voice: brandVoice,
+      target_audience: targetAudience,
+      main_products: mainProducts,
     }
     try {
       if (settings) {
@@ -574,6 +586,75 @@ export default function Settings() {
                       <Label className="text-gray-700">Estado (UF)</Label>
                       <Input value={companyState} onChange={(e) => setCompanyState(e.target.value)} className="h-11 rounded-xl border-gray-200" maxLength={2} placeholder="UF" />
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Branding e Marketing */}
+              <Card className="shadow-sm border-gray-100 rounded-3xl overflow-hidden">
+                <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                    <Megaphone className="w-5 h-5 text-pink-500" /> Branding e Marketing
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-gray-700 font-medium flex items-center gap-2">
+                        <Instagram className="w-4 h-4" /> Instagram da Loja
+                      </Label>
+                      <Input
+                        value={instagramHandle}
+                        onChange={(e) => setInstagramHandle(e.target.value)}
+                        className="h-11 rounded-xl border-gray-200"
+                        placeholder="@sualoja"
+                      />
+                      <p className="text-xs text-gray-400">Usado para contextualizar as postagens na IA.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-gray-700 font-medium flex items-center gap-2">
+                        <Brain className="w-4 h-4" /> Tom de Voz da Marca
+                      </Label>
+                      <select
+                        value={brandVoice}
+                        onChange={(e) => setBrandVoice(e.target.value)}
+                        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      >
+                        <option value="">Selecione um tom...</option>
+                        <option value="Jovem e Urbano">Jovem e Urbano</option>
+                        <option value="Profissional e Sereno">Profissional e Sereno</option>
+                        <option value="Premium e Luxo">Premium e Luxo</option>
+                        <option value="Amigável e Próximo">Amigável e Próximo</option>
+                        <option value="Engraçado e Irônico">Engraçado e Irônico</option>
+                        <option value="Minimalista">Minimalista</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-gray-700 font-medium flex items-center gap-2">
+                      <Target className="w-4 h-4" /> Público-Alvo
+                    </Label>
+                    <textarea
+                      value={targetAudience}
+                      onChange={(e) => setTargetAudience(e.target.value)}
+                      className="w-full min-h-[80px] p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Ex: Homens entre 18-35 anos que buscam estilo premium e conforto..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-gray-700 font-medium flex items-center gap-2">
+                      <Package className="w-4 h-4" /> Principais Produtos/Nichos
+                    </Label>
+                    <textarea
+                      value={mainProducts}
+                      onChange={(e) => setMainProducts(e.target.value)}
+                      className="w-full min-h-[80px] p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Ex: Calças cargo de sarja, camisetas oversized em algodão egípcio, acessórios de prata..."
+                    />
+                    <p className="text-xs text-gray-500 italic">Essas informações ajudam a IA a criar roteiros e planejamentos muito mais assertivos.</p>
                   </div>
                 </CardContent>
               </Card>

@@ -44,6 +44,7 @@ export default function Layout({ children, currentPageName }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [showAgendaDialog, setShowAgendaDialog] = useState(false);
   const [agendaItems, setAgendaItems] = useState([]);
+  const [crmNotificationCount, setCrmNotificationCount] = useState(0);
   useEffect(() => {
     (async () => {
       try {
@@ -228,6 +229,57 @@ export default function Layout({ children, currentPageName }) {
     syncSignupProfile()
   }, [user])
 
+  // CRM Notification Logic
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchCrmCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('distinct_chats')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'inbound');
+
+        if (!error) {
+          setCrmNotificationCount(count || 0);
+        }
+      } catch (err) {
+        console.warn('Error fetching CRM notification count:', err);
+      }
+    };
+
+    fetchCrmCount();
+
+    // Background Sync Loop (runs every 60s to pull new messages from API)
+    const syncInterval = setInterval(async () => {
+      try {
+        await supabase.functions.invoke('whatsapp-proxy', {
+          body: { action: 'sync_recent' }
+        });
+        // fetchCrmCount will be triggered by the realtime listener below if sync inserted new rows
+      } catch (err) {
+        console.warn('Background sync failed:', err);
+      }
+    }, 60000);
+
+    // Subscribe to new messages (instantly update UI when DB changes)
+    const channel = supabase
+      .channel('public:whatsapp_messages_notifications')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'whatsapp_messages'
+      }, () => {
+        fetchCrmCount();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(syncInterval);
+    };
+  }, [user]);
+
   const allNavItems = [
     { name: "Dashboard", path: createPageUrl("Dashboard"), icon: LayoutDashboard, tutorialId: "dashboard-link" },
     { name: "Caixa", path: createPageUrl("Cashier"), icon: ShoppingCart, tutorialId: "cashier-link" },
@@ -298,7 +350,15 @@ export default function Layout({ children, currentPageName }) {
                       }`}
                     data-tutorial={item.tutorialId}
                   >
-                    <Icon className="w-5 h-5" />
+                    <div className="relative">
+                      <Icon className="w-5 h-5" />
+                      {item.name === "CRM" && crmNotificationCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                        </span>
+                      )}
+                    </div>
                     {item.name}
                   </Link>
                 );
@@ -341,6 +401,20 @@ export default function Layout({ children, currentPageName }) {
               >
                 <Calendar className="w-4 h-4" />
               </button>
+
+              <Link
+                to={createPageUrl("CRM")}
+                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
+                title="CRM"
+              >
+                <MessageSquare className="w-4 h-4" />
+                {crmNotificationCount > 0 && (
+                  <span className="absolute top-0 right-0 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-[#3490c7]"></span>
+                  </span>
+                )}
+              </Link>
 
             </div>
 

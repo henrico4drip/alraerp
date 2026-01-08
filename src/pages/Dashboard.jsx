@@ -132,7 +132,6 @@ export default function Dashboard() {
     { label: "PAGAMENTOS", icon: DollarSign, link: createPageUrl("Payments"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-green-600" },
     { label: "+ CLIENTE", icon: Users, link: createPageUrl("Customers"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-gray-600" },
     { label: "FATURAMENTO", icon: TrendingUp, link: createPageUrl("Reports"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-indigo-600" },
-    { label: "CRM", icon: MessageSquare, link: createPageUrl("CRM"), from: "from-gray-50", to: "to-gray-100", iconColor: "text-emerald-600" },
   ];
 
   /* Financial Calculation Logic */

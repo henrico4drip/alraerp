@@ -24,11 +24,71 @@ serve(async (req) => {
             return new Response(JSON.stringify({ error: "Configuração pendente: GEMINI_API_KEY não encontrada." }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        const { customerId, phone } = await req.json()
+        const body = await req.json().catch(() => ({}))
+        const { customerId, phone, action, shopInfo, products } = body
+
+        if (action === 'marketing_plan') {
+            console.log("AI Analyzer: Generating Marketing Plan...")
+
+            if (!products || !Array.isArray(products)) {
+                return new Response(JSON.stringify({ error: "Lista de produtos missing or invalid" }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            const prompt = `
+            Você é um Especialista em Marketing e Branding de Alta Performance.
+            Objetivo: Criar um Planejamento Mensal Detalhado de Conteúdo e Vendas para a loja.
+
+            === CONTEXTO DA MARCA ===
+            Instagram: ${shopInfo?.instagramHandle || 'Não informado'}
+            Tom de Voz: ${shopInfo?.brandVoice || 'Profissional'}
+            Público-Alvo: ${shopInfo?.targetAudience || 'Geral'}
+            Principais Produtos: ${shopInfo?.mainProducts || 'Vestuário e Acessórios'}
+
+            === ESTOQUE ATUAL (TOP 20) ===
+            ${products.slice(0, 20).map(p => `- ${p.name} (R$ ${p.price}, Estoque: ${p.stock})`).join('\n') || 'Nenhum produto em estoque informado.'}
+
+            Instruções do Planejamento:
+            1. Crie um ciclo de 4 semanas.
+            2. Para cada semana, defina a "Ação Principal" (ex: Lançamento, Reposição, Queima de Estoque).
+            3. Detalhe os "Conteúdos de Feed" (Posts/Reels) com sugestão de legenda e tipo de foto (ex: Carrossel Hero shot, Reels em movimento).
+            4. Detalhe a "Estratégia de Stories" (Sequências, Stickers de Interação, Urgência).
+            5. Inclua "Ações de Prospecção" (WhatsApp para clientes específicos, Comunidade VIP).
+            6. Use gatilhos mentais (Escassez, Urgência, Prova Social).
+
+            O planejamento deve ser EXTREMAMENTE detalhado, seguindo exatamente este estilo:
+            Loja (@username):
+            Ação Principal: ...
+            Posts (Feed): ...
+            Foto 1: ...
+            Legenda: ...
+            Stories: ... (detalhando as sequências)
+
+            Retorne APENAS o texto em Markdown bem formatado.
+            `
+
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
+            const response = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.7 }
+                })
+            })
+
+            const geminiData = await response.json()
+            const resultText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || 'Erro ao gerar planejamento via IA.'
+
+            return new Response(JSON.stringify({ success: true, plan: resultText }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            })
+        }
+
         console.log(`AI Analyzer: Analyzing customer ${customerId} with phone ${phone}`)
 
         if (!customerId || !phone) {
-            return new Response(JSON.stringify({ error: "Missing customerId or phone" }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            return new Response(JSON.stringify({ error: "Ação inválida ou dados do cliente ausentes (customerId/phone)." }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         // Fetch context (more messages for better ranking)
@@ -51,7 +111,7 @@ serve(async (req) => {
         const lastMsgTime = lastMsg ? new Date(lastMsg.created_at) : new Date()
         const diffMs = new Date().getTime() - lastMsgTime.getTime()
         const minutesSinceLast = Math.floor(diffMs / 60000)
-        
+
         let consecutiveClientMessages = 0
         for (let i = sortedMsgs.length - 1; i >= 0; i--) {
             if (sortedMsgs[i].direction === 'inbound') consecutiveClientMessages++
