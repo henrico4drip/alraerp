@@ -176,53 +176,6 @@ export default function CRM() {
         return () => clearInterval(interval)
     }, [selectedPhone, queryClient])
 
-    // AI Periodic Re-ranking (30 min)
-    useEffect(() => {
-        const interval = setInterval(async () => {
-            if (syncLock.current || isRerankingAll) return
-            console.log("[Periodic AI] Starting 30-min global re-analysis...")
-
-            // Re-using the logic from the manual button
-            const targets = allEnriched.filter(c => c.contact_phone && !c.isVirtual).slice(0, 50)
-            if (targets.length === 0) return
-
-            setIsRerankingAll(true)
-            try {
-                for (const c of targets) {
-                    let customerId = c.customerData?.id
-                    if (!customerId) {
-                        const { data: newCustomer } = await supabase
-                            .from('customers')
-                            .insert({
-                                name: c.contact_name || c.contact_phone,
-                                phone: c.contact_phone,
-                                ai_status: 'Novo Lead'
-                            })
-                            .select()
-                            .single()
-                        if (newCustomer) customerId = newCustomer.id
-                    }
-                    if (customerId) {
-                        try {
-                            await performAiAnalysis(customerId, c.contact_phone)
-                        } catch (err) {
-                            console.warn(`[Periodic AI] Failed for ${c.contact_phone}:`, err.message)
-                        }
-                        // Wait 3 seconds to avoid rate limits
-                        await new Promise(r => setTimeout(r, 3000))
-                    }
-                }
-                queryClient.invalidateQueries({ queryKey: ['customers'] })
-                queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
-            } catch (e) {
-                console.error("[Periodic AI] Batch failed", e)
-            } finally {
-                setIsRerankingAll(false)
-            }
-        }, 30 * 60 * 1000) // 30 minutes
-
-        return () => clearInterval(interval)
-    }, [allEnriched, queryClient])
 
     // 2. Fetch Customers
     const { data: customers = [] } = useQuery({
@@ -314,6 +267,54 @@ export default function CRM() {
 
     const activeConversation = allEnriched.find(c => c.contact_phone === selectedPhone)
     const activeCustomer = activeConversation?.customerData
+
+    // AI Periodic Re-ranking (30 min) - MOVED HERE TO FIX REFERENCE ERROR
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            if (syncLock.current || isRerankingAll) return
+            console.log("[Periodic AI] Starting 30-min global re-analysis...")
+
+            // Re-using the logic from the manual button
+            const targets = allEnriched.filter(c => c.contact_phone && !c.isVirtual).slice(0, 50)
+            if (targets.length === 0) return
+
+            setIsRerankingAll(true)
+            try {
+                for (const c of targets) {
+                    let customerId = c.customerData?.id
+                    if (!customerId) {
+                        const { data: newCustomer } = await supabase
+                            .from('customers')
+                            .insert({
+                                name: c.contact_name || c.contact_phone,
+                                phone: c.contact_phone,
+                                ai_status: 'Novo Lead'
+                            })
+                            .select()
+                            .single()
+                        if (newCustomer) customerId = newCustomer.id
+                    }
+                    if (customerId) {
+                        try {
+                            await performAiAnalysis(customerId, c.contact_phone)
+                        } catch (err) {
+                            console.warn(`[Periodic AI] Failed for ${c.contact_phone}:`, err.message)
+                        }
+                        // Wait 3 seconds to avoid rate limits
+                        await new Promise(r => setTimeout(r, 3000))
+                    }
+                }
+                queryClient.invalidateQueries({ queryKey: ['customers'] })
+                queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+            } catch (e) {
+                console.error("[Periodic AI] Batch failed", e)
+            } finally {
+                setIsRerankingAll(false)
+            }
+        }, 30 * 60 * 1000) // 30 minutes
+
+        return () => clearInterval(interval)
+    }, [allEnriched, queryClient])
 
     // 3. Messages Query
     const { data: messages = [], isLoading: isLoadingMsgs } = useQuery({
@@ -575,9 +576,10 @@ export default function CRM() {
         queryFn: async () => {
             if (!activeCustomer?.id) return []
             const { data, error } = await supabase.from('sales').select('*').eq('customer_id', activeCustomer.id).order('sale_date', { ascending: false }).limit(50)
-            return error ? [] : data
+            return error ? [] : (data || [])
         },
-        enabled: !!activeCustomer?.id
+        enabled: !!activeCustomer?.id,
+        initialData: []
     })
 
     const topProducts = React.useMemo(() => {
@@ -636,7 +638,7 @@ export default function CRM() {
     }
 
     return (
-        <div className="flex fixed inset-0 top-[112px] bg-gray-50 border-t border-gray-200 overflow-hidden max-w-full">
+        <div className="flex fixed inset-0 top-[64px] bg-gray-50 border-t border-gray-200 overflow-hidden max-w-full">
             {/* Conversations List */}
             <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
                 <div className="p-4 border-b border-gray-100">
@@ -729,7 +731,15 @@ export default function CRM() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-baseline mb-1">
                                         <h3 className="font-semibold text-gray-900 truncate text-sm">{conv.customerName}</h3>
-                                        <span className="text-[10px] text-gray-400">{format(new Date(conv.created_at), 'HH:mm')}</span>
+                                        <span className="text-[10px] text-gray-400">
+                                            {(() => {
+                                                try {
+                                                    return format(new Date(conv.created_at), 'HH:mm')
+                                                } catch (e) {
+                                                    return ''
+                                                }
+                                            })()}
+                                        </span>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs text-gray-500 truncate flex-1">{conv.content}</p>
@@ -763,7 +773,13 @@ export default function CRM() {
                                     <div className={`max-w-[70%] rounded-xl px-4 py-2 shadow-sm text-sm ${msg.direction === 'outbound' ? 'bg-[#d9fdd3] text-gray-900 rounded-tr-none' : 'bg-white text-gray-900 rounded-tl-none'}`}>
                                         <p>{msg.content}</p>
                                         <div className="text-[10px] text-gray-500 text-right mt-1 opacity-70">
-                                            {format(new Date(msg.created_at), 'HH:mm')}
+                                            {(() => {
+                                                try {
+                                                    return format(new Date(msg.created_at), 'HH:mm')
+                                                } catch (e) {
+                                                    return ''
+                                                }
+                                            })()}
                                         </div>
                                     </div>
                                 </div>
@@ -872,7 +888,7 @@ export default function CRM() {
                                     <ShoppingBag className="w-4 h-4 text-gray-400" />
                                     <div className="flex-1">
                                         <p className="text-[10px] text-gray-400 uppercase font-bold">Última Compra</p>
-                                        <p className="font-medium">{activeCustomerSales?.[0] ? `R$ ${activeCustomerSales[0].total_amount?.toFixed(2)}` : 'Nenhuma'}</p>
+                                        <p className="font-medium">{activeCustomerSales?.[0] ? `R$ ${Number(activeCustomerSales[0].total_amount || 0).toFixed(2)}` : 'Nenhuma'}</p>
                                     </div>
                                 </div>
                                 {topProducts.length > 0 && (
