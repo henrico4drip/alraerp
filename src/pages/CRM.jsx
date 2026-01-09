@@ -638,7 +638,7 @@ export default function CRM() {
     }
 
     return (
-        <div className="flex fixed inset-0 top-[64px] bg-gray-50 border-t border-gray-200 overflow-hidden max-w-full">
+        <div className="flex fixed top-[64px] bottom-0 left-0 right-0 bg-gray-50 border-t border-gray-200 overflow-hidden z-50">
             {/* Conversations List */}
             <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
                 <div className="p-4 border-b border-gray-100">
@@ -753,7 +753,7 @@ export default function CRM() {
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 min-w-0 flex flex-col bg-[#e5ddd5]/30 relative h-full">
+            <div className="flex-1 min-w-0 flex flex-col bg-[#e5ddd5]/30 relative h-full min-h-0">
                 {selectedPhone ? (
                     <>
                         <div className="p-4 bg-white border-b border-gray-200 flex items-center gap-3 shadow-sm z-10">
@@ -786,7 +786,7 @@ export default function CRM() {
                             ))}
                         </div>
 
-                        <div className="p-4 bg-gray-50 border-t border-gray-200">
+                        <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0">
                             <div className="flex items-end gap-2">
                                 <textarea
                                     ref={textareaRef}
