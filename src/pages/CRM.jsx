@@ -176,6 +176,54 @@ export default function CRM() {
         return () => clearInterval(interval)
     }, [selectedPhone, queryClient])
 
+    // AI Periodic Re-ranking (30 min)
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            if (syncLock.current || isRerankingAll) return
+            console.log("[Periodic AI] Starting 30-min global re-analysis...")
+
+            // Re-using the logic from the manual button
+            const targets = allEnriched.filter(c => c.contact_phone && !c.isVirtual).slice(0, 50)
+            if (targets.length === 0) return
+
+            setIsRerankingAll(true)
+            try {
+                for (const c of targets) {
+                    let customerId = c.customerData?.id
+                    if (!customerId) {
+                        const { data: newCustomer } = await supabase
+                            .from('customers')
+                            .insert({
+                                name: c.contact_name || c.contact_phone,
+                                phone: c.contact_phone,
+                                ai_status: 'Novo Lead'
+                            })
+                            .select()
+                            .single()
+                        if (newCustomer) customerId = newCustomer.id
+                    }
+                    if (customerId) {
+                        try {
+                            await performAiAnalysis(customerId, c.contact_phone)
+                        } catch (err) {
+                            console.warn(`[Periodic AI] Failed for ${c.contact_phone}:`, err.message)
+                        }
+                        // Wait 3 seconds to avoid rate limits
+                        await new Promise(r => setTimeout(r, 3000))
+                    }
+                }
+                queryClient.invalidateQueries({ queryKey: ['customers'] })
+                queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
+            } catch (e) {
+                console.error("[Periodic AI] Batch failed", e)
+            } finally {
+                setIsRerankingAll(false)
+            }
+        }, 30 * 60 * 1000) // 30 minutes
+
+        return () => clearInterval(interval)
+    }, [allEnriched, queryClient])
+
     // 2. Fetch Customers
     const { data: customers = [] } = useQuery({
         queryKey: ['customers'],
@@ -613,8 +661,8 @@ export default function CRM() {
                                         if (isRerankingAll) return
                                         setIsRerankingAll(true)
                                         try {
-                                            const targets = enrichedConversations.filter(c => c.contact_phone)
-                                            await Promise.allSettled(targets.map(async c => {
+                                            const targets = allEnriched.filter(c => c.contact_phone && !c.isVirtual)
+                                            for (const c of targets) {
                                                 let customerId = c.customerData?.id
                                                 if (!customerId) {
                                                     const { data: newCustomer } = await supabase
@@ -629,9 +677,11 @@ export default function CRM() {
                                                     if (newCustomer) customerId = newCustomer.id
                                                 }
                                                 if (customerId) {
-                                                    return performAiAnalysis(customerId, c.contact_phone)
+                                                    await performAiAnalysis(customerId, c.contact_phone)
+                                                    // Wait 3 seconds to avoid rate limit (429)
+                                                    await new Promise(resolve => setTimeout(resolve, 3000))
                                                 }
-                                            }))
+                                            }
                                             queryClient.invalidateQueries({ queryKey: ['customers'] })
                                             queryClient.invalidateQueries({ queryKey: ['whatsapp_conversations'] })
                                         } catch (e) {

@@ -13,73 +13,201 @@ serve(async (req) => {
 
     console.log("AI Analyzer: Starting analysis...")
 
-    try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-        const geminiKey = Deno.env.get('GEMINI_API_KEY') || ''
-        const supabaseClient = createClient(supabaseUrl, supabaseKey)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const geminiKey = Deno.env.get('GEMINI_API_KEY') || ''
+    const supabaseClient = createClient(supabaseUrl, supabaseKey)
 
-        if (!geminiKey) {
-            console.error("AI Analyzer: GEMINI_API_KEY is not set!")
-            return new Response(JSON.stringify({ error: "Configuração pendente: GEMINI_API_KEY não encontrada." }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
+    if (!geminiKey) {
+        console.error("AI Analyzer: GEMINI_API_KEY is not set!")
+        return new Response(JSON.stringify({ error: "Configuração pendente: GEMINI_API_KEY não encontrada." }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
-        const body = await req.json().catch(() => ({}))
-        const { customerId, phone, action, shopInfo, products } = body
+    async function fetchGemini(prompt, config = { temperature: 0.7 }) {
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
 
-        if (action === 'marketing_plan') {
-            console.log("AI Analyzer: Generating Marketing Plan...")
+        let attempts = 0
+        const maxAttempts = 2
 
-            if (!products || !Array.isArray(products)) {
-                return new Response(JSON.stringify({ error: "Lista de produtos missing or invalid" }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-            }
-
-            const prompt = `
-            Você é um Especialista em Marketing e Branding de Alta Performance.
-            Objetivo: Criar um Planejamento Mensal Detalhado de Conteúdo e Vendas para a loja.
-
-            === CONTEXTO DA MARCA ===
-            Instagram: ${shopInfo?.instagramHandle || 'Não informado'}
-            Tom de Voz: ${shopInfo?.brandVoice || 'Profissional'}
-            Público-Alvo: ${shopInfo?.targetAudience || 'Geral'}
-            Principais Produtos: ${shopInfo?.mainProducts || 'Vestuário e Acessórios'}
-
-            === ESTOQUE ATUAL (TOP 20) ===
-            ${products.slice(0, 20).map(p => `- ${p.name} (R$ ${p.price}, Estoque: ${p.stock})`).join('\n') || 'Nenhum produto em estoque informado.'}
-
-            Instruções do Planejamento:
-            1. Crie um ciclo de 4 semanas.
-            2. Para cada semana, defina a "Ação Principal" (ex: Lançamento, Reposição, Queima de Estoque).
-            3. Detalhe os "Conteúdos de Feed" (Posts/Reels) com sugestão de legenda e tipo de foto (ex: Carrossel Hero shot, Reels em movimento).
-            4. Detalhe a "Estratégia de Stories" (Sequências, Stickers de Interação, Urgência).
-            5. Inclua "Ações de Prospecção" (WhatsApp para clientes específicos, Comunidade VIP).
-            6. Use gatilhos mentais (Escassez, Urgência, Prova Social).
-
-            O planejamento deve ser EXTREMAMENTE detalhado, seguindo exatamente este estilo:
-            Loja (@username):
-            Ação Principal: ...
-            Posts (Feed): ...
-            Foto 1: ...
-            Legenda: ...
-            Stories: ... (detalhando as sequências)
-
-            Retorne APENAS o texto em Markdown bem formatado.
-            `
-
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
-            const response = await fetch(geminiUrl, {
+        while (attempts < maxAttempts) {
+            attempts++
+            const response = await fetch(geminiApiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.7 }
+                    generationConfig: config
                 })
             })
 
-            const geminiData = await response.json()
-            const resultText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || 'Erro ao gerar planejamento via IA.'
+            if (response.status === 429 && attempts < maxAttempts) {
+                console.warn(`AI Analyzer: Gemini 429 detected. Attempt ${attempts} failed. Waiting 5s...`)
+                await new Promise(r => setTimeout(r, 5000))
+                continue
+            }
 
-            return new Response(JSON.stringify({ success: true, plan: resultText }), {
+            if (!response.ok) {
+                const errorText = await response.text()
+                console.error(`AI Analyzer: Gemini API Error (Attempt ${attempts}):`, errorText)
+                return { error: `Gemini API returned ${response.status}`, details: errorText }
+            }
+
+            return await response.json()
+        }
+        return { error: "Gemini API failed after multiple retries due to 429." }
+    }
+
+    try {
+        const body = await req.json().catch(() => ({}))
+        console.log("AI Analyzer: Received body:", JSON.stringify(body))
+        const { customerId, phone, action, shopInfo, products, insights, financialContext } = body
+
+        if (action === 'marketing_plan') {
+            console.log("AI Analyzer: Generating Advanced Marketing Plan with Financial Scoring...")
+
+            // 1. Algoritmo de Pressão de Caixa (Confidencial)
+            const revenue = Number(financialContext?.monthlyRevenue || 1);
+            const debt = Number(financialContext?.upcomingDebt || 0);
+            const cashNeedRatio = debt / (revenue || 1);
+
+            let cashNeedLevel = 'BAIXO';
+            let strategyFocus = 'Branding e Fidelização';
+
+            if (cashNeedRatio > 0.8) {
+                cashNeedLevel = 'ALTO';
+                strategyFocus = 'LIQUIDEZ IMEDIATA e Venda Direta';
+            } else if (cashNeedRatio > 0.4) {
+                cashNeedLevel = 'MÉDIO';
+                strategyFocus = 'Equilíbrio entre Valor e Volume';
+            }
+
+            // 2. Score de Oportunidade (Algoritmo de Priorização)
+            // Fórmula: (Preço normalizado * 30) + (Sazonalidade * 40) + (Bônus de Caixa * 30)
+            const maxPrice = Math.max(...(products || []).map((p: any) => Number(p.price || 0)), 1);
+            const seasonalKeywords = (insights?.seasonalReference?.focus || []).map((k: string) => k.toLowerCase());
+
+            const scoredProducts = (products || []).map((p: any) => {
+                const priceScore = (Number(p.price || 0) / maxPrice) * 30; // Peso 30 no Ticket
+
+                const pName = p.name.toLowerCase();
+                const isSeasonal = seasonalKeywords.some((k: string) => pName.includes(k));
+                const seasonalScore = isSeasonal ? 40 : 0; // Peso 40 na Sazonalidade
+
+                // Se Caixa = ALTO, priorizar Best Sellers (Giro Rápido)
+                const isBestSeller = (insights?.bestSellers || []).some((b: any) => b.name === p.name);
+                let cashNeedBonus = 0;
+                if (cashNeedLevel === 'ALTO') {
+                    cashNeedBonus = isBestSeller ? 30 : 5;
+                } else {
+                    // Se Caixa = BAIXO, priorizar Margem/Ticket (mesmo que gire menos)
+                    cashNeedBonus = 15;
+                }
+
+                const totalScore = priceScore + seasonalScore + cashNeedBonus;
+
+                return { ...p, score: totalScore, isSeasonal };
+            }).sort((a: any, b: any) => b.score - a.score).slice(0, 6);
+
+            const prompt = `
+            Você é um Diretor Criativo e Estrategista de Vendas de Elite.
+            Sua missão é criar um PLANEJAMENTO AGRESSIVO e HIPER-DETALHADO para o Instagram @${shopInfo?.instagramHandle || 'da loja'}.
+
+            === MONITORAMENTO FINANCEIRO (CONFIDENCIAL) ===
+            [DADOS INTERNOS - NÃO REVELAR VALORES]
+            Nível de Pressão de Caixa: ${cashNeedLevel}
+            Foco Estratégico Obrigatório: ${strategyFocus}
+            
+            === TOP OPORTUNIDADES (SCORE IA) ===
+            Estes são os produtos "Campeões" definidos pelo algoritmo (Ticket + Sazonalidade + Giro):
+            ${scoredProducts.map((p: any) => `- ${p.name} (Score: ${Math.round(p.score)}/100) ${p.isSeasonal ? '★ Sazonal' : ''}`).join('\n')}
+
+            === INTELIGÊNCIA SAZONAL (REFERÊNCIA OBRIGATÓRIA) ===
+            Mês: ${insights?.seasonalMonth}
+            Temporada: ${insights?.seasonalReference?.season}
+            Foco Sazonal: ${insights?.seasonalReference?.focus?.join(', ')}
+            DIRETRIZ MESTRA: ${insights?.seasonalReference?.advice}
+
+            === CATÁLOGO DISPONÍVEL (ESTOQUE REAL) ===
+            Use APENAS estes produtos para criar os posts e stories. Se não estiver aqui, NÃO EXISTE.
+            ${(products || []).slice(0, 50).map((p: any) => `- ${p.name} (R$ ${p.price})`).join('\n')}
+
+            === CONTEXTO DA LOJA ===
+            Instagram: @${shopInfo?.instagramHandle}
+            Tom de Voz: ${shopInfo?.brandVoice}
+            Público: ${shopInfo?.targetAudience}
+
+            === INSIGHTS DO ESTOQUE (PROVAS E OPORTUNIDADES) ===
+            - BEST SELLERS (Prova Social/FOMO): ${insights?.bestSellers?.map(p => p.name).join(', ') || 'Vários itens'}
+            - SLOW MOVERS (Liquidar/Promoção): ${insights?.slowMovers?.map(p => p.name).join(', ') || 'Itens selecionados'}
+            - BAIXO ESTOQUE (Urgência): ${insights?.lowStock?.map(p => p.name).join(', ') || 'Poucas unidades'}
+            - FORA DE ESTOQUE (Desejo/Lista de Espera): ${insights?.outOfStock?.map(p => p.name).join(', ') || 'Reposições em breve'}
+
+            Instruções do Planejamento (VOLUME MÁXIMO):
+            1. REGRA DE OURO: Você SÓ pode criar conteúdo sobre os produtos do "CATÁLOGO DISPONÍVEL" ou "TOP OPORTUNIDADES". Proibido inventar itens.
+            2. OBRIGATÓRIO: O array "weeks" DEVE conter exatamente 4 SEMANAS (Semana 1, 2, 3 e 4). Não pare na primeira.
+            3. STORIES (VOLUME EXTREMO): No mínimo 35 Sequências de Stories por semana (5+ POR DIA).
+            4. FEED (CONSISTÊNCIA): No mínimo 7 posts por semana (1 por dia).
+
+            IMPORTANTE: Retorne APENAS um objeto JSON puro seguindo exatamente esta estrutura (GERE AS 4 SEMANAS):
+            {
+              "monthly_strategy": {
+                "title": "Título da Estratégia Mensal",
+                "description": "Texto detalhado do plano de ação para o mês",
+                "seasonal_focus": "Foco sazonal (ex: Verão, Volta às Aulas)"
+              },
+              "weeks": [
+                {
+                  "week_number": 1,
+                  "title": "Título Semana 1",
+                  "main_action": "Estratégia Principal S1",
+                  "feed_posts": [
+                    { "day": "Segunda-feira", "type": "Reels/Carrossel", "photo_style": "Visual", "caption": "Legenda" }
+                  ],
+                  "stories_sequences": [
+                    { "name": "Segunda-feira (Tópico)", "steps": ["St1: ...", "St2: ..."] }
+                  ],
+                  "prospecting": ["Ação Direta"],
+                  "triggers": ["Gatilho usado"]
+                },
+                {
+                  "week_number": 2,
+                  "title": "Título Semana 2 (Continuação Obrigatória)",
+                  "main_action": "Estratégia Principal S2",
+                  "feed_posts": [],
+                  "stories_sequences": [],
+                  "prospecting": [],
+                  "triggers": []
+                },
+                { "week_number": 3, "title": "Título Semana 3...", "main_action": "...", "feed_posts": [], "stories_sequences": [], "prospecting": [], "triggers": [] },
+                { "week_number": 4, "title": "Título Semana 4...", "main_action": "...", "feed_posts": [], "stories_sequences": [], "prospecting": [], "triggers": [] }
+              ]
+            }
+            `
+
+            const geminiData = await fetchGemini(prompt, { temperature: 0.8 })
+
+            if (!geminiData || geminiData.error) {
+                console.error("Gemini API returned an error:", geminiData?.error || "Unknown error")
+                return new Response(JSON.stringify({ error: `Erro na API do Gemini: ${geminiData?.error || "Serviço indisponível"}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            if (!geminiData.candidates || geminiData.candidates.length === 0) {
+                const reason = geminiData.promptFeedback?.blockReason || 'Causa desconhecida (possível filtro de segurança)'
+                return new Response(JSON.stringify({ error: `A IA não conseguiu gerar o texto. Motivo: ${reason}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            const resultText = geminiData.candidates[0].content.parts[0].text
+
+            // Extrator robusto de JSON: busca tudo entre a primeira { e a última }
+            let cleanJson = resultText;
+            const firstBrace = resultText.indexOf('{');
+            const lastBrace = resultText.lastIndexOf('}');
+
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                cleanJson = resultText.substring(firstBrace, lastBrace + 1);
+            }
+
+            return new Response(JSON.stringify({ success: true, plan: cleanJson }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 200,
             })
@@ -163,24 +291,13 @@ serve(async (req) => {
         }
         `
 
-        // 3. Call Gemini 2.0 Flash
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
-        const response = await fetch(geminiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.1, topP: 1, topK: 1 }
-            })
-        })
+        const geminiData = await fetchGemini(prompt, { temperature: 0.1, topP: 1, topK: 1 })
 
-        if (!response.ok) {
-            const errorText = await response.text()
-            console.error("AI Analyzer: Gemini API Error", errorText)
-            throw new Error(`Gemini API returned ${response.status}`)
+        if (!geminiData || geminiData.error) {
+            console.error("AI Analyzer: Gemini API Error", geminiData?.error || "Unknown error")
+            return new Response(JSON.stringify({ error: `Erro na API do Gemini: ${geminiData?.error || "Serviço indisponível"}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        const geminiData = await response.json()
         const resultText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
         console.log("AI Analyzer: Raw Gemini Output:", resultText)
 
@@ -256,4 +373,3 @@ serve(async (req) => {
         })
     }
 })
-

@@ -19,7 +19,8 @@ import {
   ArrowRight,
   Loader2,
   CheckCircle2,
-  Copy
+  Copy,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,13 @@ export default function Marketing() {
     initialData: [],
   })
   const settings = settingsArr?.[0] || {};
+
+  // Load saved plan when settings are loaded
+  React.useEffect(() => {
+    if (settings.last_marketing_plan && !marketingPlan) {
+      setMarketingPlan(settings.last_marketing_plan);
+    }
+  }, [settings.last_marketing_plan]);
 
   const { data: sales = [], isLoading: isLoadingSales } = useQuery({
     queryKey: ['sales'],
@@ -92,6 +100,80 @@ export default function Marketing() {
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
+  // 3b. Inventory Intelligence for AI
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const productSalesMap = {};
+  sales.forEach(sale => {
+    const saleDate = new Date(sale.sale_date || sale.created_at);
+    if (saleDate >= thirtyDaysAgo) {
+      const items = typeof sale.items === 'string' ? JSON.parse(sale.items || '[]') : (sale.items || []);
+      if (Array.isArray(items)) {
+        items.forEach(item => {
+          const key = item.product_id || item.name;
+          if (!productSalesMap[key]) productSalesMap[key] = { name: item.name, quantity: 0 };
+          productSalesMap[key].quantity += Number(item.quantity || 1);
+        });
+      }
+    }
+  });
+
+  const bestSellers = Object.values(productSalesMap)
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 10);
+
+  const lowStock = products
+    .filter(p => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 5)
+    .slice(0, 10);
+
+  const outOfStock = products
+    .filter(p => Number(p.stock || 0) <= 0)
+    .slice(0, 10);
+
+  const slowMovers = products
+    .filter(p => {
+      const hasStock = Number(p.stock || 0) > 10;
+      const salesLast30 = productSalesMap[p.id] || productSalesMap[p.name];
+      return hasStock && (!salesLast30 || salesLast30.quantity === 0);
+    })
+    .slice(0, 10);
+
+  const seasonalAdviceMap = [
+    { month: 0, season: 'Verão', focus: ['Regatas', 'Shorts', 'Biquínis', 'Moda Praia'], advice: 'Liquidação de Verão e preparação para Volta às Aulas. Foque em queimar estoque de itens leves.' },
+    { month: 1, season: 'Transição Outono', focus: ['Moletons Leves', 'Calças Jeans', 'Tênis'], advice: 'Carnaval acabou. Hora de começar a introduzir peças de meia-estação e Outono.' },
+    { month: 2, season: 'Outono', focus: ['Casacos', 'Botas', 'Cardigans', 'Calças'], advice: 'O clima esfriou. Garanta estoque de agasalhos e botas para o pico do Outono.' },
+    { month: 3, season: 'Outono/Inverno', focus: ['Jaquetas', 'Lã', 'Tricô', 'Cachecóis'], advice: 'Preparação para o Dia das Mães. Itens de presente e moda inverno pesada em alta.' },
+    { month: 4, season: 'Pico Inverno', focus: ['Sobretudos', 'Acessórios Térmicos', 'Presentes'], advice: 'Mês das Mães. Maior faturamento do semestre. Mantenha os best-sellers sempre repostos.' },
+    { month: 5, season: 'Inverno/Namorados', focus: ['Kits de Presente', 'Lingerie', 'Moda Noite'], advice: 'Foco total em Dia dos Namorados e Festas Juninas/Julinas.' },
+    { month: 6, season: 'Liquidação Inverno', focus: ['Liquidação total'], advice: 'Hora de limpar o estoque de inverno para abrir espaço para a Primavera.' },
+    { month: 7, season: 'Transição Primavera', focus: ['Vestidos Leves', 'Camisas', 'Bermudas'], advice: 'Dia dos Pais chegando. Comece a introduzir a coleção de Primavera.' },
+    { month: 8, season: 'Primavera', focus: ['Estampados', 'Cores Vivas', 'Sapatilhas'], advice: 'Primavera em pleno vapor. Foque em cores vibrantes e tecidos leves.' },
+    { month: 9, season: 'Primavera/Verão', focus: ['Brinquedos', 'Moda Infantil', 'Shorts'], advice: 'Preparação para Dia das Crianças. O calor está voltando, antecipe o Verão.' },
+    { month: 10, season: 'Pré-Natal/Black Friday', focus: ['Eletrônicos', 'Best-sellers', 'Presentes'], advice: 'Black Friday! Prepare estoque dos seus 10 produtos mais vendidos para o volume alto.' },
+    { month: 11, season: 'Verão/Natal', focus: ['Presentes Amigo Oculto', 'Trajes de Festa', 'Branco'], advice: 'Pico do Natal e Ano Novo. Vestidos de festa e roupas brancas são essenciais agora.' }
+  ];
+
+  const currentMonth = new Date().getMonth();
+  const currentSeasonalAdvice = seasonalAdviceMap[currentMonth];
+
+  // 3c. Financial Intelligence (Expenses)
+  const { data: expenses = [] } = useQuery({
+    queryKey: ['expenses'],
+    queryFn: async () => {
+      const { data } = await supabase.from('expenses').select('amount, due_date, status');
+      return data || [];
+    },
+    initialData: []
+  });
+
+  const thirtyDaysFromNow = new Date();
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+  const upcomingDebt = expenses
+    .filter(e => e.status === 'open' && new Date(e.due_date) <= thirtyDaysFromNow)
+    .reduce((acc, e) => acc + Number(e.amount || 0), 0);
+
   // 4. Marketing Plan Generation
   const generatePlanAction = async () => {
     setIsGenerating(true);
@@ -105,19 +187,55 @@ export default function Marketing() {
             targetAudience: settings.target_audience,
             mainProducts: settings.main_products
           },
-          products: products.map(p => ({
-            name: p.name,
-            price: p.price,
-            stock: p.stock
-          }))
+          insights: {
+            bestSellers,
+            lowStock,
+            outOfStock,
+            slowMovers,
+            seasonalMonth: new Date().toLocaleString('pt-BR', { month: 'long' }),
+            seasonalReference: currentSeasonalAdvice
+          },
+          financialContext: {
+            upcomingDebt,
+            monthlyRevenue: monthlyTotal // Calculated in section 2
+          },
+          products: products
+            .filter(p => Number(p.stock || 0) > 0)
+            .map(p => ({
+              name: p.name,
+              price: p.price,
+              stock: p.stock
+            }))
         }
       });
 
-      if (error) throw error;
-      setMarketingPlan(data.plan);
+      if (error) {
+        let errorMessage = 'Falha na comunicação com a IA.';
+        if (error.context) {
+          try {
+            const body = await error.context.json();
+            errorMessage = body.error || errorMessage;
+          } catch (e) {
+            errorMessage = error.message || errorMessage;
+          }
+        } else {
+          errorMessage = error.message || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const newPlan = data.plan;
+      setMarketingPlan(newPlan);
+
+      // Save to DB so we don't hit the quota again
+      if (settings.id) {
+        await base44.entities.Settings.update(settings.id, {
+          last_marketing_plan: newPlan
+        });
+      }
     } catch (err) {
-      console.error(err);
-      alert('Erro ao gerar planejamento. Verifique sua conexão e configurações de IA.');
+      console.error('Marketing IA Error:', err);
+      alert(`Erro na IA: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -221,25 +339,38 @@ export default function Marketing() {
               <Sparkles className="w-6 h-6 text-[#3490c7] fill-[#3490c7]/20" />
               <h2 className="text-2xl font-black text-gray-900 tracking-tight">PLANEJAMENTO SAZONAL IA</h2>
             </div>
-            {!marketingPlan && (
-              <Button
-                onClick={generatePlanAction}
-                className="bg-[#3490c7] hover:bg-[#2c8ac2] text-white rounded-2xl px-6 font-bold shadow-lg shadow-blue-100 transition-all hover:scale-105"
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Criando Estratégia...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-4 h-4 mr-2" />
-                    Gerar Planejamento Completo
-                  </>
-                )}
-              </Button>
-            )}
+            <div className="flex items-center gap-4">
+              {marketingPlan && !isGenerating && (
+                <Button
+                  onClick={generatePlanAction}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-blue-100 text-blue-600 hover:bg-blue-50 font-bold h-9"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                  Novo Plano
+                </Button>
+              )}
+              {!marketingPlan && (
+                <Button
+                  onClick={generatePlanAction}
+                  className="bg-[#3490c7] hover:bg-[#2c8ac2] text-white rounded-2xl px-6 font-bold shadow-lg shadow-blue-100 transition-all hover:scale-105"
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Criando Estratégia...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-4 h-4 mr-2" />
+                      Gerar Planejamento Completo
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
 
           {!marketingPlan && !isGenerating && (
@@ -280,36 +411,172 @@ export default function Marketing() {
 
           {marketingPlan && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-              <Card className="lg:col-span-2 rounded-[2.5rem] border-none shadow-xl bg-white overflow-hidden animate-in slide-in-from-bottom-5 duration-700">
-                <CardHeader className="bg-[#3490c7] p-8 text-white relative">
-                  <div className="relative z-10 flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-2xl font-black uppercase tracking-tight">AGENDA ESTRATÉGICA DO MÊS</CardTitle>
-                      <p className="text-blue-100 font-medium text-sm opacity-90">Personalizado para sualoja e seu estoque atual</p>
-                    </div>
-                    <Button variant="ghost" className="text-white hover:bg-white/10 rounded-xl" onClick={() => {
-                      navigator.clipboard.writeText(marketingPlan);
-                      alert('Planejamento copiado!');
-                    }}>
-                      <Copy className="w-4 h-4 mr-2" /> Copiar
-                    </Button>
-                  </div>
-                  <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
-                </CardHeader>
-                <CardContent className="p-8">
-                  <div className="prose prose-slate max-w-none prose-p:leading-relaxed prose-headings:font-black prose-headings:tracking-tight prose-strong:text-blue-600 prose-ul:list-none prose-ul:pl-0">
-                    <div className="whitespace-pre-wrap text-gray-700 text-sm md:text-base selection:bg-blue-100 selection:text-blue-900">
-                      {marketingPlan}
-                    </div>
-                  </div>
-                  <div className="mt-8 pt-8 border-t border-gray-100 flex justify-center">
-                    <Button onClick={generatePlanAction} variant="outline" className="rounded-2xl border-blue-100 text-blue-600 hover:bg-blue-50 font-bold">
-                      <Sparkles className="w-4 h-4 mr-2" /> Recriar Planejamento
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="lg:col-span-2 space-y-12">
+                {(() => {
+                  let planData = null;
+                  try {
+                    let jsonStr = typeof marketingPlan === 'string' ? marketingPlan.trim() : '';
+                    const firstBrace = jsonStr.indexOf('{');
+                    const lastBrace = jsonStr.lastIndexOf('}');
 
+                    if (firstBrace !== -1 && lastBrace !== -1) {
+                      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+                      planData = JSON.parse(jsonStr);
+                    }
+                  } catch (e) {
+                    console.error("JSON Parse Error:", e);
+                    planData = null;
+                  }
+
+                  if (!planData || !planData.weeks) {
+                    return (
+                      <Card className="rounded-[2.5rem] border-none shadow-xl bg-white overflow-hidden">
+                        <CardHeader className="bg-[#3490c7] p-8 text-white">
+                          <CardTitle className="text-2xl font-black uppercase tracking-tight">Estratégia Geral</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-8">
+                          <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">{marketingPlan}</div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 gap-12">
+                      {/* ESTRATÉGIA MENSAL */}
+                      {planData.monthly_strategy && (
+                        <Card className="rounded-[2.5rem] border-none shadow-xl bg-white overflow-hidden animate-in slide-in-from-top-5 duration-700">
+                          <div className="p-8 bg-[#3490c7] text-white flex items-center justify-between">
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Plano de Ação Mensal</span>
+                              <h3 className="text-3xl font-black uppercase leading-tight tracking-tighter">{planData.monthly_strategy.title}</h3>
+                            </div>
+                            <Calendar className="w-12 h-12 opacity-20" />
+                          </div>
+                          <CardContent className="p-8 space-y-6">
+                            <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100 flex items-start gap-4">
+                              <Sparkles className="w-6 h-6 text-[#3490c7] shrink-0 mt-1" />
+                              <p className="text-gray-700 font-medium leading-relaxed">{planData.monthly_strategy.description}</p>
+                            </div>
+                            {planData.monthly_strategy.seasonal_focus && (
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-black uppercase text-[10px] py-1 px-3 rounded-full">
+                                  🔥 FOCO: {planData.monthly_strategy.seasonal_focus}
+                                </Badge>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {planData.weeks.map((week, idx) => (
+                        <div key={idx} className="space-y-6 animate-in slide-in-from-bottom-5 duration-700" style={{ animationDelay: `${idx * 150}ms` }}>
+                          <div className="flex items-center gap-4 px-2">
+                            <div className="w-14 h-14 shrink-0 rounded-2xl bg-[#3490c7] text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-blue-100">
+                              {week.week_number || (idx + 1)}
+                            </div>
+                            <div>
+                              <h4 className="text-2xl font-black text-gray-900 tracking-tighter uppercase">{week.title}</h4>
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <p className="text-[#3490c7] font-bold text-xs uppercase tracking-widest">{week.main_action}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-6">
+                            <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
+                              <div className="p-5 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2">
+                                <Instagram className="w-5 h-5 text-indigo-600" />
+                                <span className="font-black text-[10px] text-indigo-700 uppercase">Posts no Feed</span>
+                              </div>
+                              <CardContent className="p-6 space-y-5">
+                                {week.feed_posts?.map((post, pIdx) => (
+                                  <div key={pIdx} className="space-y-2 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                    <div className="flex items-center justify-between">
+                                      <Badge variant="outline" className="text-[8px] font-black uppercase text-indigo-500 border-indigo-100">
+                                        {post.type}
+                                      </Badge>
+                                      {post.day && (
+                                        <span className="text-[9px] font-black text-indigo-300 uppercase">{post.day}</span>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] font-bold text-gray-400">📸 {post.photo_style}</p>
+                                    <p className="text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl">"{post.caption}"</p>
+                                  </div>
+                                ))}
+                              </CardContent>
+                            </Card>
+
+                            <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
+                              <div className="p-5 bg-pink-50 border-b border-pink-100 flex items-center gap-2">
+                                <Zap className="w-5 h-5 text-pink-600" />
+                                <span className="font-black text-[10px] text-pink-700 uppercase">Stories</span>
+                              </div>
+                              <CardContent className="p-6 space-y-5">
+                                {week.stories_sequences?.map((seq, sIdx) => (
+                                  <div key={sIdx} className="space-y-2">
+                                    <h5 className="text-[10px] font-black text-gray-800 flex items-center gap-1 uppercase tracking-tighter">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-pink-500" /> {seq.name}
+                                    </h5>
+                                    <div className="space-y-1.5 pl-2.5 border-l border-pink-100">
+                                      {seq.steps?.map((step, stepIdx) => (
+                                        <p key={stepIdx} className="text-[10px] text-gray-600 leading-tight">{step}</p>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
+                            <div className="p-5 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Target className="w-5 h-5 text-emerald-600" />
+                                <span className="font-black text-[10px] text-emerald-700 uppercase">Estratégia de Prospecção</span>
+                              </div>
+                              <div className="flex gap-1">
+                                {week.triggers?.map((trig, tIdx) => (
+                                  <Badge key={tIdx} className="bg-amber-50 text-amber-700 border-amber-100 text-[8px] font-black uppercase">
+                                    {trig}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                            <CardContent className="p-6">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-3">
+                                  {week.prospecting?.map((act, aIdx) => (
+                                    <div key={aIdx} className="flex gap-2 items-start bg-gray-50/50 p-2 rounded-xl">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                                      <p className="text-[11px] text-gray-700 font-medium">{act}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="bg-gradient-to-br from-[#1A1C1E] to-gray-800 p-5 rounded-3xl text-white relative overflow-hidden">
+                                  <h5 className="font-black text-[10px] mb-2 uppercase tracking-tighter text-blue-400">Dica do Estrategista</h5>
+                                  <p className="text-[11px] text-gray-300 italic leading-relaxed">
+                                    "O segredo da {week.title} é o gatilho de {week.triggers?.[0] || 'Desejo'}. Responda rápido!"
+                                  </p>
+                                  <Sparkles className="absolute -bottom-2 -right-2 w-12 h-12 text-white opacity-10" />
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+
+                      <div className="py-8 flex justify-center">
+                        <Button onClick={generatePlanAction} variant="outline" className="rounded-2xl border-blue-100 text-blue-600 hover:bg-blue-50 font-bold px-12 h-12">
+                          <Sparkles className="w-4 h-4 mr-2" /> Recriar Planejamento
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* SIDEBAR RESTORED */}
               <div className="space-y-6">
                 <Card className="rounded-3xl border-none shadow-lg bg-white p-6 border-l-4 border-l-[#3490c7]">
                   <h4 className="font-black text-gray-900 flex items-center gap-2 mb-4 uppercase tracking-tighter">
@@ -336,18 +603,23 @@ export default function Marketing() {
                   </div>
                 </Card>
 
-                <Card className="rounded-3xl border-none shadow-lg bg-gradient-to-br from-green-600 to-green-700 p-6 text-white relative overflow-hidden group">
+                <Card className="rounded-3xl border-none shadow-lg bg-white p-6 border-l-4 border-l-green-600 relative overflow-hidden group">
                   <div className="relative z-10">
-                    <h4 className="font-black text-lg mb-2 leading-none">Venda Agora</h4>
-                    <p className="text-xs text-green-100 opacity-90 mb-4 font-medium">Contate clientes com saldo de cashback e gere caixa imediato.</p>
-                    <Button className="w-full bg-white text-green-700 hover:bg-green-50 rounded-2xl font-black py-6 transition-all active:scale-95 shadow-lg" onClick={() => {
-                      const container = document.getElementById('opportunities-section');
-                      if (container) container.scrollIntoView({ behavior: 'smooth' });
-                    }}>
+                    <h4 className="font-black text-gray-900 flex items-center gap-2 mb-2 uppercase tracking-tighter">
+                      <DollarSign className="w-5 h-5 text-green-600" /> Venda Agora
+                    </h4>
+                    <p className="text-[11px] text-gray-500 mb-4 font-medium leading-relaxed">Contate clientes com saldo de cashback e gere caixa imediato.</p>
+                    <Button
+                      className="w-full bg-green-600 text-white hover:bg-green-700 rounded-2xl font-black py-4 transition-all active:scale-95 shadow-lg shadow-green-100"
+                      onClick={() => {
+                        const container = document.getElementById('opportunities-section');
+                        if (container) container.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
                       VER OPORTUNIDADES
                     </Button>
                   </div>
-                  <DollarSign className="absolute -bottom-4 -right-4 w-24 h-24 text-white opacity-10 rotate-12 group-hover:scale-110 transition-transform duration-500" />
+                  <DollarSign className="absolute -bottom-4 -right-4 w-24 h-24 text-green-50 opacity-50 rotate-12 group-hover:scale-110 transition-transform duration-500 pointer-events-none" />
                 </Card>
               </div>
             </div>

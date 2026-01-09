@@ -264,15 +264,20 @@ export default function Layout({ children, currentPageName }) {
 
     // Subscribe to new messages (instantly update UI when DB changes)
     const channel = supabase
-      .channel('public:whatsapp_messages_notifications')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'whatsapp_messages'
-      }, () => {
-        fetchCrmCount();
-      })
-      .subscribe();
+      .channel('crm-notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'whatsapp_messages' },
+        () => {
+          console.log('CRM: Mensagem recebida, atualizando badge...');
+          fetchCrmCount();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CLOSED') {
+          console.warn('Realtime connection closed. Retrying...');
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
