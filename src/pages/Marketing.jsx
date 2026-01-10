@@ -24,7 +24,9 @@ import {
   RefreshCw,
   Edit2,
   Save,
-  X
+  X,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,6 +43,13 @@ export default function Marketing() {
 
   // Editing State
   const [editingItem, setEditingItem] = useState(null); // {week, type, index}
+
+  // Collapsible Weeks State
+  const [openWeeks, setOpenWeeks] = useState({ 0: true, 1: true, 2: true, 3: true, 4: true });
+
+  const toggleWeek = (idx) => {
+    setOpenWeeks(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
 
   // 1. Fetch Data
   const { data: settingsArr = [], isLoading: isLoadingSettings } = useQuery({
@@ -646,144 +655,193 @@ export default function Marketing() {
 
                       {planData.weeks.map((week, idx) => (
                         <div key={idx} className="space-y-6 animate-in slide-in-from-bottom-5 duration-700" style={{ animationDelay: `${idx * 150}ms` }}>
-                          <div className="flex items-center gap-4 px-2">
-                            <div className="w-14 h-14 shrink-0 rounded-2xl bg-[#3490c7] text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-blue-100">
-                              {week.week_number || (idx + 1)}
-                            </div>
-                            <div>
-                              <h4 className="text-2xl font-black text-gray-900 tracking-tighter uppercase">{week.title}</h4>
-                              <div className="flex flex-wrap items-center gap-2 mt-1">
-                                <p className="text-[#3490c7] font-bold text-xs uppercase tracking-widest">{week.main_action}</p>
+                          <div
+                            className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded-2xl transition-colors select-none"
+                            onClick={() => toggleWeek(idx)}
+                          >
+                            <div className="flex items-center gap-4 px-2">
+                              <div className="w-14 h-14 shrink-0 rounded-2xl bg-[#3490c7] text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-blue-100">
+                                {week.week_number || (idx + 1)}
                               </div>
+                              <div>
+                                <h4 className="text-2xl font-black text-gray-900 tracking-tighter uppercase">{week.title}</h4>
+                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                  <p className="text-[#3490c7] font-bold text-xs uppercase tracking-widest">{week.main_action}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="pr-4">
+                              {openWeeks[idx] ? (
+                                <ChevronUp className="w-8 h-8 text-gray-300" />
+                              ) : (
+                                <ChevronDown className="w-8 h-8 text-gray-300" />
+                              )}
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-6">
-                            <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
-                              <div className="p-5 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2">
-                                <Instagram className="w-5 h-5 text-indigo-600" />
-                                <span className="font-black text-[10px] text-indigo-700 uppercase">Posts no Feed</span>
-                              </div>
-                              <CardContent className="p-6 space-y-5">
-                                {week.feed_posts?.map((post, pIdx) => (
-                                  <div key={pIdx} className="space-y-2 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                                    <div className="flex items-center justify-between">
-                                      <Badge variant="outline" className="text-[8px] font-black uppercase text-indigo-500 border-indigo-100">
-                                        {post.type}
-                                      </Badge>
-                                      <div className="flex items-center gap-2">
-                                        {post.day && (
-                                          <span className="text-[9px] font-black text-indigo-300 uppercase">{post.day}</span>
-                                        )}
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-6 w-6"
-                                          onClick={() => {
-                                            const key = `post_${idx}_${pIdx}`;
-                                            setEditingItem(editingItem === key ? null : key);
-                                          }}
-                                        >
-                                          {editingItem === `post_${idx}_${pIdx}` ? (
-                                            <Save className="w-3 h-3 text-green-600" />
-                                          ) : (
-                                            <Edit2 className="w-3 h-3 text-gray-400" />
-                                          )}
-                                        </Button>
-                                      </div>
-                                    </div>
-                                    <p className="text-[10px] font-bold text-gray-400">📸 {post.photo_style}</p>
-                                    {editingItem === `post_${idx}_${pIdx}` ? (
-                                      <textarea
-                                        value={post.caption}
-                                        onChange={(e) => updatePost(idx, pIdx, 'caption', e.target.value)}
-                                        className="w-full text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none min-h-[60px]"
-                                        placeholder="Digite a legenda..."
-                                      />
-                                    ) : (
-                                      <p className="text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl">"{post.caption}"</p>
-                                    )}
+                          {openWeeks[idx] && (
+                            <div className="space-y-6">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-6">
+                                <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
+                                  <div className="p-5 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2">
+                                    <Instagram className="w-5 h-5 text-indigo-600" />
+                                    <span className="font-black text-[10px] text-indigo-700 uppercase">Posts no Feed</span>
                                   </div>
-                                ))}
-                              </CardContent>
-                            </Card>
+                                  <CardContent className="p-6 space-y-5">
+                                    {week.feed_posts?.map((post, pIdx) => (
+                                      <div key={pIdx} className="space-y-2 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                        <div className="flex items-center justify-between">
+                                          <Badge variant="outline" className="text-[8px] font-black uppercase text-indigo-500 border-indigo-100">
+                                            {post.type}
+                                          </Badge>
+                                          <div className="flex items-center gap-2">
+                                            {post.day && (
+                                              <span className="text-[9px] font-black text-indigo-300 uppercase">{post.day}</span>
+                                            )}
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const key = `post_${idx}_${pIdx}`;
+                                                setEditingItem(editingItem === key ? null : key);
+                                              }}
+                                            >
+                                              {editingItem === `post_${idx}_${pIdx}` ? (
+                                                <Save className="w-3 h-3 text-green-600" />
+                                              ) : (
+                                                <Edit2 className="w-3 h-3 text-gray-400" />
+                                              )}
+                                            </Button>
+                                          </div>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-gray-400">📸 {post.photo_style}</p>
+                                        {editingItem === `post_${idx}_${pIdx}` ? (
+                                          <textarea
+                                            value={post.caption}
+                                            onChange={(e) => updatePost(idx, pIdx, 'caption', e.target.value)}
+                                            className="w-full text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none min-h-[60px]"
+                                            placeholder="Digite a legenda..."
+                                            onClick={(e) => e.stopPropagation()}
+                                          />
+                                        ) : (
+                                          <p className="text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl">"{post.caption}"</p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </CardContent>
+                                </Card>
 
-                            <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
-                              <div className="p-5 bg-pink-50 border-b border-pink-100 flex items-center gap-2">
-                                <Zap className="w-5 h-5 text-pink-600" />
-                                <span className="font-black text-[10px] text-pink-700 uppercase">Stories</span>
+                                <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
+                                  <div className="p-5 bg-pink-50 border-b border-pink-100 flex items-center gap-2">
+                                    <Zap className="w-5 h-5 text-pink-600" />
+                                    <span className="font-black text-[10px] text-pink-700 uppercase">Stories</span>
+                                  </div>
+                                  <CardContent className="p-6 space-y-5">
+                                    {week.stories_sequences?.map((seq, sIdx) => (
+                                      <div key={sIdx} className="space-y-2">
+                                        <h5 className="text-[10px] font-black text-gray-800 flex items-center gap-1 uppercase tracking-tighter">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-pink-500" /> {seq.name}
+                                        </h5>
+                                        <div className="space-y-1.5 pl-2.5 border-l border-pink-100">
+                                          {seq.steps?.map((step, stepIdx) => (
+                                            <div key={stepIdx} className="flex gap-2 items-start group">
+                                              <div className="grow">
+                                                {editingItem === `story_${idx}_${sIdx}_${stepIdx}` ? (
+                                                  <textarea
+                                                    value={step}
+                                                    onChange={(e) => updateStory(idx, sIdx, stepIdx, e.target.value)}
+                                                    className="w-full text-[10px] text-gray-600 leading-tight bg-white p-1.5 rounded-lg border border-pink-200 focus:ring-1 focus:ring-pink-400 focus:outline-none min-h-[40px]"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                  />
+                                                ) : (
+                                                  <p className="text-[10px] text-gray-600 leading-tight py-1">{step}</p>
+                                                )}
+                                              </div>
+                                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-5 w-5"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const key = `story_${idx}_${sIdx}_${stepIdx}`;
+                                                    setEditingItem(editingItem === key ? null : key);
+                                                  }}
+                                                >
+                                                  {editingItem === `story_${idx}_${sIdx}_${stepIdx}` ? (
+                                                    <Save className="w-2.5 h-2.5 text-green-600" />
+                                                  ) : (
+                                                    <Edit2 className="w-2.5 h-2.5 text-gray-400" />
+                                                  )}
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </CardContent>
+                                </Card>
                               </div>
-                              <CardContent className="p-6 space-y-5">
-                                {week.stories_sequences?.map((seq, sIdx) => (
-                                  <div key={sIdx} className="space-y-2">
-                                    <h5 className="text-[10px] font-black text-gray-800 flex items-center gap-1 uppercase tracking-tighter">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-pink-500" /> {seq.name}
-                                    </h5>
-                                    <div className="space-y-1.5 pl-2.5 border-l border-pink-100">
-                                      {seq.steps?.map((step, stepIdx) => (
-                                        <p key={stepIdx} className="text-[10px] text-gray-600 leading-tight">{step}</p>
+
+                              <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
+                                <div className="p-5 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Target className="w-5 h-5 text-emerald-600" />
+                                    <span className="font-black text-[10px] text-emerald-700 uppercase">Estratégia de Prospecção</span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {week.triggers?.map((trig, tIdx) => (
+                                      <Badge key={tIdx} className="bg-amber-50 text-amber-700 border-amber-100 text-[8px] font-black uppercase">
+                                        {trig}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                                <CardContent className="p-6">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-3">
+                                      {week.prospecting?.map((act, aIdx) => (
+                                        <div key={aIdx} className="flex gap-2 items-start bg-gray-50/50 p-2 rounded-xl">
+                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                                          <p className="text-[11px] text-gray-700 font-medium">{act}</p>
+                                        </div>
                                       ))}
                                     </div>
-                                  </div>
-                                ))}
-                              </CardContent>
-                            </Card>
-                          </div>
-
-                          <Card className="rounded-[2rem] border-none shadow-md bg-white overflow-hidden">
-                            <div className="p-5 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Target className="w-5 h-5 text-emerald-600" />
-                                <span className="font-black text-[10px] text-emerald-700 uppercase">Estratégia de Prospecção</span>
-                              </div>
-                              <div className="flex gap-1">
-                                {week.triggers?.map((trig, tIdx) => (
-                                  <Badge key={tIdx} className="bg-amber-50 text-amber-700 border-amber-100 text-[8px] font-black uppercase">
-                                    {trig}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                            <CardContent className="p-6">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-3">
-                                  {week.prospecting?.map((act, aIdx) => (
-                                    <div key={aIdx} className="flex gap-2 items-start bg-gray-50/50 p-2 rounded-xl">
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                                      <p className="text-[11px] text-gray-700 font-medium">{act}</p>
+                                    <div className="bg-gradient-to-br from-[#1A1C1E] to-gray-800 p-5 rounded-3xl text-white relative overflow-hidden">
+                                      <h5 className="font-black text-[10px] mb-2 uppercase tracking-tighter text-blue-400">Dica do Estrategista</h5>
+                                      <p className="text-[11px] text-gray-300 italic leading-relaxed">
+                                        "O segredo da {week.title} é o gatilho de {week.triggers?.[0] || 'Desejo'}. Responda rápido!"
+                                      </p>
+                                      <Sparkles className="absolute -bottom-2 -right-2 w-12 h-12 text-white opacity-10" />
                                     </div>
-                                  ))}
-                                </div>
-                                <div className="bg-gradient-to-br from-[#1A1C1E] to-gray-800 p-5 rounded-3xl text-white relative overflow-hidden">
-                                  <h5 className="font-black text-[10px] mb-2 uppercase tracking-tighter text-blue-400">Dica do Estrategista</h5>
-                                  <p className="text-[11px] text-gray-300 italic leading-relaxed">
-                                    "O segredo da {week.title} é o gatilho de {week.triggers?.[0] || 'Desejo'}. Responda rápido!"
-                                  </p>
-                                  <Sparkles className="absolute -bottom-2 -right-2 w-12 h-12 text-white opacity-10" />
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
+                                  </div>
+                                </CardContent>
+                              </Card>
 
-                          {/* Campo de Resumo Semanal */}
-                          <Card className="rounded-[2rem] border-2 border-dashed border-blue-200 bg-blue-50/30 overflow-hidden">
-                            <div className="p-5 bg-blue-100 border-b border-blue-200 flex items-center gap-2">
-                              <Brain className="w-5 h-5 text-blue-600" />
-                              <span className="font-black text-[10px] text-blue-700 uppercase">O que eu fiz (Resumo da Semana)</span>
+                              {/* Campo de Resumo Semanal */}
+                              <Card className="rounded-[2rem] border-2 border-dashed border-blue-200 bg-blue-50/30 overflow-hidden">
+                                <div className="p-5 bg-blue-100 border-b border-blue-200 flex items-center gap-2">
+                                  <Brain className="w-5 h-5 text-blue-600" />
+                                  <span className="font-black text-[10px] text-blue-700 uppercase">O que eu fiz (Resumo da Semana)</span>
+                                </div>
+                                <CardContent className="p-6">
+                                  <textarea
+                                    value={weeklyNotes[week.week_number || (idx + 1)] || ''}
+                                    onChange={(e) => saveWeeklyNote(week.week_number || (idx + 1), e.target.value)}
+                                    placeholder="Digite aqui o que você realmente fez nesta semana... Ex: 'Usei a promo de Stories mas mudei o gatilho para escassez', 'Todos os posts foram feitos mas com fotos diferentes', etc. A IA vai aprender com isso!"
+                                    className="w-full text-[11px] text-gray-700 leading-relaxed bg-white p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[100px] resize-none"
+                                  />
+                                  <div className="flex items-center justify-between mt-2">
+                                    <p className="text-[9px] text-blue-600 font-medium">✨ A IA usará isso para melhorar o próximo mês</p>
+                                    {isSaving && <span className="text-[9px] text-green-600 font-bold">Salvando...</span>}
+                                  </div>
+                                </CardContent>
+                              </Card>
                             </div>
-                            <CardContent className="p-6">
-                              <textarea
-                                value={weeklyNotes[week.week_number || (idx + 1)] || ''}
-                                onChange={(e) => saveWeeklyNote(week.week_number || (idx + 1), e.target.value)}
-                                placeholder="Digite aqui o que você realmente fez nesta semana... Ex: 'Usei a promo de Stories mas mudei o gatilho para escassez', 'Todos os posts foram feitos mas com fotos diferentes', etc. A IA vai aprender com isso!"
-                                className="w-full text-[11px] text-gray-700 leading-relaxed bg-white p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[100px] resize-none"
-                              />
-                              <div className="flex items-center justify-between mt-2">
-                                <p className="text-[9px] text-blue-600 font-medium">✨ A IA usará isso para melhorar o próximo mês</p>
-                                {isSaving && <span className="text-[9px] text-green-600 font-bold">Salvando...</span>}
-                              </div>
-                            </CardContent>
-                          </Card>
+                          )}
                         </div>
                       ))}
 
