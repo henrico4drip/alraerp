@@ -226,6 +226,7 @@ export default function Marketing() {
           targetYear: selectedYear,
           shopInfo: {
             instagramHandle: settings.instagram_handle,
+            websiteUrl: settings.website_url,
             brandVoice: settings.brand_voice,
             targetAudience: settings.target_audience,
             mainProducts: settings.main_products

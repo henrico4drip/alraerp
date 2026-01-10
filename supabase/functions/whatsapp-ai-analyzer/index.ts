@@ -159,10 +159,16 @@ serve(async (req) => {
             Use APENAS estes produtos para criar os posts e stories. Se não estiver aqui, NÃO EXISTE.
             ${(products || []).slice(0, 50).map((p: any) => `- ${p.name} (R$ ${p.price})`).join('\n')}
 
-            === CONTEXTO DA LOJA ===
+            === CONTEXTO DA LOJA (DEEP DIVE) ===
             Instagram: @${shopInfo?.instagramHandle}
+            Website: ${shopInfo?.websiteUrl || 'Não informado'}
             Tom de Voz: ${shopInfo?.brandVoice}
             Público: ${shopInfo?.targetAudience}
+
+            [INSTRUÇÃO DE ANÁLISE PROFUNDA]
+            1. Análise Visual: Se baseie na estética típica de lojas com o perfil acima (Ex: Minimalista para Luxo, Vibrante para Jovem).
+            2. Análise de Conteúdo: Se houver website, simule uma análise da estrutura de categorias para sugerir posts mais alinhados com a navegação do cliente.
+            3. Identidade: O tom de voz deve permear legendas e scripts de stories.
 
             === INSIGHTS DO ESTOQUE (PROVAS E OPORTUNIDADES) ===
             - BEST SELLERS (Prova Social/FOMO): ${insights?.bestSellers?.map(p => p.name).join(', ') || 'Vários itens'}

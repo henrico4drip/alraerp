@@ -48,6 +48,7 @@ export default function Settings() {
   const [methodToRemove, setMethodToRemove] = useState(null)
   const [portalBusy, setPortalBusy] = useState(false)
   const [instagramHandle, setInstagramHandle] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
   const [brandVoice, setBrandVoice] = useState('')
   const [targetAudience, setTargetAudience] = useState('')
   const [mainProducts, setMainProducts] = useState('')
@@ -129,6 +130,7 @@ export default function Settings() {
     setWholesaleType(effective.wholesale_type || 'global')
     setWholesaleMinCount(typeof effective.wholesale_min_count === 'number' ? effective.wholesale_min_count : 5)
     setInstagramHandle(effective.instagram_handle || '')
+    setWebsiteUrl(effective.website_url || '')
     setBrandVoice(effective.brand_voice || '')
     setTargetAudience(effective.target_audience || '')
     setMainProducts(effective.main_products || '')
@@ -168,6 +170,7 @@ export default function Settings() {
       wholesale_type: wholesaleType,
       wholesale_min_count: Number(wholesaleMinCount) || 1,
       instagram_handle: instagramHandle,
+      website_url: websiteUrl,
       brand_voice: brandVoice,
       target_audience: targetAudience,
       main_products: mainProducts,
@@ -610,6 +613,19 @@ export default function Settings() {
                         placeholder="@sualoja"
                       />
                       <p className="text-xs text-gray-400">Usado para contextualizar as postagens na IA.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-gray-700 font-medium flex items-center gap-2">
+                        Site / E-commerce (URL)
+                      </Label>
+                      <Input
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                        className="h-11 rounded-xl border-gray-200"
+                        placeholder="https://www.minhaloja.com.br"
+                      />
+                      <p className="text-xs text-gray-400">A IA analisará seu site para alinhar melhor o conteúdo.</p>
                     </div>
 
                     <div className="space-y-2">
