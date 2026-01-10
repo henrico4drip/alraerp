@@ -386,6 +386,19 @@ export default function Marketing() {
     savePlanUpdate(newPlanData);
   };
 
+  const updateMonthlyStrategy = (field, value) => {
+    const newPlanData = { ...marketingPlan };
+    if (!newPlanData.monthly_strategy) newPlanData.monthly_strategy = {};
+    newPlanData.monthly_strategy[field] = value;
+    savePlanUpdate(newPlanData);
+  };
+
+  const updateWeekHeader = (weekIdx, field, value) => {
+    const newPlanData = { ...marketingPlan };
+    newPlanData.weeks[weekIdx][field] = value;
+    savePlanUpdate(newPlanData);
+  };
+
   const saveWeeklyNote = (weekNumber, note) => {
     const newNotes = { ...weeklyNotes, [weekNumber]: note };
     setWeeklyNotes(newNotes);
@@ -633,20 +646,84 @@ export default function Marketing() {
                           <div className="p-8 bg-[#3490c7] text-white flex items-center justify-between">
                             <div className="space-y-1">
                               <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Plano de Ação Mensal</span>
-                              <h3 className="text-3xl font-black uppercase leading-tight tracking-tighter">{planData.monthly_strategy.title}</h3>
+                              {editingItem === 'month_title' ? (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Input
+                                    value={planData.monthly_strategy.title}
+                                    onChange={(e) => updateMonthlyStrategy('title', e.target.value)}
+                                    className="text-xl font-black text-black w-full bg-white/90 border-none h-10"
+                                    autoFocus
+                                  />
+                                  <Button size="icon" variant="ghost" className="hover:bg-white/20 text-white" onClick={() => setEditingItem(null)}>
+                                    <Save className="w-5 h-5" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <h3
+                                  className="text-3xl font-black uppercase leading-tight tracking-tighter cursor-pointer hover:bg-white/10 rounded px-1 -ml-1 transition-colors"
+                                  onClick={() => setEditingItem('month_title')}
+                                  title="Clique para editar"
+                                >
+                                  {planData.monthly_strategy.title}
+                                </h3>
+                              )}
                             </div>
                             <Calendar className="w-12 h-12 opacity-20" />
                           </div>
                           <CardContent className="p-8 space-y-6">
-                            <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100 flex items-start gap-4">
+                            <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100 flex items-start gap-4 group relative">
                               <Sparkles className="w-6 h-6 text-[#3490c7] shrink-0 mt-1" />
-                              <p className="text-gray-700 font-medium leading-relaxed">{planData.monthly_strategy.description}</p>
+                              <div className="w-full">
+                                {editingItem === 'month_desc' ? (
+                                  <div className="flex gap-2">
+                                    <textarea
+                                      value={planData.monthly_strategy.description}
+                                      onChange={(e) => updateMonthlyStrategy('description', e.target.value)}
+                                      className="w-full text-gray-700 font-medium leading-relaxed bg-white p-3 rounded-xl border border-blue-300 focus:outline-none min-h-[100px]"
+                                    />
+                                    <Button size="icon" variant="ghost" onClick={() => setEditingItem(null)}><Save className="w-4 h-4 text-green-600" /></Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-between items-start">
+                                    <p className="text-gray-700 font-medium leading-relaxed">{planData.monthly_strategy.description}</p>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                                      onClick={() => setEditingItem('month_desc')}
+                                    >
+                                      <Edit2 className="w-3 h-3 text-gray-400" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             {planData.monthly_strategy.seasonal_focus && (
-                              <div className="flex items-center gap-2">
-                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-black uppercase text-[10px] py-1 px-3 rounded-full">
-                                  🔥 FOCO: {planData.monthly_strategy.seasonal_focus}
-                                </Badge>
+                              <div className="flex items-center gap-2 group">
+                                {editingItem === 'month_focus' ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={planData.monthly_strategy.seasonal_focus}
+                                      onChange={(e) => updateMonthlyStrategy('seasonal_focus', e.target.value)}
+                                      className="h-8 w-64 text-xs font-bold"
+                                    />
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingItem(null)}><Save className="w-4 h-4 text-green-600" /></Button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-black uppercase text-[10px] py-1 px-3 rounded-full">
+                                      🔥 FOCO: {planData.monthly_strategy.seasonal_focus}
+                                    </Badge>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                                      onClick={() => setEditingItem('month_focus')}
+                                    >
+                                      <Edit2 className="w-3 h-3 text-gray-400" />
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             )}
                           </CardContent>
@@ -664,9 +741,43 @@ export default function Marketing() {
                                 {week.week_number || (idx + 1)}
                               </div>
                               <div>
-                                <h4 className="text-2xl font-black text-gray-900 tracking-tighter uppercase">{week.title}</h4>
+                                {editingItem === `week_title_${idx}` ? (
+                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                    <Input
+                                      value={week.title}
+                                      onChange={(e) => updateWeekHeader(idx, 'title', e.target.value)}
+                                      className="font-black text-gray-900 h-8"
+                                    />
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingItem(null)}><Save className="w-4 h-4 text-green-600" /></Button>
+                                  </div>
+                                ) : (
+                                  <h4
+                                    className="text-2xl font-black text-gray-900 tracking-tighter uppercase cursor-pointer hover:bg-gray-100 px-1 -ml-1 rounded transition-colors"
+                                    onClick={(e) => { e.stopPropagation(); setEditingItem(`week_title_${idx}`); }}
+                                    title="Clique para editar"
+                                  >
+                                    {week.title}
+                                  </h4>
+                                )}
                                 <div className="flex flex-wrap items-center gap-2 mt-1">
-                                  <p className="text-[#3490c7] font-bold text-xs uppercase tracking-widest">{week.main_action}</p>
+                                  {editingItem === `week_action_${idx}` ? (
+                                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                      <Input
+                                        value={week.main_action}
+                                        onChange={(e) => updateWeekHeader(idx, 'main_action', e.target.value)}
+                                        className="text-[#3490c7] font-bold text-xs h-6 w-48"
+                                      />
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingItem(null)}><Save className="w-3 h-3 text-green-600" /></Button>
+                                    </div>
+                                  ) : (
+                                    <p
+                                      className="text-[#3490c7] font-bold text-xs uppercase tracking-widest cursor-pointer hover:bg-blue-50 px-1 -ml-1 rounded transition-colors"
+                                      onClick={(e) => { e.stopPropagation(); setEditingItem(`week_action_${idx}`); }}
+                                      title="Clique para editar ação principal"
+                                    >
+                                      {week.main_action}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             </div>
