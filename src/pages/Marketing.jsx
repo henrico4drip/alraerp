@@ -59,9 +59,12 @@ export default function Marketing() {
         .select('*')
         .eq('month', selectedMonth)
         .eq('year', selectedYear)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid 406
 
-      if (error && error.code !== 'PGRST116') throw error; // Ignore not found
+      if (error) {
+        console.error('Error loading plan:', error);
+        return null;
+      }
       return data;
     },
     initialData: null
@@ -532,20 +535,8 @@ export default function Marketing() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
               <div className="lg:col-span-2 space-y-12">
                 {(() => {
-                  let planData = null;
-                  try {
-                    let jsonStr = typeof marketingPlan === 'string' ? marketingPlan.trim() : '';
-                    const firstBrace = jsonStr.indexOf('{');
-                    const lastBrace = jsonStr.lastIndexOf('}');
-
-                    if (firstBrace !== -1 && lastBrace !== -1) {
-                      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-                      planData = JSON.parse(jsonStr);
-                    }
-                  } catch (e) {
-                    console.error("JSON Parse Error:", e);
-                    planData = null;
-                  }
+                  // marketingPlan is already an object from DB (plan_data JSONB)
+                  const planData = marketingPlan;
 
                   if (!planData || !planData.weeks) {
                     return (
