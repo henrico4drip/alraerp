@@ -560,7 +560,7 @@ export default function Marketing() {
                   Novo Plano
                 </Button>
               )}
-              {!marketingPlan && (
+              {!marketingPlan && !isLoadingPlan && (
                 <Button
                   onClick={generatePlanAction}
                   className="bg-[#3490c7] hover:bg-[#2c8ac2] text-white rounded-2xl px-6 font-bold shadow-lg shadow-blue-100 transition-all hover:scale-105"
@@ -582,7 +582,21 @@ export default function Marketing() {
             </div>
           </div>
 
-          {!marketingPlan && !isGenerating && (
+          {isLoadingPlan && (
+            <Card className="rounded-[2.5rem] border-none bg-white p-12 text-center shadow-xl mb-12 flex flex-col items-center justify-center min-h-[400px]">
+              <div className="flex flex-col items-center gap-6 animate-pulse">
+                <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center">
+                  <Loader2 className="w-10 h-10 text-[#3490c7] animate-spin" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-gray-400">Buscando estratégias...</h3>
+                  <p className="text-sm text-gray-300">Consultando o banco de dados.</p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {!marketingPlan && !isGenerating && !isLoadingPlan && (
             <Card className="rounded-[2.5rem] border-dashed border-2 border-gray-200 bg-white/50 p-12 text-center overflow-hidden relative">
               <div className="relative z-10 max-w-lg mx-auto space-y-4">
                 <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
