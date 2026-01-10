@@ -247,7 +247,8 @@ export default function Marketing() {
           previousPlan: previousPlan ? {
             plan: previousPlan.plan_data,
             revenue: previousPlan.actual_revenue,
-            completionRate: previousPlan.completion_rate
+            completionRate: previousPlan.completion_rate,
+            weeklyNotes: previousPlan.weekly_notes || {}
           } : null,
           products: products
             .filter(p => Number(p.stock || 0) > 0)
@@ -319,6 +320,69 @@ export default function Marketing() {
 
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // 5. Plan Update Functions (Edição e Notas Semanais)
+  const [weeklyNotes, setWeeklyNotes] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load weekly notes when plan loads
+  React.useEffect(() => {
+    if (currentPlan?.weekly_notes) {
+      setWeeklyNotes(currentPlan.weekly_notes);
+    }
+  }, [currentPlan?.id]);
+
+  const savePlanUpdate = async (updatedPlanData, updatedNotes = null) => {
+    if (!currentPlan?.id) return;
+
+    setIsSaving(true);
+    try {
+      const updatePayload = {
+        plan_data: updatedPlanData,
+        updated_at: new Date().toISOString()
+      };
+
+      if (updatedNotes !== null) {
+        updatePayload.weekly_notes = updatedNotes;
+      }
+
+      const { error } = await supabase
+        .from('marketing_plans')
+        .update(updatePayload)
+        .eq('id', currentPlan.id);
+
+      if (error) throw error;
+
+      await refetchPlan();
+    } catch (err) {
+      console.error('Error saving plan:', err);
+      alert('Erro ao salvar alterações');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updatePost = (weekIdx, postIdx, field, value) => {
+    const newPlanData = { ...marketingPlan };
+    newPlanData.weeks[weekIdx].feed_posts[postIdx][field] = value;
+    savePlanUpdate(newPlanData);
+  };
+
+  const updateStory = (weekIdx, seqIdx, stepIdx, value) => {
+    const newPlanData = { ...marketingPlan };
+    newPlanData.weeks[weekIdx].stories_sequences[seqIdx].steps[stepIdx] = value;
+    savePlanUpdate(newPlanData);
+  };
+
+  const saveWeeklyNote = (weekNumber, note) => {
+    const newNotes = { ...weeklyNotes, [weekNumber]: note };
+    setWeeklyNotes(newNotes);
+
+    // Save to DB
+    if (currentPlan?.id) {
+      savePlanUpdate(marketingPlan, newNotes);
     }
   };
 
@@ -606,12 +670,38 @@ export default function Marketing() {
                                       <Badge variant="outline" className="text-[8px] font-black uppercase text-indigo-500 border-indigo-100">
                                         {post.type}
                                       </Badge>
-                                      {post.day && (
-                                        <span className="text-[9px] font-black text-indigo-300 uppercase">{post.day}</span>
-                                      )}
+                                      <div className="flex items-center gap-2">
+                                        {post.day && (
+                                          <span className="text-[9px] font-black text-indigo-300 uppercase">{post.day}</span>
+                                        )}
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          onClick={() => {
+                                            const key = `post_${idx}_${pIdx}`;
+                                            setEditingItem(editingItem === key ? null : key);
+                                          }}
+                                        >
+                                          {editingItem === `post_${idx}_${pIdx}` ? (
+                                            <Save className="w-3 h-3 text-green-600" />
+                                          ) : (
+                                            <Edit2 className="w-3 h-3 text-gray-400" />
+                                          )}
+                                        </Button>
+                                      </div>
                                     </div>
                                     <p className="text-[10px] font-bold text-gray-400">📸 {post.photo_style}</p>
-                                    <p className="text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl">"{post.caption}"</p>
+                                    {editingItem === `post_${idx}_${pIdx}` ? (
+                                      <textarea
+                                        value={post.caption}
+                                        onChange={(e) => updatePost(idx, pIdx, 'caption', e.target.value)}
+                                        className="w-full text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none min-h-[60px]"
+                                        placeholder="Digite a legenda..."
+                                      />
+                                    ) : (
+                                      <p className="text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl">"{post.caption}"</p>
+                                    )}
                                   </div>
                                 ))}
                               </CardContent>
@@ -670,6 +760,26 @@ export default function Marketing() {
                                   </p>
                                   <Sparkles className="absolute -bottom-2 -right-2 w-12 h-12 text-white opacity-10" />
                                 </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Campo de Resumo Semanal */}
+                          <Card className="rounded-[2rem] border-2 border-dashed border-blue-200 bg-blue-50/30 overflow-hidden">
+                            <div className="p-5 bg-blue-100 border-b border-blue-200 flex items-center gap-2">
+                              <Brain className="w-5 h-5 text-blue-600" />
+                              <span className="font-black text-[10px] text-blue-700 uppercase">O que eu fiz (Resumo da Semana)</span>
+                            </div>
+                            <CardContent className="p-6">
+                              <textarea
+                                value={weeklyNotes[week.week_number || (idx + 1)] || ''}
+                                onChange={(e) => saveWeeklyNote(week.week_number || (idx + 1), e.target.value)}
+                                placeholder="Digite aqui o que você realmente fez nesta semana... Ex: 'Usei a promo de Stories mas mudei o gatilho para escassez', 'Todos os posts foram feitos mas com fotos diferentes', etc. A IA vai aprender com isso!"
+                                className="w-full text-[11px] text-gray-700 leading-relaxed bg-white p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[100px] resize-none"
+                              />
+                              <div className="flex items-center justify-between mt-2">
+                                <p className="text-[9px] text-blue-600 font-medium">✨ A IA usará isso para melhorar o próximo mês</p>
+                                {isSaving && <span className="text-[9px] text-green-600 font-bold">Salvando...</span>}
                               </div>
                             </CardContent>
                           </Card>

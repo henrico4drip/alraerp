@@ -125,10 +125,19 @@ serve(async (req) => {
             Taxa de Conclusão: ${previousPlan.completionRate?.toFixed(0) || 0}%
             Faturamento Real: R$ ${previousPlan.revenue?.toFixed(2) || '0.00'}
             
-            APRENDIZADOS:
+            APRENDIZADOS AUTOMÁTICOS:
             ${previousPlan.completionRate < 50 ? '⚠️ Baixa execução - Planejar conteúdo mais simples e acionável' : ''}
             ${previousPlan.completionRate >= 80 ? '✅ Alta execução - Pode aumentar volume de conteúdo' : ''}
             ${previousPlan.revenue < previousRevenue ? '📉 Meta não atingida - Focar em produtos de alto ticket' : ''}
+
+            ${Object.keys(previousPlan.weeklyNotes || {}).length > 0 ? `
+            === FEEDBACK DO USUÁRIO (O QUE ELE REALMENTE FEZ) ===
+            ${Object.entries(previousPlan.weeklyNotes || {}).map(([week, note]: [string, any]) => `
+            Semana ${week}: "${note}"
+            `).join('\n')}
+            
+            ⚡ IMPORTANTE: Use este feedback para adaptar o novo plano! Se ele mudou gatilhos, tipos de post ou estratégias, APRENDA com isso e incorpore no próximo mês.
+            ` : ''}
             ` : ''}
 
             === MONITORAMENTO FINANCEIRO (CONFIDENCIAL) ===
