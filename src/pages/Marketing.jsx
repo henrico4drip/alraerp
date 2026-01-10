@@ -44,7 +44,8 @@ export default function Marketing() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // Editing State
-  const [editingItem, setEditingItem] = useState(null); // {week, type, index}
+  const [editingItem, setEditingItem] = useState(null); // string ID
+  const [editBuffer, setEditBuffer] = useState(''); // holds local changes before saving
 
   // Collapsible Weeks State
   const [openWeeks, setOpenWeeks] = useState({ 0: true, 1: true, 2: true, 3: true, 4: true });
@@ -363,47 +364,44 @@ export default function Marketing() {
       if (error) throw error;
 
       await refetchPlan();
+      setEditingItem(null); // Clear editing state on success
     } catch (err) {
       console.error('Error saving plan:', err);
-      alert('Erro ao salvar alterações');
+      alert('Erro ao salvar alterações: ' + (err.message || 'Erro desconhecido'));
     } finally {
       setIsSaving(false);
     }
   };
 
-  const updatePost = (weekIdx, postIdx, field, value) => {
-    const newPlanData = { ...marketingPlan };
-    newPlanData.weeks[weekIdx].feed_posts[postIdx][field] = value;
+  const commitPostUpdate = (weekIdx, postIdx) => {
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    newPlanData.weeks[weekIdx].feed_posts[postIdx].caption = editBuffer;
     savePlanUpdate(newPlanData);
   };
 
-  const updateStory = (weekIdx, seqIdx, stepIdx, value) => {
-    const newPlanData = { ...marketingPlan };
-    newPlanData.weeks[weekIdx].stories_sequences[seqIdx].steps[stepIdx] = value;
+  const commitStoryUpdate = (weekIdx, seqIdx, stepIdx) => {
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    newPlanData.weeks[weekIdx].stories_sequences[seqIdx].steps[stepIdx] = editBuffer;
     savePlanUpdate(newPlanData);
   };
 
-  const updateMonthlyStrategy = (field, value) => {
-    const newPlanData = { ...marketingPlan };
+  const commitMonthlyStrategyUpdate = (field) => {
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
     if (!newPlanData.monthly_strategy) newPlanData.monthly_strategy = {};
-    newPlanData.monthly_strategy[field] = value;
+    newPlanData.monthly_strategy[field] = editBuffer;
     savePlanUpdate(newPlanData);
   };
 
-  const updateWeekHeader = (weekIdx, field, value) => {
-    const newPlanData = { ...marketingPlan };
-    newPlanData.weeks[weekIdx][field] = value;
+  const commitWeekHeaderUpdate = (weekIdx, field) => {
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    newPlanData.weeks[weekIdx][field] = editBuffer;
     savePlanUpdate(newPlanData);
   };
 
-  const saveWeeklyNote = (weekNumber, note) => {
+  const commitWeeklyNote = (weekNumber) => {
+    const note = weeklyNotes[weekNumber] || '';
     const newNotes = { ...weeklyNotes, [weekNumber]: note };
-    setWeeklyNotes(newNotes);
-
-    // Save to DB
-    if (currentPlan?.id) {
-      savePlanUpdate(marketingPlan, newNotes);
-    }
+    savePlanUpdate(marketingPlan, newNotes);
   };
 
   const handleWhatsAppAction = (customer) => {
@@ -660,19 +658,31 @@ export default function Marketing() {
                               {editingItem === 'month_title' ? (
                                 <div className="flex items-center gap-2 mt-1">
                                   <Input
-                                    value={planData.monthly_strategy.title}
-                                    onChange={(e) => updateMonthlyStrategy('title', e.target.value)}
+                                    value={editBuffer}
+                                    onChange={(e) => setEditBuffer(e.target.value)}
                                     className="text-xl font-black text-black w-full bg-white/90 border-none h-10"
                                     autoFocus
                                   />
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="hover:bg-white/20 text-white"
+                                    onClick={() => commitMonthlyStrategyUpdate('title')}
+                                    disabled={isSaving}
+                                  >
+                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                                  </Button>
                                   <Button size="icon" variant="ghost" className="hover:bg-white/20 text-white" onClick={() => setEditingItem(null)}>
-                                    <Save className="w-5 h-5" />
+                                    <X className="w-5 h-5" />
                                   </Button>
                                 </div>
                               ) : (
                                 <h3
                                   className="text-3xl font-black uppercase leading-tight tracking-tighter cursor-pointer hover:bg-white/10 rounded px-1 -ml-1 transition-colors"
-                                  onClick={() => setEditingItem('month_title')}
+                                  onClick={() => {
+                                    setEditingItem('month_title');
+                                    setEditBuffer(planData.monthly_strategy.title);
+                                  }}
                                   title="Clique para editar"
                                 >
                                   {planData.monthly_strategy.title}
@@ -688,11 +698,16 @@ export default function Marketing() {
                                 {editingItem === 'month_desc' ? (
                                   <div className="flex gap-2">
                                     <textarea
-                                      value={planData.monthly_strategy.description}
-                                      onChange={(e) => updateMonthlyStrategy('description', e.target.value)}
+                                      value={editBuffer}
+                                      onChange={(e) => setEditBuffer(e.target.value)}
                                       className="w-full text-gray-700 font-medium leading-relaxed bg-white p-3 rounded-xl border border-blue-300 focus:outline-none min-h-[100px]"
                                     />
-                                    <Button size="icon" variant="ghost" onClick={() => setEditingItem(null)}><Save className="w-4 h-4 text-green-600" /></Button>
+                                    <div className="flex flex-col gap-2">
+                                      <Button size="icon" variant="ghost" onClick={() => commitMonthlyStrategyUpdate('description')} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-green-600" />}
+                                      </Button>
+                                      <Button size="icon" variant="ghost" onClick={() => setEditingItem(null)}><X className="w-4 h-4 text-gray-400" /></Button>
+                                    </div>
                                   </div>
                                 ) : (
                                   <div className="flex justify-between items-start">
@@ -701,7 +716,10 @@ export default function Marketing() {
                                       size="icon"
                                       variant="ghost"
                                       className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
-                                      onClick={() => setEditingItem('month_desc')}
+                                      onClick={() => {
+                                        setEditingItem('month_desc');
+                                        setEditBuffer(planData.monthly_strategy.description);
+                                      }}
                                     >
                                       <Edit2 className="w-3 h-3 text-gray-400" />
                                     </Button>
@@ -714,11 +732,14 @@ export default function Marketing() {
                                 {editingItem === 'month_focus' ? (
                                   <div className="flex items-center gap-2">
                                     <Input
-                                      value={planData.monthly_strategy.seasonal_focus}
-                                      onChange={(e) => updateMonthlyStrategy('seasonal_focus', e.target.value)}
+                                      value={editBuffer}
+                                      onChange={(e) => setEditBuffer(e.target.value)}
                                       className="h-8 w-64 text-xs font-bold"
                                     />
-                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingItem(null)}><Save className="w-4 h-4 text-green-600" /></Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => commitMonthlyStrategyUpdate('seasonal_focus')} disabled={isSaving}>
+                                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-green-600" />}
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingItem(null)}><X className="w-4 h-4 text-gray-400" /></Button>
                                   </div>
                                 ) : (
                                   <>
@@ -729,7 +750,10 @@ export default function Marketing() {
                                       size="icon"
                                       variant="ghost"
                                       className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
-                                      onClick={() => setEditingItem('month_focus')}
+                                      onClick={() => {
+                                        setEditingItem('month_focus');
+                                        setEditBuffer(planData.monthly_strategy.seasonal_focus);
+                                      }}
                                     >
                                       <Edit2 className="w-3 h-3 text-gray-400" />
                                     </Button>
@@ -755,16 +779,23 @@ export default function Marketing() {
                                 {editingItem === `week_title_${idx}` ? (
                                   <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                                     <Input
-                                      value={week.title}
-                                      onChange={(e) => updateWeekHeader(idx, 'title', e.target.value)}
+                                      value={editBuffer}
+                                      onChange={(e) => setEditBuffer(e.target.value)}
                                       className="font-black text-gray-900 h-8"
                                     />
-                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingItem(null)}><Save className="w-4 h-4 text-green-600" /></Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => commitWeekHeaderUpdate(idx, 'title')} disabled={isSaving}>
+                                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-green-600" />}
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingItem(null)}><X className="w-4 h-4 text-gray-400" /></Button>
                                   </div>
                                 ) : (
                                   <h4
                                     className="text-2xl font-black text-gray-900 tracking-tighter uppercase cursor-pointer hover:bg-gray-100 px-1 -ml-1 rounded transition-colors"
-                                    onClick={(e) => { e.stopPropagation(); setEditingItem(`week_title_${idx}`); }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingItem(`week_title_${idx}`);
+                                      setEditBuffer(week.title);
+                                    }}
                                     title="Clique para editar"
                                   >
                                     {week.title}
@@ -774,16 +805,23 @@ export default function Marketing() {
                                   {editingItem === `week_action_${idx}` ? (
                                     <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                                       <Input
-                                        value={week.main_action}
-                                        onChange={(e) => updateWeekHeader(idx, 'main_action', e.target.value)}
+                                        value={editBuffer}
+                                        onChange={(e) => setEditBuffer(e.target.value)}
                                         className="text-[#3490c7] font-bold text-xs h-6 w-48"
                                       />
-                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingItem(null)}><Save className="w-3 h-3 text-green-600" /></Button>
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => commitWeekHeaderUpdate(idx, 'main_action')} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 text-green-600" />}
+                                      </Button>
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingItem(null)}><X className="w-3 h-3 text-gray-400" /></Button>
                                     </div>
                                   ) : (
                                     <p
                                       className="text-[#3490c7] font-bold text-xs uppercase tracking-widest cursor-pointer hover:bg-blue-50 px-1 -ml-1 rounded transition-colors"
-                                      onClick={(e) => { e.stopPropagation(); setEditingItem(`week_action_${idx}`); }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingItem(`week_action_${idx}`);
+                                        setEditBuffer(week.main_action);
+                                      }}
                                       title="Clique para editar ação principal"
                                     >
                                       {week.main_action}
@@ -827,22 +865,33 @@ export default function Marketing() {
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 const key = `post_${idx}_${pIdx}`;
-                                                setEditingItem(editingItem === key ? null : key);
+                                                if (editingItem === key) {
+                                                  commitPostUpdate(idx, pIdx);
+                                                } else {
+                                                  setEditingItem(key);
+                                                  setEditBuffer(post.caption);
+                                                }
                                               }}
+                                              disabled={isSaving && editingItem === `post_${idx}_${pIdx}`}
                                             >
                                               {editingItem === `post_${idx}_${pIdx}` ? (
-                                                <Save className="w-3 h-3 text-green-600" />
+                                                isSaving ? <Loader2 className="w-3 h-3 animate-spin text-green-600" /> : <Save className="w-3 h-3 text-green-600" />
                                               ) : (
                                                 <Edit2 className="w-3 h-3 text-gray-400" />
                                               )}
                                             </Button>
+                                            {editingItem === `post_${idx}_${pIdx}` && (
+                                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingItem(null)}>
+                                                <X className="w-3 h-3 text-gray-400" />
+                                              </Button>
+                                            )}
                                           </div>
                                         </div>
                                         <p className="text-[10px] font-bold text-gray-400">📸 {post.photo_style}</p>
                                         {editingItem === `post_${idx}_${pIdx}` ? (
                                           <textarea
-                                            value={post.caption}
-                                            onChange={(e) => updatePost(idx, pIdx, 'caption', e.target.value)}
+                                            value={editBuffer}
+                                            onChange={(e) => setEditBuffer(e.target.value)}
                                             className="w-full text-[11px] text-gray-700 leading-relaxed bg-gray-50 p-2.5 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none min-h-[60px]"
                                             placeholder="Digite a legenda..."
                                             onClick={(e) => e.stopPropagation()}
@@ -872,8 +921,8 @@ export default function Marketing() {
                                               <div className="grow">
                                                 {editingItem === `story_${idx}_${sIdx}_${stepIdx}` ? (
                                                   <textarea
-                                                    value={step}
-                                                    onChange={(e) => updateStory(idx, sIdx, stepIdx, e.target.value)}
+                                                    value={editBuffer}
+                                                    onChange={(e) => setEditBuffer(e.target.value)}
                                                     className="w-full text-[10px] text-gray-600 leading-tight bg-white p-1.5 rounded-lg border border-pink-200 focus:ring-1 focus:ring-pink-400 focus:outline-none min-h-[40px]"
                                                     onClick={(e) => e.stopPropagation()}
                                                   />
@@ -889,15 +938,26 @@ export default function Marketing() {
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     const key = `story_${idx}_${sIdx}_${stepIdx}`;
-                                                    setEditingItem(editingItem === key ? null : key);
+                                                    if (editingItem === key) {
+                                                      commitStoryUpdate(idx, sIdx, stepIdx);
+                                                    } else {
+                                                      setEditingItem(key);
+                                                      setEditBuffer(step);
+                                                    }
                                                   }}
+                                                  disabled={isSaving && editingItem === `story_${idx}_${sIdx}_${stepIdx}`}
                                                 >
                                                   {editingItem === `story_${idx}_${sIdx}_${stepIdx}` ? (
-                                                    <Save className="w-2.5 h-2.5 text-green-600" />
+                                                    isSaving ? <Loader2 className="w-2.5 h-2.5 animate-spin text-green-600" /> : <Save className="w-2.5 h-2.5 text-green-600" />
                                                   ) : (
                                                     <Edit2 className="w-2.5 h-2.5 text-gray-400" />
                                                   )}
                                                 </Button>
+                                                {editingItem === `story_${idx}_${sIdx}_${stepIdx}` && (
+                                                  <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setEditingItem(null)}>
+                                                    <X className="w-2.5 h-2.5 text-gray-400" />
+                                                  </Button>
+                                                )}
                                               </div>
                                             </div>
                                           ))}
@@ -952,13 +1012,21 @@ export default function Marketing() {
                                 <CardContent className="p-6">
                                   <textarea
                                     value={weeklyNotes[week.week_number || (idx + 1)] || ''}
-                                    onChange={(e) => saveWeeklyNote(week.week_number || (idx + 1), e.target.value)}
+                                    onChange={(e) => setWeeklyNotes({ ...weeklyNotes, [week.week_number || (idx + 1)]: e.target.value })}
                                     placeholder="Digite aqui o que você realmente fez nesta semana... Ex: 'Usei a promo de Stories mas mudei o gatilho para escassez', 'Todos os posts foram feitos mas com fotos diferentes', etc. A IA vai aprender com isso!"
                                     className="w-full text-[11px] text-gray-700 leading-relaxed bg-white p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[100px] resize-none"
                                   />
                                   <div className="flex items-center justify-between mt-2">
                                     <p className="text-[9px] text-blue-600 font-medium">✨ A IA usará isso para melhorar o próximo mês</p>
-                                    {isSaving && <span className="text-[9px] text-green-600 font-bold">Salvando...</span>}
+                                    <Button
+                                      size="sm"
+                                      onClick={() => commitWeeklyNote(week.week_number || (idx + 1))}
+                                      disabled={isSaving}
+                                      className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg px-4"
+                                    >
+                                      {isSaving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+                                      SALVAR NOTA
+                                    </Button>
                                   </div>
                                 </CardContent>
                               </Card>
