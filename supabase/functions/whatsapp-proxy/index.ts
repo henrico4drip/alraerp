@@ -334,7 +334,7 @@ serve(async (req) => {
                         return !c.archive && !isGroup && !isLocked && !isBroadcast;
                     })
                     .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
-                    .slice(0, 50)
+                    .slice(0, 10) // REDUCED FROM 50 TO 10 TO AVOID 504 TIMEOUT
 
                 const lockedPhones = chats
                     .filter((c: any) => {
@@ -345,14 +345,19 @@ serve(async (req) => {
 
                 if (lockedPhones.length > 0) {
                     addLog(`Privacy: Found ${lockedPhones.length} hidden/locked chats. Cleaning up...`);
+                    // Using service role to ensure cleanup
                     await adminClient.from('whatsapp_messages').delete().in('contact_phone', lockedPhones).eq('user_id', user.id);
                 }
 
                 let total = 0
                 const updatedPhones: string[] = []
 
+                // Parallelize sync with limit or just keep it small
                 for (const chat of recentChats) {
                     const phone = (chat.id?._serialized || chat.id).replace(/\D/g, '')
+                    // Skip if phone looks invalid
+                    if (phone.length < 8) continue;
+
                     const syncedCount = await syncChatMessages(phone, chat.name || chat.contact?.name || chat.pushname || phone)
                     total += syncedCount
                     if (syncedCount > 0) {

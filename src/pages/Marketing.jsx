@@ -57,7 +57,6 @@ export default function Marketing() {
   const { data: settingsArr = [], isLoading: isLoadingSettings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => base44.entities.Settings.list(),
-    initialData: [],
   })
   const settings = settingsArr?.[0] || {};
 
@@ -78,7 +77,6 @@ export default function Marketing() {
       }
       return data;
     },
-    initialData: null
   });
 
   const marketingPlan = currentPlan?.plan_data;
@@ -86,19 +84,16 @@ export default function Marketing() {
   const { data: sales = [], isLoading: isLoadingSales } = useQuery({
     queryKey: ['sales'],
     queryFn: () => base44.entities.Sale.list('-created_date'),
-    initialData: [],
   })
 
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
     queryKey: ['customers'],
     queryFn: () => base44.entities.Customer.list(),
-    initialData: [],
   })
 
   const { data: products = [], isLoading: isLoadingProducts } = useQuery({
     queryKey: ['products'],
     queryFn: () => base44.entities.Product.list(),
-    initialData: [],
   })
 
   const isLoading = isLoadingSettings || isLoadingSales || isLoadingCustomers || isLoadingProducts;

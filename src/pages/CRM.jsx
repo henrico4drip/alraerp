@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/api/supabaseClient'
 import { base44 } from '@/api/base44Client'
-import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar, RefreshCw, Brain, Sparkles, TrendingUp, CheckCircle2, Clock, Trophy, EyeOff } from 'lucide-react'
+import { Send, Search, Phone, User, ShoppingBag, DollarSign, Calendar, RefreshCw, Brain, Sparkles, TrendingUp, CheckCircle2, Clock, Trophy, EyeOff, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -105,7 +105,9 @@ export default function CRM() {
                 ...c,
                 relatedPhones: Array.from(c.relatedPhones)
             }))
-        }
+        },
+        staleTime: 1000 * 60 * 2, // 2 min sem "flicker" ao navegar
+        gcTime: 1000 * 60 * 60 * 24 // 24h de cache persistente
     })
 
     // URL Params for pre-filling
@@ -318,9 +320,11 @@ export default function CRM() {
 
     // 3. Messages Query
     const { data: messages = [], isLoading: isLoadingMsgs } = useQuery({
-        queryKey: ['whatsapp_messages', selectedPhone, activeConversation?.relatedPhones],
+        // Usamos um array fixo para os telefones relacionados se disponível para manter a chave estável
+        queryKey: ['whatsapp_messages', selectedPhone],
         queryFn: async () => {
             if (!selectedPhone) return []
+            // Buscamos os telefones relacionados diretamente da conversa ativa no momento do fetch
             const phonesToFetch = activeConversation?.relatedPhones || [selectedPhone]
             const { data, error } = await supabase
                 .from('whatsapp_messages')
@@ -331,7 +335,7 @@ export default function CRM() {
             return data
         },
         enabled: !!selectedPhone,
-        refetchInterval: 5000
+        staleTime: 1000 * 30 // 30 segundos de frescor para mensagens
     })
 
     // Mutations
@@ -571,7 +575,7 @@ export default function CRM() {
 
 
 
-    const { data: activeCustomerSales = [] } = useQuery({
+    const { data: activeCustomerSales = [], isLoading: isLoadingSales } = useQuery({
         queryKey: ['customer_sales', activeCustomer?.id],
         queryFn: async () => {
             if (!activeCustomer?.id) return []
@@ -644,7 +648,10 @@ export default function CRM() {
                 <div className="p-4 border-b border-gray-100">
                     <div className="flex flex-col gap-3 mb-3">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-gray-800">Mensagens</h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-lg font-bold text-gray-800">Mensagens</h2>
+                                {(isSyncing || isLoadingConv) && <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />}
+                            </div>
                             <div className="flex items-center gap-1">
                                 <Button
                                     variant="ghost"
@@ -711,44 +718,53 @@ export default function CRM() {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
-                    {enrichedConversations.map(conv => (
-                        <div
-                            key={conv.contact_phone}
-                            onClick={() => {
-                                setSelectedPhone(conv.contact_phone)
-                                if (conv.customerData?.id && !conv.aiScore && !analyzeAiMutation.isPending) {
-                                    analyzeAiMutation.mutate(conv.contact_phone)
-                                }
-                            }}
-                            className={`p-4 border-b border-gray-50 cursor-pointer transition-colors hover:bg-gray-50 ${selectedPhone === conv.contact_phone ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : ''}`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <Avatar>
-                                    <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(conv.customerName)}&background=10b981&color=fff`} />
-                                    <AvatarFallback>{conv.customerName.substring(0, 2)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-baseline mb-1">
-                                        <h3 className="font-semibold text-gray-900 truncate text-sm">{conv.customerName}</h3>
-                                        <span className="text-[10px] text-gray-400">
-                                            {(() => {
-                                                try {
-                                                    return format(new Date(conv.created_at), 'HH:mm')
-                                                } catch (e) {
-                                                    return ''
-                                                }
-                                            })()}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs text-gray-500 truncate flex-1">{conv.content}</p>
-                                        {conv.isWaiting && <div className="ml-1 w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
+                <div className="flex-1 overflow-y-auto relative">
+                    {isLoadingConv && enrichedConversations.length === 0 ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center space-y-4">
+                            <div className="p-4 bg-emerald-50 rounded-full">
+                                <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+                            </div>
+                            <p className="text-sm text-gray-500 font-medium">Carregando conversas...</p>
+                        </div>
+                    ) : (
+                        enrichedConversations.map(conv => (
+                            <div
+                                key={conv.contact_phone}
+                                onClick={() => {
+                                    setSelectedPhone(conv.contact_phone)
+                                    if (conv.customerData?.id && !conv.aiScore && !analyzeAiMutation.isPending) {
+                                        analyzeAiMutation.mutate(conv.contact_phone)
+                                    }
+                                }}
+                                className={`p-4 border-b border-gray-50 cursor-pointer transition-colors hover:bg-gray-50 ${selectedPhone === conv.contact_phone ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Avatar>
+                                        <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(conv.customerName)}&background=10b981&color=fff`} />
+                                        <AvatarFallback>{conv.customerName.substring(0, 2)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-baseline mb-1">
+                                            <h3 className="font-semibold text-gray-900 truncate text-sm">{conv.customerName}</h3>
+                                            <span className="text-[10px] text-gray-400">
+                                                {(() => {
+                                                    try {
+                                                        return format(new Date(conv.created_at), 'HH:mm')
+                                                    } catch (e) {
+                                                        return ''
+                                                    }
+                                                })()}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-xs text-gray-500 truncate flex-1">{conv.content}</p>
+                                            {conv.isWaiting && <div className="ml-1 w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </div>
 
@@ -767,23 +783,32 @@ export default function CRM() {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {messages.map(msg => (
-                                <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[70%] rounded-xl px-4 py-2 shadow-sm text-sm ${msg.direction === 'outbound' ? 'bg-[#d9fdd3] text-gray-900 rounded-tr-none' : 'bg-white text-gray-900 rounded-tl-none'}`}>
-                                        <p>{msg.content}</p>
-                                        <div className="text-[10px] text-gray-500 text-right mt-1 opacity-70">
-                                            {(() => {
-                                                try {
-                                                    return format(new Date(msg.created_at), 'HH:mm')
-                                                } catch (e) {
-                                                    return ''
-                                                }
-                                            })()}
-                                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
+                            {isLoadingMsgs && messages.length === 0 ? (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                                        <p className="text-xs text-gray-400 font-medium">Carregando mensagens...</p>
                                     </div>
                                 </div>
-                            ))}
+                            ) : (
+                                messages.map(msg => (
+                                    <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[70%] rounded-xl px-4 py-2 shadow-sm text-sm ${msg.direction === 'outbound' ? 'bg-[#d9fdd3] text-gray-900 rounded-tr-none' : 'bg-white text-gray-900 rounded-tl-none'}`}>
+                                            <p>{msg.content}</p>
+                                            <div className="text-[10px] text-gray-500 text-right mt-1 opacity-70">
+                                                {(() => {
+                                                    try {
+                                                        return format(new Date(msg.created_at), 'HH:mm')
+                                                    } catch (e) {
+                                                        return ''
+                                                    }
+                                                })()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
 
                         <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0">
@@ -816,9 +841,13 @@ export default function CRM() {
                                         }
                                     }}
                                     disabled={sendMessageMutation.isPending || !messageText.trim()}
-                                    className="rounded-full w-12 h-10 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 mb-0.5"
+                                    className="rounded-full w-12 h-10 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 mb-0.5 flex items-center justify-center"
                                 >
-                                    <Send className="w-5 h-5" />
+                                    {sendMessageMutation.isPending ? (
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        <Send className="w-5 h-5" />
+                                    )}
                                 </Button>
                             </div>
                         </div>
@@ -846,7 +875,12 @@ export default function CRM() {
                                 <p className="text-xs text-gray-500">Saldo: R$ {Number(activeCustomer.cashback_balance || 0).toFixed(2)}</p>
                             </div>
 
-                            {activeCustomer.ai_score >= 50 && (
+                            {analyzeAiMutation.isPending ? (
+                                <div className="bg-indigo-50/50 rounded-2xl p-8 border border-dashed border-indigo-200 flex flex-col items-center justify-center text-center space-y-2">
+                                    <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                                    <p className="text-[10px] font-bold text-indigo-600 uppercase">Analisando Lead com IA...</p>
+                                </div>
+                            ) : activeCustomer.ai_score >= 50 && (
                                 <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-4 border border-indigo-100">
                                     <div className="flex items-center justify-between mb-3 text-indigo-700 font-bold text-xs uppercase">
                                         <span className="flex items-center gap-1"><Sparkles className="w-3 h-3" /> IA Insights</span>
@@ -875,32 +909,48 @@ export default function CRM() {
                                             size="sm"
                                             variant="outline"
                                             onClick={() => markAsDoneMutation.mutate(activeCustomer.id)}
+                                            disabled={markAsDoneMutation.isPending}
                                             className="w-full h-7 text-[10px] text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                                         >
-                                            <CheckCircle2 className="w-3 h-3 mr-1" /> Marcar como Concluído
+                                            {markAsDoneMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                            Marcar como Concluído
                                         </Button>
                                     </div>
                                 </div>
                             )}
 
                             <div className="space-y-4 pt-4 border-t border-gray-100">
-                                <div className="flex items-center gap-3 text-sm">
-                                    <ShoppingBag className="w-4 h-4 text-gray-400" />
-                                    <div className="flex-1">
-                                        <p className="text-[10px] text-gray-400 uppercase font-bold">Última Compra</p>
-                                        <p className="font-medium">{activeCustomerSales?.[0] ? `R$ ${Number(activeCustomerSales[0].total_amount || 0).toFixed(2)}` : 'Nenhuma'}</p>
+                                {isLoadingSales ? (
+                                    <div className="flex items-center gap-3 animate-pulse">
+                                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                            <Loader2 className="w-4 h-4 text-gray-300 animate-spin" />
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-2 bg-gray-100 rounded w-1/2"></div>
+                                            <div className="h-3 bg-gray-100 rounded w-3/4"></div>
+                                        </div>
                                     </div>
-                                </div>
-                                {topProducts.length > 0 && (
-                                    <div className="pt-2">
-                                        <p className="text-[10px] text-gray-400 uppercase font-bold mb-2">Favoritos</p>
-                                        {topProducts.map((p, i) => (
-                                            <div key={i} className="flex justify-between text-xs py-1">
-                                                <span className="text-gray-600 truncate mr-2">{p.name}</span>
-                                                <span className="font-bold">{p.count}x</span>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center gap-3 text-sm">
+                                            <ShoppingBag className="w-4 h-4 text-gray-400" />
+                                            <div className="flex-1">
+                                                <p className="text-[10px] text-gray-400 uppercase font-bold">Última Compra</p>
+                                                <p className="font-medium">{activeCustomerSales?.[0] ? `R$ ${Number(activeCustomerSales[0].total_amount || 0).toFixed(2)}` : 'Nenhuma'}</p>
                                             </div>
-                                        ))}
-                                    </div>
+                                        </div>
+                                        {topProducts.length > 0 && (
+                                            <div className="pt-2">
+                                                <p className="text-[10px] text-gray-400 uppercase font-bold mb-2">Favoritos</p>
+                                                {topProducts.map((p, i) => (
+                                                    <div key={i} className="flex justify-between text-xs py-1">
+                                                        <span className="text-gray-600 truncate mr-2">{p.name}</span>
+                                                        <span className="font-bold">{p.count}x</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
@@ -932,15 +982,27 @@ export default function CRM() {
                                 <div className="space-y-3">
                                     <Input value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} placeholder="Nome" />
                                     <div className="flex gap-2">
-                                        <Button onClick={() => createCustomerMutation.mutate()} className="flex-1 bg-emerald-600">Criar</Button>
-                                        <Button onClick={() => setIsRegistering(false)} variant="ghost">X</Button>
+                                        <Button
+                                            onClick={() => createCustomerMutation.mutate()}
+                                            disabled={createCustomerMutation.isPending || !newCustomerName.trim()}
+                                            className="flex-1 bg-emerald-600"
+                                        >
+                                            {createCustomerMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                            Criar
+                                        </Button>
+                                        <Button onClick={() => setIsRegistering(false)} variant="ghost" disabled={createCustomerMutation.isPending}>X</Button>
                                     </div>
                                 </div>
                             )}
                             {isLinking && (
                                 <div className="space-y-3">
                                     <Input value={linkSearch} onChange={e => setLinkSearch(e.target.value)} placeholder="Buscar..." />
-                                    <div className="max-h-40 overflow-y-auto space-y-1">
+                                    <div className="max-h-40 overflow-y-auto space-y-1 relative">
+                                        {linkCustomerMutation.isPending && (
+                                            <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10">
+                                                <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
+                                            </div>
+                                        )}
                                         {filteredExistingCustomers.map(c => (
                                             <div key={c.id} onClick={() => linkCustomerMutation.mutate(c.id)} className="p-2 text-xs border rounded hover:bg-emerald-50 cursor-pointer text-left">
                                                 <p className="font-bold">{c.name}</p>

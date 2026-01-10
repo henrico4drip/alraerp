@@ -37,7 +37,16 @@ import { base44 } from './api/base44Client'
 import { useProfile, ProfileProvider } from './context/ProfileContext'
 import CustomerLogin from './pages/CustomerLogin'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutos de "frescor" antes de tentar baixar de novo
+      gcTime: 1000 * 60 * 60 * 24, // Mantém no cache por 24h
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 // Persist TanStack Query cache to localStorage for instant first paint between reloads
 const localStoragePersister = {

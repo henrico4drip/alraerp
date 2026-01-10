@@ -120,13 +120,13 @@ function makeRepo(table) {
         item = { id: obj.id || genId(), created_date: new Date().toISOString(), ...normalized, user_id: userId }
       }
 
-      console.log('[base44] Item to insert:', item)
+      console.log(`[base44] Attempting insert into "${table}"...`)
       const { data, error } = await supabase.from(table).insert(item).select().single()
       if (error) {
-        console.error('[base44] Insert error:', error)
+        console.error(`[base44] Insert into "${table}" failed:`, error)
         throw error
       }
-      console.log('[base44] Insert success:', data)
+      console.log(`[base44] Insert into "${table}" successful:`, data)
       return data
     },
     update: async (id, patch) => {

@@ -18,6 +18,7 @@ import InfinitePayButton from "@/components/InfinitePayButton";
 import QRCode from 'qrcode';
 import { Pix } from "@/utils/pix";
 import { supabase } from "@/api/supabaseClient";
+import { useEffectiveSettings } from "@/hooks/useEffectiveSettings";
 
 const mapPaymentMethodToCode = (method) => {
   const norm = method?.toLowerCase() || '';
@@ -88,8 +89,10 @@ export default function CashierPayment() {
     discountPercent,
     setDiscountPercent,
     discountAmount,
+    isFinalizing,
+    setIsFinalizing,
   } = useCashier();
-  const [settings, setSettings] = useState(null);
+  const settings = useEffectiveSettings();
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
   const [showCustomerCreateDialog, setShowCustomerCreateDialog] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "" });
@@ -134,16 +137,6 @@ export default function CashierPayment() {
   }, []);
 
 
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      const settingsList = await base44.entities.Settings.list();
-      if (settingsList.length > 0) {
-        setSettings(settingsList[0]);
-      }
-    };
-    fetchSettings();
-  }, []);
 
   // Navega de volta para a tela inicial do caixa ao fechar o comprovante
   useEffect(() => {
@@ -412,6 +405,9 @@ export default function CashierPayment() {
   };
 
   const handleFinalizeSale = async () => {
+    if (isFinalizing) return;
+    setIsFinalizing(true);
+    window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: true }));
     const minCount = Number(settings?.wholesale_min_count || 0)
     const totalQty = cart.reduce((s, it) => s + (it.quantity || 0), 0)
     const effectiveItems = cart.map((item) => {
@@ -430,6 +426,8 @@ export default function CashierPayment() {
 
     if (payments.length === 0) {
       alert("Adicione pelo menos um pagamento.");
+      setIsFinalizing(false);
+      window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: false }));
       return;
     }
 
@@ -437,6 +435,8 @@ export default function CashierPayment() {
     const finalDue = Number(finalTotalLocal.toFixed(2));
     if (sum < finalDue) {
       alert(`Pagamentos insuficientes. Faltam R$ ${(finalDue - sum).toFixed(2)}.`);
+      setIsFinalizing(false);
+      window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: false }));
       return;
     }
 
@@ -482,9 +482,12 @@ export default function CashierPayment() {
         observations,
       };
 
+      console.log('Step 1: Creating sale data...', saleData);
       const createdSale = await createSaleMutation.mutateAsync(saleData);
+      console.log('Step 1 Success: Sale created!', createdSale);
 
       if (selectedCustomer) {
+        console.log('Step 2: Updating customer cashback...', selectedCustomer.id);
         const currentBalance = Number(selectedCustomer.cashback_balance || 0);
         const used = Number(cashbackToUse || 0);
         const newCashbackBalance = Math.max(0, Number((currentBalance - used + saleData.cashback_earned).toFixed(2)));
@@ -500,8 +503,10 @@ export default function CashierPayment() {
             total_purchases: (selectedCustomer.total_purchases || 0) + 1,
           },
         });
+        console.log('Step 2 Success: Customer updated!');
       }
 
+      console.log('Step 3: Updating products stock...');
       const minCountUpd = Number(settings?.wholesale_min_count || 0)
       const totalQtyUpd = effectiveItems.reduce((s, it) => s + (it.quantity || 0), 0)
       for (const item of effectiveItems) {
@@ -520,6 +525,7 @@ export default function CashierPayment() {
           await updateProductMutation.mutateAsync({ id: product.id, data: { stock: newStock } });
         }
       }
+      console.log('Step 3 Success: Stocks updated!');
 
       setLastSale(createdSale || saleData);
 
@@ -569,6 +575,7 @@ export default function CashierPayment() {
             }))
           };
 
+          console.log('Step 4: Invoking focus-nfe-proxy...');
           const { data: fiscalRes, error: fiscalErr } = await supabase.functions.invoke('focus-nfe-proxy', {
             body: {
               action: 'issue_nfce',
@@ -579,6 +586,7 @@ export default function CashierPayment() {
               }
             }
           });
+          console.log('Step 4 Result:', { fiscalRes, fiscalErr });
 
           if (!fiscalErr && fiscalRes?.data) {
             console.log('Resposta Fiscal:', fiscalRes);
@@ -617,13 +625,14 @@ export default function CashierPayment() {
           );
 
           if (phone) {
-            console.log('Enviando mensagem automática de cashback...', phone);
+            console.log('Step 5: Invoking whatsapp-proxy...', phone);
             const { data: waRes, error: waCallErr } = await supabase.functions.invoke('whatsapp-proxy', {
               body: {
                 action: 'send_message',
                 payload: { phone, message: msg }
               }
             });
+            console.log('Step 5 Result:', { waRes, waCallErr });
 
             console.log('AutoSend Result Full:', JSON.stringify({ waRes, waCallErr }));
 
@@ -633,7 +642,8 @@ export default function CashierPayment() {
             if (isSuccess) {
               setWaSent(true);
               setShowCashbackSuccess(true);
-              // Wait 2.5s then show receipt
+              setIsFinalizing(false);
+              window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: false }));
               setTimeout(() => {
                 setShowCashbackSuccess(false);
                 setShowReceiptDialog(true);
@@ -666,7 +676,11 @@ export default function CashierPayment() {
 
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
+      setIsFinalizing(false);
+      window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: false }));
     } catch (err) {
+      setIsFinalizing(false);
+      window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: false }));
       console.error("Erro ao finalizar venda:", err);
       alert("Falha ao finalizar venda.");
     }
@@ -1226,26 +1240,24 @@ export default function CashierPayment() {
               <DialogTitle>Aplicar Desconto</DialogTitle>
             </DialogHeader>
             <div className="space-y-6">
-              
+
               {/* Toggle entre % e R$ */}
               <div className="flex p-1 bg-gray-100 rounded-xl">
                 <button
                   onClick={() => setDiscountMode('percent')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
-                    discountMode === 'percent' 
-                      ? 'bg-white text-pink-600 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${discountMode === 'percent'
+                    ? 'bg-white text-pink-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                 >
                   Porcentagem (%)
                 </button>
                 <button
                   onClick={() => setDiscountMode('fixed')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
-                    discountMode === 'fixed' 
-                      ? 'bg-white text-pink-600 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${discountMode === 'fixed'
+                    ? 'bg-white text-pink-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                 >
                   Valor Fixo (R$)
                 </button>
@@ -1270,7 +1282,7 @@ export default function CashierPayment() {
                     }
                     onChange={(e) => {
                       const val = parseFloat(e.target.value) || 0;
-                      
+
                       if (discountMode === 'percent') {
                         // Modo Porcentagem: Salva direto (max 100%)
                         setDiscountPercent(Math.min(100, Math.max(0, val)));
@@ -1295,7 +1307,7 @@ export default function CashierPayment() {
                     {discountMode === 'percent' ? 'Valor correspondente:' : 'Porcentagem correspondente:'}
                   </span>
                   <span className="font-bold text-pink-700">
-                    {discountMode === 'percent' 
+                    {discountMode === 'percent'
                       ? `R$ ${discountAmount().toFixed(2)}`
                       : `${discountPercent.toFixed(2)}%`
                     }

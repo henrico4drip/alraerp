@@ -12,6 +12,7 @@ export function CashierProvider({ children }) {
   const [paymentDraft, setPaymentDraft] = useState({ method: '', amount: '', installments: 1, firstDueDays: 30 });
   // Desconto em % (0–100)
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   const addToCart = (product) => {
     const existingItem = cart.find((item) => item.product_id === product.id);
@@ -120,6 +121,8 @@ export function CashierProvider({ children }) {
     discountPercent,
     setDiscountPercent,
     discountAmount,
+    isFinalizing,
+    setIsFinalizing,
   };
 
   return <CashierContext.Provider value={value}>{children}</CashierContext.Provider>;

@@ -23,7 +23,8 @@ import {
   CalendarDays,
   Wallet,
   Download,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -143,6 +144,26 @@ export default function Layout({ children, currentPageName }) {
       setKeepBottomNavForEntry(false);
     }
   }, [location.pathname]);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isCrmViewBroken, setIsCrmViewBroken] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => setIsFinalizing(e.detail);
+    window.addEventListener('cashier-finalizing', handler);
+    return () => window.removeEventListener('cashier-finalizing', handler);
+  }, []);
+
+  // Safety Timeout: clear finalizing state after 30s if it gets stuck
+  useEffect(() => {
+    let timer;
+    if (isFinalizing) {
+      timer = setTimeout(() => {
+        console.warn('[Layout] Finalizing state safety timeout reached. Resetting.');
+        setIsFinalizing(false);
+      }, 30000);
+    }
+    return () => clearTimeout(timer);
+  }, [isFinalizing]);
 
 
   useEffect(() => {
@@ -235,20 +256,28 @@ export default function Layout({ children, currentPageName }) {
 
     const fetchCrmCount = async () => {
       try {
-        const { count, error } = await supabase
+        const { count, error, status } = await supabase
           .from('distinct_chats')
           .select('*', { count: 'exact', head: true })
           .eq('direction', 'inbound');
 
-        if (!error) {
-          setCrmNotificationCount(count || 0);
+        if (error) {
+          if (status === 500 || status === 404 || status === 503 || status === 504) {
+            console.error(`[Layout] CRM View or Server is struggling (${status}). Silencing fetch to reduce load.`);
+            setIsCrmViewBroken(true);
+            return;
+          }
+          console.error('[Layout] CRM Fetch Error:', { error, status });
+          return;
         }
+        setCrmNotificationCount(count || 0);
       } catch (err) {
-        console.warn('Error fetching CRM notification count:', err);
+        console.warn('[Layout] Exception fetching CRM notification count:', err);
       }
     };
-
-    fetchCrmCount();
+    if (!isCrmViewBroken) {
+      fetchCrmCount();
+    }
 
     // Background Sync Loop (runs every 60s to pull new messages from API)
     const syncInterval = setInterval(async () => {
@@ -269,8 +298,10 @@ export default function Layout({ children, currentPageName }) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'whatsapp_messages' },
         () => {
-          console.log('CRM: Mensagem recebida, atualizando badge...');
-          fetchCrmCount();
+          if (!isCrmViewBroken) {
+            console.log('CRM: Mensagem recebida, atualizando badge...');
+            fetchCrmCount();
+          }
         }
       )
       .subscribe((status) => {
@@ -1050,6 +1081,7 @@ export default function Layout({ children, currentPageName }) {
             {/* Right Button (Proceed) with Blue Highlight "Pill" */}
             <button
               onClick={() => {
+                if (isFinalizing) return;
                 if (location.pathname.includes('/payment')) {
                   // Dispatch event for Payment page to handle submit
                   window.dispatchEvent(new CustomEvent('cashier-finish-sale'));
@@ -1057,12 +1089,15 @@ export default function Layout({ children, currentPageName }) {
                   navigate('/cashier/payment');
                 }
               }}
-              className="flex-[2] h-[56px] rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group"
+              disabled={isFinalizing}
+              className="flex-[2] h-[56px] rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {/* Highlight effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+              {!isFinalizing && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />}
 
-              {location.pathname.includes('/payment') ? (
+              {isFinalizing ? (
+                <>Finalizando... <Loader2 className="w-6 h-6 animate-spin" /></>
+              ) : location.pathname.includes('/payment') ? (
                 <>Finalizar <Check className="w-6 h-6" /></>
               ) : (
                 <>Pagamento <span className="text-2xl">›</span></>
