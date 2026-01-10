@@ -16,11 +16,15 @@ import {
   Target,
   Brain,
   ChevronRight,
+  ChevronLeft,
   ArrowRight,
   Loader2,
   CheckCircle2,
   Copy,
-  RefreshCw
+  RefreshCw,
+  Edit2,
+  Save,
+  X
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,8 +33,14 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function Marketing() {
   const navigate = useNavigate();
-  const [marketingPlan, setMarketingPlan] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Month Navigation State
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  // Editing State
+  const [editingItem, setEditingItem] = useState(null); // {week, type, index}
 
   // 1. Fetch Data
   const { data: settingsArr = [], isLoading: isLoadingSettings } = useQuery({
@@ -40,12 +50,24 @@ export default function Marketing() {
   })
   const settings = settingsArr?.[0] || {};
 
-  // Load saved plan when settings are loaded
-  React.useEffect(() => {
-    if (settings.last_marketing_plan && !marketingPlan) {
-      setMarketingPlan(settings.last_marketing_plan);
-    }
-  }, [settings.last_marketing_plan]);
+  // 1b. Load Marketing Plan for Selected Month
+  const { data: currentPlan, isLoading: isLoadingPlan, refetch: refetchPlan } = useQuery({
+    queryKey: ['marketing_plan', selectedMonth, selectedYear],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('marketing_plans')
+        .select('*')
+        .eq('month', selectedMonth)
+        .eq('year', selectedYear)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // Ignore not found
+      return data;
+    },
+    initialData: null
+  });
+
+  const marketingPlan = currentPlan?.plan_data;
 
   const { data: sales = [], isLoading: isLoadingSales } = useQuery({
     queryKey: ['sales'],
@@ -174,13 +196,31 @@ export default function Marketing() {
     .filter(e => e.status === 'open' && new Date(e.due_date) <= thirtyDaysFromNow)
     .reduce((acc, e) => acc + Number(e.amount || 0), 0);
 
-  // 4. Marketing Plan Generation
+  // 4. Marketing Plan Generation (Long-Term)
   const generatePlanAction = async () => {
     setIsGenerating(true);
     try {
+      // 4a. Fetch Previous Month for Context
+      const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+      const prevYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+
+      const { data: previousPlan } = await supabase
+        .from('marketing_plans')
+        .select('*')
+        .eq('month', prevMonth)
+        .eq('year', prevYear)
+        .single()
+        .then(res => ({ data: res.data, error: res.error?.code === 'PGRST116' ? null : res.error }));
+
+      // 4b. Calculate Revenue Goal (10% growth if previous exists)
+      const previousRevenue = previousPlan?.actual_revenue || monthlyTotal;
+      const revenueGoal = previousRevenue * 1.10; // 10% growth target
+
       const { data, error } = await supabase.functions.invoke('whatsapp-ai-analyzer', {
         body: {
           action: 'marketing_plan',
+          targetMonth: selectedMonth,
+          targetYear: selectedYear,
           shopInfo: {
             instagramHandle: settings.instagram_handle,
             brandVoice: settings.brand_voice,
@@ -192,13 +232,20 @@ export default function Marketing() {
             lowStock,
             outOfStock,
             slowMovers,
-            seasonalMonth: new Date().toLocaleString('pt-BR', { month: 'long' }),
-            seasonalReference: currentSeasonalAdvice
+            seasonalMonth: new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long' }),
+            seasonalReference: seasonalAdviceMap[selectedMonth - 1]
           },
           financialContext: {
             upcomingDebt,
-            monthlyRevenue: monthlyTotal // Calculated in section 2
+            monthlyRevenue: monthlyTotal,
+            revenueGoal,
+            previousRevenue
           },
+          previousPlan: previousPlan ? {
+            plan: previousPlan.plan_data,
+            revenue: previousPlan.actual_revenue,
+            completionRate: previousPlan.completion_rate
+          } : null,
           products: products
             .filter(p => Number(p.stock || 0) > 0)
             .map(p => ({
@@ -225,17 +272,48 @@ export default function Marketing() {
       }
 
       const newPlan = data.plan;
-      setMarketingPlan(newPlan);
 
-      // Save to DB so we don't hit the quota again
-      if (settings.id) {
-        await base44.entities.Settings.update(settings.id, {
-          last_marketing_plan: newPlan
-        });
+      // 4c. Parse and Save to Database
+      let planJson;
+      try {
+        const jsonStr = typeof newPlan === 'string' ? newPlan.trim() : '';
+        const firstBrace = jsonStr.indexOf('{');
+        const lastBrace = jsonStr.lastIndexOf('}');
+
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          planJson = JSON.parse(jsonStr.substring(firstBrace, lastBrace + 1));
+        }
+      } catch (e) {
+        console.error("JSON Parse Error:", e);
+        throw new Error("Failed to parse AI response");
       }
+
+      const genId = () => Math.random().toString(36).slice(2);
+
+      // Upsert plan
+      const { error: saveError } = await supabase
+        .from('marketing_plans')
+        .upsert({
+          id: currentPlan?.id || genId(),
+          user_id: (await supabase.auth.getSession()).data.session?.user?.id,
+          month: selectedMonth,
+          year: selectedYear,
+          plan_data: planJson,
+          revenue_goal: revenueGoal,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,month,year'
+        });
+
+      if (saveError) throw saveError;
+
+      // Refresh plan view
+      await refetchPlan();
+
     } catch (err) {
       console.error('Marketing IA Error:', err);
       alert(`Erro na IA: ${err.message}`);
+
     } finally {
       setIsGenerating(false);
     }
@@ -260,11 +338,52 @@ export default function Marketing() {
     <div className="p-4 md:p-8 w-full bg-[#f8fafc] min-h-screen">
       <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
 
-        {/* Header */}
+        {/* Header with Month Navigation */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-black text-gray-900 tracking-tight">MARKETING DASHBOARD</h1>
-            <p className="text-gray-500 font-medium">Potencialize suas vendas com Inteligência Artificial</p>
+            <p className="text-gray-500 font-medium">Planejamento Estratégico de Longo Prazo</p>
+
+            {/* Month Picker */}
+            <div className="flex items-center gap-3 mt-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (selectedMonth === 1) {
+                    setSelectedMonth(12);
+                    setSelectedYear(prev => prev - 1);
+                  } else {
+                    setSelectedMonth(prev => prev - 1);
+                  }
+                }}
+                className="h-8 w-8 rounded-full hover:bg-gray-100"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+
+              <div className="px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
+                <span className="font-bold text-emerald-900 capitalize">
+                  {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (selectedMonth === 12) {
+                    setSelectedMonth(1);
+                    setSelectedYear(prev => prev + 1);
+                  } else {
+                    setSelectedMonth(prev => prev + 1);
+                  }
+                }}
+                className="h-8 w-8 rounded-full hover:bg-gray-100"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <Button

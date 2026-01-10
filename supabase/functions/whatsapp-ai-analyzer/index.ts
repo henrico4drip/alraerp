@@ -60,14 +60,16 @@ serve(async (req) => {
     try {
         const body = await req.json().catch(() => ({}))
         console.log("AI Analyzer: Received body:", JSON.stringify(body))
-        const { customerId, phone, action, shopInfo, products, insights, financialContext } = body
+        const { customerId, phone, action, shopInfo, products, insights, financialContext, previousPlan, targetMonth, targetYear } = body
 
         if (action === 'marketing_plan') {
-            console.log("AI Analyzer: Generating Advanced Marketing Plan with Financial Scoring...")
+            console.log(`AI Analyzer: Generating Plan for ${targetMonth}/${targetYear} with Growth Strategy...`)
 
             // 1. Algoritmo de Pressão de Caixa (Confidencial)
             const revenue = Number(financialContext?.monthlyRevenue || 1);
             const debt = Number(financialContext?.upcomingDebt || 0);
+            const revenueGoal = Number(financialContext?.revenueGoal || revenue * 1.1);
+            const previousRevenue = Number(financialContext?.previousRevenue || revenue);
             const cashNeedRatio = debt / (revenue || 1);
 
             let cashNeedLevel = 'BAIXO';
@@ -110,7 +112,24 @@ serve(async (req) => {
 
             const prompt = `
             Você é um Diretor Criativo e Estrategista de Vendas de Elite.
-            Sua missão é criar um PLANEJAMENTO AGRESSIVO e HIPER-DETALHADO para o Instagram @${shopInfo?.instagramHandle || 'da loja'}.
+            Sua missão é criar um PLANEJAMENTO ESTRATÉGICO DE CRESCIMENTO para ${insights?.seasonalMonth}/${targetYear}.
+
+            === CONTEXTO DE CRESCIMENTO ===
+            Mês Alvo: ${insights?.seasonalMonth} ${targetYear}
+            Meta de Faturamento: R$ ${revenueGoal.toFixed(2)}
+            Faturamento do Mês Anterior: R$ ${previousRevenue.toFixed(2)}
+            Crescimento Esperado: ${((revenueGoal / previousRevenue - 1) * 100).toFixed(0)}%
+
+            ${previousPlan ? `
+            === HISTÓRICO DO MÊS ANTERIOR ===
+            Taxa de Conclusão: ${previousPlan.completionRate?.toFixed(0) || 0}%
+            Faturamento Real: R$ ${previousPlan.revenue?.toFixed(2) || '0.00'}
+            
+            APRENDIZADOS:
+            ${previousPlan.completionRate < 50 ? '⚠️ Baixa execução - Planejar conteúdo mais simples e acionável' : ''}
+            ${previousPlan.completionRate >= 80 ? '✅ Alta execução - Pode aumentar volume de conteúdo' : ''}
+            ${previousPlan.revenue < previousRevenue ? '📉 Meta não atingida - Focar em produtos de alto ticket' : ''}
+            ` : ''}
 
             === MONITORAMENTO FINANCEIRO (CONFIDENCIAL) ===
             [DADOS INTERNOS - NÃO REVELAR VALORES]
