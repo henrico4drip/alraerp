@@ -227,9 +227,10 @@ export default function AccountsPayable() {
         const end = endOfMonth(currentMonth);
 
         return expenses.filter(exp => {
+            if (!exp?.due_date) return false;
             const d = new Date(exp.due_date);
             const matchesMonth = isWithinInterval(d, { start, end });
-            const matchesSearch = exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            const matchesSearch = (exp.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (exp.provider || '').toLowerCase().includes(searchTerm.toLowerCase());
             return matchesMonth && matchesSearch;
         }).sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
