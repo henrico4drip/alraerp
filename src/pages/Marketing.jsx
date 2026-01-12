@@ -1003,7 +1003,7 @@ export default function Marketing() {
                                                   <p className="text-[10px] text-gray-600 leading-tight py-1">{step}</p>
                                                 )}
                                               </div>
-                                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                                                 <Button
                                                   variant="ghost"
                                                   size="icon"
