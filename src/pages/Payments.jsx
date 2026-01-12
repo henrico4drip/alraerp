@@ -339,6 +339,8 @@ export default function Payments() {
     const sale = sales.find(s => s.id === targetAbateInstallment.sale_id)
     if (!sale) return
 
+    if (!window.confirm('Deseja confirmar o pagamento dessa parcela?')) return
+
     const amountToPay = parseFloat(abateAmount)
     if (!amountToPay || amountToPay <= 0) {
       alert('Valor inválido')
