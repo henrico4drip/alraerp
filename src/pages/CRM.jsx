@@ -25,6 +25,7 @@ export default function CRM() {
     const [sortBy, setSortBy] = useState('recent') // 'recent' or 'ai'
     const [isRerankingAll, setIsRerankingAll] = useState(false)
     const textareaRef = useRef(null)
+    const messagesEndRef = useRef(null)
 
     useEffect(() => {
         if (messageText === '' && textareaRef.current) {
@@ -337,6 +338,13 @@ export default function CRM() {
         enabled: !!selectedPhone,
         staleTime: 1000 * 30 // 30 segundos de frescor para mensagens
     })
+
+    // Auto-scroll to bottom
+    useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        }
+    }, [messages, selectedPhone])
 
     // Mutations
     const sendMessageMutation = useMutation({
@@ -809,6 +817,7 @@ export default function CRM() {
                                     </div>
                                 ))
                             )}
+                            <div ref={messagesEndRef} />
                         </div>
 
                         <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0">
