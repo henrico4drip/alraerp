@@ -375,15 +375,21 @@ export default function Marketing() {
     }
   };
 
-  const commitPostUpdate = (weekIdx, postIdx) => {
+  const commitPostUpdate = (weekIdx, postIdx, field = 'caption') => {
     const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
-    newPlanData.weeks[weekIdx].feed_posts[postIdx].caption = editBuffer;
+    newPlanData.weeks[weekIdx].feed_posts[postIdx][field] = editBuffer;
     savePlanUpdate(newPlanData);
   };
 
   const commitStoryUpdate = (weekIdx, seqIdx, stepIdx) => {
     const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
     newPlanData.weeks[weekIdx].stories_sequences[seqIdx].steps[stepIdx] = editBuffer;
+    savePlanUpdate(newPlanData);
+  };
+
+  const commitStorySequenceUpdate = (weekIdx, seqIdx, field = 'name') => {
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    newPlanData.weeks[weekIdx].stories_sequences[seqIdx][field] = editBuffer;
     savePlanUpdate(newPlanData);
   };
 
@@ -942,7 +948,48 @@ export default function Marketing() {
                                             )}
                                           </div>
                                         </div>
-                                        <p className="text-[10px] font-bold text-gray-400">📸 {post.photo_style}</p>
+                                        <div className="flex items-center gap-2 group/subtitle">
+                                          {editingItem === `post_style_${idx}_${pIdx}` ? (
+                                            <input
+                                              type="text"
+                                              value={editBuffer}
+                                              onChange={(e) => setEditBuffer(e.target.value)}
+                                              className="text-[10px] font-bold text-gray-700 bg-white border border-indigo-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 w-full"
+                                              autoFocus
+                                            />
+                                          ) : (
+                                            <p className="text-[10px] font-bold text-gray-400">📸 {post.photo_style}</p>
+                                          )}
+                                          <div className="flex items-center opacity-0 group-hover/subtitle:opacity-100 transition-opacity">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-4 w-4"
+                                              onClick={() => {
+                                                const key = `post_style_${idx}_${pIdx}`;
+                                                if (editingItem === key) {
+                                                  commitPostUpdate(idx, pIdx, 'photo_style');
+                                                } else {
+                                                  setEditingItem(key);
+                                                  setEditBuffer(post.photo_style);
+                                                }
+                                              }}
+                                              disabled={isSaving && editingItem === `post_style_${idx}_${pIdx}`}
+                                            >
+                                              {editingItem === `post_style_${idx}_${pIdx}` ? (
+                                                isSaving ? <Loader2 className="w-2.5 h-2.5 animate-spin text-green-600" /> : <Save className="w-2.5 h-2.5 text-green-600" />
+                                              ) : (
+                                                <Edit2 className="w-2.5 h-2.5 text-gray-300" />
+                                              )}
+                                            </Button>
+                                            {editingItem === `post_style_${idx}_${pIdx}` && (
+                                              <Button size="icon" variant="ghost" className="h-4 w-4" onClick={() => setEditingItem(null)}>
+                                                <X className="w-2.5 h-2.5 text-gray-400" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+
                                         {editingItem === `post_${idx}_${pIdx}` ? (
                                           <textarea
                                             value={editBuffer}
@@ -976,17 +1023,57 @@ export default function Marketing() {
                                   <CardContent className="p-6 space-y-5">
                                     {week.stories_sequences?.map((seq, sIdx) => (
                                       <div key={sIdx} className="space-y-2">
-                                        <h5 className="text-[10px] font-black text-gray-800 flex items-center gap-1 uppercase tracking-tighter">
-                                          <div className="w-1.5 h-1.5 rounded-full bg-pink-500" /> {seq.name}
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-4 w-4 text-pink-300 hover:text-pink-500 ml-1"
-                                            onClick={() => addNewStoryStep(idx, sIdx)}
-                                            title="Adicionar Story à Sequência"
-                                          >
-                                            <Plus className="w-2.5 h-2.5" />
-                                          </Button>
+                                        <h5 className="text-[10px] font-black text-gray-800 flex items-center gap-1 uppercase tracking-tighter group/seq">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
+                                          {editingItem === `seq_name_${idx}_${sIdx}` ? (
+                                            <input
+                                              type="text"
+                                              value={editBuffer}
+                                              onChange={(e) => setEditBuffer(e.target.value)}
+                                              className="text-[10px] font-black text-gray-800 bg-white border border-pink-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-pink-400 w-full"
+                                              autoFocus
+                                            />
+                                          ) : (
+                                            <span className="truncate">{seq.name}</span>
+                                          )}
+
+                                          <div className="flex items-center opacity-0 group-hover/seq:opacity-100 transition-opacity whitespace-nowrap">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-4 w-4"
+                                              onClick={() => {
+                                                const key = `seq_name_${idx}_${sIdx}`;
+                                                if (editingItem === key) {
+                                                  commitStorySequenceUpdate(idx, sIdx, 'name');
+                                                } else {
+                                                  setEditingItem(key);
+                                                  setEditBuffer(seq.name);
+                                                }
+                                              }}
+                                              disabled={isSaving && editingItem === `seq_name_${idx}_${sIdx}`}
+                                            >
+                                              {editingItem === `seq_name_${idx}_${sIdx}` ? (
+                                                isSaving ? <Loader2 className="w-2.5 h-2.5 animate-spin text-green-600" /> : <Save className="w-2.5 h-2.5 text-green-600" />
+                                              ) : (
+                                                <Edit2 className="w-2.5 h-2.5 text-gray-300" />
+                                              )}
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-4 w-4"
+                                              onClick={() => addNewStoryStep(idx, sIdx)}
+                                              title="Adicionar Story à Sequência"
+                                            >
+                                              <Plus className="w-2.5 h-2.5 text-pink-300" />
+                                            </Button>
+                                            {editingItem === `seq_name_${idx}_${sIdx}` && (
+                                              <Button size="icon" variant="ghost" className="h-4 w-4" onClick={() => setEditingItem(null)}>
+                                                <X className="w-2.5 h-2.5 text-gray-400" />
+                                              </Button>
+                                            )}
+                                          </div>
                                         </h5>
                                         <div className="space-y-1.5 pl-2.5 border-l border-pink-100">
                                           {seq.steps?.map((step, stepIdx) => (
