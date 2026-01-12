@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { base44 } from '@/api/base44Client'
 import { supabase } from '@/api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
@@ -39,6 +39,7 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function Marketing() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Month Navigation State
@@ -60,6 +61,7 @@ export default function Marketing() {
   const { data: settingsArr = [], isLoading: isLoadingSettings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => base44.entities.Settings.list(),
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
   })
   const settings = settingsArr?.[0] || {};
 
@@ -87,16 +89,19 @@ export default function Marketing() {
   const { data: sales = [], isLoading: isLoadingSales } = useQuery({
     queryKey: ['sales'],
     queryFn: () => base44.entities.Sale.list('-created_date'),
+    staleTime: 1000 * 60 * 2, // 2 minutes cache
   })
 
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
     queryKey: ['customers'],
     queryFn: () => base44.entities.Customer.list(),
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
   })
 
   const { data: products = [], isLoading: isLoadingProducts } = useQuery({
     queryKey: ['products'],
     queryFn: () => base44.entities.Product.list(),
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
   })
 
   const isLoading = isLoadingSettings || isLoadingSales || isLoadingCustomers || isLoadingProducts;
@@ -365,6 +370,8 @@ export default function Marketing() {
 
       if (error) throw error;
 
+      // Invalidate query to trigger fresh fetch but allow local state to feel fast
+      queryClient.invalidateQueries(['marketing_plan', selectedMonth, selectedYear]);
       await refetchPlan();
       setEditingItem(null); // Clear editing state on success
     } catch (err) {

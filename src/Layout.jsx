@@ -250,11 +250,14 @@ export default function Layout({ children, currentPageName }) {
     syncSignupProfile()
   }, [user])
 
+  const crmDebounceTimer = React.useRef(null);
+
   // CRM Notification Logic
   useEffect(() => {
     if (!user) return;
 
     const fetchCrmCount = async () => {
+      if (isCrmViewBroken) return;
       try {
         const { count, error, status } = await supabase
           .from('distinct_chats')
@@ -263,8 +266,9 @@ export default function Layout({ children, currentPageName }) {
 
         if (error) {
           if (status === 500 || status === 404 || status === 503 || status === 504) {
-            console.error(`[Layout] CRM View or Server is struggling (${status}). Silencing fetch to reduce load.`);
+            console.error(`[Layout] CRM View is struggling (${status}). Silencing CRM count for 5 minutes.`);
             setIsCrmViewBroken(true);
+            setTimeout(() => setIsCrmViewBroken(false), 5 * 60 * 1000);
             return;
           }
           console.error('[Layout] CRM Fetch Error:', { error, status });
@@ -275,17 +279,24 @@ export default function Layout({ children, currentPageName }) {
         console.warn('[Layout] Exception fetching CRM notification count:', err);
       }
     };
+
+    const debouncedFetch = () => {
+      if (isCrmViewBroken) return;
+      if (crmDebounceTimer.current) clearTimeout(crmDebounceTimer.current);
+      crmDebounceTimer.current = setTimeout(fetchCrmCount, 10000); // 10s debounce
+    };
+
     if (!isCrmViewBroken) {
       fetchCrmCount();
     }
 
     // Background Sync Loop (runs every 60s to pull new messages from API)
     const syncInterval = setInterval(async () => {
+      if (isCrmViewBroken) return;
       try {
         await supabase.functions.invoke('whatsapp-proxy', {
           body: { action: 'sync_recent' }
         });
-        // fetchCrmCount will be triggered by the realtime listener below if sync inserted new rows
       } catch (err) {
         console.warn('Background sync failed:', err);
       }
@@ -299,8 +310,8 @@ export default function Layout({ children, currentPageName }) {
         { event: '*', schema: 'public', table: 'whatsapp_messages' },
         () => {
           if (!isCrmViewBroken) {
-            console.log('CRM: Mensagem recebida, atualizando badge...');
-            fetchCrmCount();
+            console.log('CRM: Mensagem recebida, agendando atualização badge...');
+            debouncedFetch();
           }
         }
       )
