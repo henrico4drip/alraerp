@@ -26,7 +26,9 @@ import {
   Save,
   X,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Plus,
+  Trash2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -402,6 +404,51 @@ export default function Marketing() {
     const note = weeklyNotes[weekNumber] || '';
     const newNotes = { ...weeklyNotes, [weekNumber]: note };
     savePlanUpdate(marketingPlan, newNotes);
+  };
+
+  const addNewPost = (weekIdx) => {
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    if (!newPlanData.weeks[weekIdx].feed_posts) newPlanData.weeks[weekIdx].feed_posts = [];
+    newPlanData.weeks[weekIdx].feed_posts.push({
+      type: 'REEL',
+      day: 'Extra',
+      photo_style: 'Adicionado manualmente',
+      caption: 'Nova legenda estratégica...'
+    });
+    savePlanUpdate(newPlanData);
+  };
+
+  const removePost = (weekIdx, postIdx) => {
+    if (!confirm('Excluir este post do planejamento?')) return;
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    newPlanData.weeks[weekIdx].feed_posts.splice(postIdx, 1);
+    savePlanUpdate(newPlanData);
+  };
+
+  const addNewStorySequence = (weekIdx) => {
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    if (!newPlanData.weeks[weekIdx].stories_sequences) newPlanData.weeks[weekIdx].stories_sequences = [];
+    newPlanData.weeks[weekIdx].stories_sequences.push({
+      name: 'NOVA SEQUÊNCIA',
+      steps: ['Novo story da sequência...']
+    });
+    savePlanUpdate(newPlanData);
+  };
+
+  const addNewStoryStep = (weekIdx, seqIdx) => {
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    newPlanData.weeks[weekIdx].stories_sequences[seqIdx].steps.push('Novo story...');
+    savePlanUpdate(newPlanData);
+  };
+
+  const removeStoryStep = (weekIdx, seqIdx, stepIdx) => {
+    if (!confirm('Excluir este story?')) return;
+    const newPlanData = JSON.parse(JSON.stringify(marketingPlan));
+    newPlanData.weeks[weekIdx].stories_sequences[seqIdx].steps.splice(stepIdx, 1);
+    if (newPlanData.weeks[weekIdx].stories_sequences[seqIdx].steps.length === 0) {
+      newPlanData.weeks[weekIdx].stories_sequences.splice(seqIdx, 1);
+    }
+    savePlanUpdate(newPlanData);
   };
 
   const handleWhatsAppAction = (customer) => {
@@ -880,6 +927,14 @@ export default function Marketing() {
                                                 <Edit2 className="w-3 h-3 text-gray-400" />
                                               )}
                                             </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6 text-red-200 hover:text-red-500"
+                                              onClick={() => removePost(idx, pIdx)}
+                                            >
+                                              <Trash2 className="w-3 h-3" />
+                                            </Button>
                                             {editingItem === `post_${idx}_${pIdx}` && (
                                               <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingItem(null)}>
                                                 <X className="w-3 h-3 text-gray-400" />
@@ -908,12 +963,30 @@ export default function Marketing() {
                                   <div className="p-5 bg-pink-50 border-b border-pink-100 flex items-center gap-2">
                                     <Zap className="w-5 h-5 text-pink-600" />
                                     <span className="font-black text-[10px] text-pink-700 uppercase">Stories</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 ml-auto text-pink-400 hover:text-pink-600"
+                                      onClick={() => addNewStorySequence(idx)}
+                                      title="Adicionar Sequência"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </Button>
                                   </div>
                                   <CardContent className="p-6 space-y-5">
                                     {week.stories_sequences?.map((seq, sIdx) => (
                                       <div key={sIdx} className="space-y-2">
                                         <h5 className="text-[10px] font-black text-gray-800 flex items-center gap-1 uppercase tracking-tighter">
                                           <div className="w-1.5 h-1.5 rounded-full bg-pink-500" /> {seq.name}
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-4 w-4 text-pink-300 hover:text-pink-500 ml-1"
+                                            onClick={() => addNewStoryStep(idx, sIdx)}
+                                            title="Adicionar Story à Sequência"
+                                          >
+                                            <Plus className="w-2.5 h-2.5" />
+                                          </Button>
                                         </h5>
                                         <div className="space-y-1.5 pl-2.5 border-l border-pink-100">
                                           {seq.steps?.map((step, stepIdx) => (
@@ -952,6 +1025,14 @@ export default function Marketing() {
                                                   ) : (
                                                     <Edit2 className="w-2.5 h-2.5 text-gray-400" />
                                                   )}
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-5 w-5 text-red-100 hover:text-red-400"
+                                                  onClick={() => removeStoryStep(idx, sIdx, stepIdx)}
+                                                >
+                                                  <Trash2 className="w-2.5 h-2.5" />
                                                 </Button>
                                                 {editingItem === `story_${idx}_${sIdx}_${stepIdx}` && (
                                                   <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setEditingItem(null)}>
