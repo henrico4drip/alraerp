@@ -497,6 +497,7 @@ export default function Inventory() {
 
         <PrintLabelsModal
           products={products}
+          settings={settingsEff}
           open={showPrintLabelsModal}
           onOpenChange={setShowPrintLabelsModal}
         />

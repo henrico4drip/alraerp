@@ -3,12 +3,19 @@ import Barcode from 'react-barcode';
 
 // Componente para renderizar uma única etiqueta
 // O layout é simples: Nome, Preço e Código de Barras
-const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30mm', parcelas = 0, typeLabel = 'UNIDADE', showPrice = true, showBarcode = true, showNumbers = true }, ref) => {
-  // Formatação de preço para Real Brasileiro
-  const formattedPrice = new Intl.NumberFormat('pt-BR', {
+const LabelComponent = React.forwardRef(({ product, settings, width = '50mm', height = '30mm', parcelas = 0, typeLabel = 'UNIDADE', showPrice = true, showBarcode = true, showNumbers = true }, ref) => {
+  const hasPromo = product.promo_price && Number(product.promo_price) > 0 && Number(product.promo_price) < Number(product.price);
+  const finalPriceValue = hasPromo ? Number(product.promo_price) : Number(product.price || 0);
+
+  const formattedFinalPrice = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(product.price || 0);
+  }).format(finalPriceValue);
+
+  const formattedOriginalPrice = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(Number(product.price || 0));
 
   return (
     <div
@@ -17,7 +24,7 @@ const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30
       style={{
         width,
         height,
-        padding: '3mm',
+        padding: '4mm',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -25,35 +32,52 @@ const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30
         textAlign: 'center',
         fontSize: '8px',
         overflow: 'hidden',
-        pageBreakAfter: 'always', // Garante que cada etiqueta comece em uma nova página de impressão
+        pageBreakAfter: 'always',
       }}
     >
-      {/* Cabeçalho: nome e preço */}
-      <div style={{ width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ textAlign: 'left', fontWeight: 'bold', fontSize: '11px', lineHeight: '1.1', maxWidth: '60%', overflow: 'hidden' }}>
-            {(product.name || 'PRODUTO SEM NOME').toUpperCase()}
+
+      {/* Meio: Nome e Preços */}
+      <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '2mm', marginBottom: '1mm' }}>
+        <div style={{ textAlign: 'left', maxWidth: '60%' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '9px', lineHeight: '1.2' }}>
+            {(product.name || 'PRODUTO').toUpperCase()}
           </div>
-          {showPrice && (
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{formattedPrice}</div>
-              {parcelas > 1 && (() => {
-                const perInstallment = (product.price || 0) / parcelas
-                const formattedInstallment = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(perInstallment)
-                return <div style={{ fontSize: '10px' }}>{parcelas}x {formattedInstallment}</div>
-              })()}
-              <div style={{ fontSize: '9px', color: '#444' }}>{typeLabel}</div>
+          {product.category && (
+            <div style={{ fontSize: '7px', color: '#666', marginTop: '1px' }}>
+              {product.category.toUpperCase()}
             </div>
           )}
         </div>
-        {/* Linha secundária opcional com categoria/tamanho se existir */}
-        {(product.category || product.size) && (
-          <div style={{ textAlign: 'left', fontSize: '8px', marginTop: 2 }}>
-            {product.category ? `CAT: ${product.category}` : ''} {product.size ? ` • TAM: ${product.size}` : ''}
+
+        {showPrice && (
+          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            {hasPromo && (
+              <div style={{ fontSize: '8px', color: '#999', textDecoration: 'line-through', lineHeight: '1' }}>
+                {formattedOriginalPrice}
+              </div>
+            )}
+            <div style={{ fontSize: '13px', fontWeight: '800', lineHeight: '1', color: '#000' }}>
+              {formattedFinalPrice}
+            </div>
+            {parcelas > 1 && (() => {
+              const perInstallment = finalPriceValue / parcelas
+              const formattedInstallment = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(perInstallment)
+              return <div style={{ fontSize: '8px', fontWeight: '500', marginTop: '1px' }}>{parcelas}x {formattedInstallment}</div>
+            })()}
           </div>
         )}
       </div>
 
+      {/* Logo Centralizada (baixo do nome e categoria) */}
+      {settings?.logo_url && (
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '1mm' }}>
+          <img
+            src={settings.logo_url}
+            alt="Logo"
+            style={{ height: '20px', maxWidth: '80%', objectFit: 'contain' }}
+          />
+        </div>
+      )}
 
       {/* Código de Barras */}
       {showBarcode && (
@@ -61,17 +85,17 @@ const LabelComponent = React.forwardRef(({ product, width = '50mm', height = '30
           <Barcode
             value={product.barcode}
             format="CODE128"
-            width={1}
-            height={22}
+            width={0.8}
+            height={18}
             displayValue={showNumbers}
-            fontSize={8}
+            fontSize={7}
             textMargin={0}
             margin={0}
-            marginTop={2}
+            marginTop={1}
             renderer="svg"
           />
         ) : (
-          <div style={{ color: 'red', fontSize: '8px' }}>Sem Código</div>
+          <div style={{ color: 'red', fontSize: '7px', fontWeight: 'bold' }}>SEM CÓDIGO</div>
         )
       )}
     </div>
