@@ -251,6 +251,7 @@ export default function Layout({ children, currentPageName }) {
   }, [user])
 
   const crmDebounceTimer = React.useRef(null);
+  const lastCrmFetchTime = React.useRef(0);
 
   // CRM Notification Logic
   useEffect(() => {
@@ -275,6 +276,7 @@ export default function Layout({ children, currentPageName }) {
           return;
         }
         setCrmNotificationCount(count || 0);
+        lastCrmFetchTime.current = Date.now();
       } catch (err) {
         console.warn('[Layout] Exception fetching CRM notification count:', err);
       }
@@ -282,8 +284,19 @@ export default function Layout({ children, currentPageName }) {
 
     const debouncedFetch = () => {
       if (isCrmViewBroken) return;
+
+      const now = Date.now();
+      const timeSinceLastFetch = now - lastCrmFetchTime.current;
+
+      // Se já passou mais de 30 segundos desde a última atualização, força uma agora
+      // mesmo que a "tempestade" de mensagens continue
+      if (timeSinceLastFetch > 30000) {
+        fetchCrmCount();
+        return;
+      }
+
       if (crmDebounceTimer.current) clearTimeout(crmDebounceTimer.current);
-      crmDebounceTimer.current = setTimeout(fetchCrmCount, 10000); // 10s debounce
+      crmDebounceTimer.current = setTimeout(fetchCrmCount, 10000); // 10s de silêncio
     };
 
     if (!isCrmViewBroken) {
