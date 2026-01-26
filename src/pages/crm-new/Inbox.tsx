@@ -123,11 +123,7 @@ const ChatListItem = memo(({ chat, isSelected, name, phone, onSelect }: { chat: 
       </div>
       <div className="flex flex-col">
         <p className="text-[10px] text-muted-foreground mb-0.5">{phone}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {typeof chat.lastMessage === 'string' ? chat.lastMessage : (
-            typeof chat.lastMessage === 'object' ? (chat.lastMessage.content || chat.lastMessage.text || 'Mídia') : 'Sem mensagens'
-          )}
-        </p>
+        <p className="text-xs text-muted-foreground truncate">{chat.lastMessage || "Sem mensagens"}</p>
       </div>
     </div>
     {chat.unreadCount > 0 && <span className="h-5 min-w-[1.25rem] rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">{chat.unreadCount}</span>}
@@ -345,6 +341,23 @@ export default function Inbox() {
         if (JSON.stringify(prev) === JSON.stringify(response)) return prev;
         return response;
       });
+
+      // Update discovered names for future resolution
+      const newNames: Record<string, string> = {};
+      const invalidNames = ['Você', 'You', 'Eu', 'Me', 'Desconhecido', 'Unknown', 'Null', 'Undefined'];
+      const isInvalid = (n: any) => {
+        if (!n || typeof n !== 'string') return true;
+        const clean = n.trim().toLowerCase();
+        return clean.includes('@') || invalidNames.some(inv => clean === inv.toLowerCase() || clean.startsWith(inv.toLowerCase() + " "));
+      };
+
+      response.forEach(c => {
+        const jid = c.id || c.remoteJid;
+        if (jid && c.name && !isInvalid(c.name) && c.name !== jid.split('@')[0]) {
+          newNames[jid] = c.name;
+        }
+      });
+      setDiscoveredNames(prev => ({ ...prev, ...newNames }));
     } catch (error: any) {
       if (!silent) toast.error("Erro ao carregar conversas: " + error.message);
     } finally {
@@ -496,10 +509,7 @@ export default function Inbox() {
       if (isHidden) return false;
 
       const name = (chat.computedName || "").toLowerCase();
-      const lastMsgContent = typeof chat.lastMessage === 'string' ? chat.lastMessage :
-        (typeof chat.lastMessage === 'object' ? (chat.lastMessage?.content || chat.lastMessage?.text || '') : '');
-      const lastMsg = String(lastMsgContent || "").toLowerCase();
-
+      const lastMsg = (chat.lastMessage || "").toLowerCase();
       const matchesSearch = name.includes(searchQuery.toLowerCase()) || lastMsg.includes(searchQuery.toLowerCase());
 
       if (chatFilter === 'mine') return matchesSearch && assignments[jid] === currentUser.id;

@@ -110,6 +110,12 @@ serve(async (req) => {
                 break
             }
 
+            case 'connect': {
+                const res = await EvolutionService.request(`/instance/connect/${instanceName}`)
+                responseData = res.json
+                break
+            }
+
             case 'proxy_request': {
                 const { path, method, body: proxyBody } = payload || {}
                 const res = await EvolutionService.request(path, {
