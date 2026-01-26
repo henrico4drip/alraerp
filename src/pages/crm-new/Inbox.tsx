@@ -123,7 +123,11 @@ const ChatListItem = memo(({ chat, isSelected, name, phone, onSelect }: { chat: 
       </div>
       <div className="flex flex-col">
         <p className="text-[10px] text-muted-foreground mb-0.5">{phone}</p>
-        <p className="text-xs text-muted-foreground truncate">{chat.lastMessage || "Sem mensagens"}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {typeof chat.lastMessage === 'string' ? chat.lastMessage : (
+            typeof chat.lastMessage === 'object' ? (chat.lastMessage.content || chat.lastMessage.text || 'Mídia') : 'Sem mensagens'
+          )}
+        </p>
       </div>
     </div>
     {chat.unreadCount > 0 && <span className="h-5 min-w-[1.25rem] rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">{chat.unreadCount}</span>}
@@ -509,7 +513,10 @@ export default function Inbox() {
       if (isHidden) return false;
 
       const name = (chat.computedName || "").toLowerCase();
-      const lastMsg = (chat.lastMessage || "").toLowerCase();
+      const lastMsgContent = typeof chat.lastMessage === 'string' ? chat.lastMessage :
+        (typeof chat.lastMessage === 'object' ? (chat.lastMessage?.content || chat.lastMessage?.text || '') : '');
+      const lastMsg = String(lastMsgContent || "").toLowerCase();
+
       const matchesSearch = name.includes(searchQuery.toLowerCase()) || lastMsg.includes(searchQuery.toLowerCase());
 
       if (chatFilter === 'mine') return matchesSearch && assignments[jid] === currentUser.id;
