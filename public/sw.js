@@ -1,4 +1,4 @@
-const VERSION = 'v7-cors-and-sync-fix';
+const VERSION = 'v8-permanent-sync-fix';
 
 self.addEventListener('install', () => {
   self.skipWaiting()

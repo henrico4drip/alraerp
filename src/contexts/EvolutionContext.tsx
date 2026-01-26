@@ -305,7 +305,8 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
             }
         }
 
-        return formatPhoneNumber(targetJid) || "Desconhecido";
+        const formatted = formatPhoneNumber(targetJid);
+        return formatted || targetJid.split('@')[0] || fallback || "Desconhecido";
     }, [lidMapMemo, contacts, customNames, discoveredNames]);
 
     return (
