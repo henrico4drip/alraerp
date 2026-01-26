@@ -24,7 +24,7 @@ interface EvolutionContextType {
     setDiscoveredNames: React.Dispatch<React.SetStateAction<Record<string, string>>>;
     customNames: Record<string, string>;
     setCustomName: (jid: string, name: string) => void;
-    contacts: any[]; // Exposed contacts list
+    contacts: any[];
     messageCache: Record<string, any[]>;
     updateMessageCache: (jid: string, messages: any[]) => void;
     syncContacts: () => Promise<any>;
@@ -34,8 +34,6 @@ const EvolutionContext = createContext<EvolutionContextType | undefined>(undefin
 
 export function EvolutionProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
-
-    // Instance name matching the Proxy convention: erp_USERID (first part)
     const instanceName = useMemo(() => {
         if (!user?.id) return '';
         return `erp_${user.id.split('-')[0]}`;
@@ -110,7 +108,6 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
-    // Initialize API when user is available
     useEffect(() => {
         if (!user?.id) {
             setApi(null);
@@ -141,46 +138,34 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
             setError(null);
         } catch (err: any) {
             setIsConnected(false);
-            if (err.response?.status !== 404) {
+            if (err.message?.includes('404') || err.message?.includes('not found')) {
+                // Ignore 404s for status checks (instance not created yet)
+            } else {
                 setError(err.message);
             }
         }
     };
 
     const connect = async () => {
-        if (!api || !instanceName) {
-            console.warn('[EvolutionContext] API not ready for connect');
-            return;
-        }
+        if (!api || !instanceName) return;
         setLoading(true);
         setError(null);
         try {
-            console.log('[EvolutionContext] Requesting QR Code...');
             const qrData = await api.getQRCode();
-            console.log('[EvolutionContext] QR Data received:', qrData);
-
-            // Handle different QR formats from proxy/API v1 and v2
             const rawBase64 = qrData?.base64 || qrData?.instance?.qrcode?.base64 || qrData?.qrcode?.base64;
             const rawCode = qrData?.code || qrData?.instance?.qrcode?.code || qrData?.qrcode?.code || (typeof qrData === 'string' ? qrData : null);
             const rawPairing = qrData?.pairingCode || qrData?.instance?.qrcode?.pairingCode || qrData?.qrcode?.pairingCode;
 
             if (rawBase64) {
-                const img = String(rawBase64).startsWith('data:image') ? rawBase64 : `data:image/png;base64,${rawBase64}`;
-                setQrCode(img);
+                setQrCode(String(rawBase64).startsWith('data:image') ? rawBase64 : `data:image/png;base64,${rawBase64}`);
                 setPairingCode(null);
             } else if (rawCode) {
-                try {
-                    const img = await QRCode.toDataURL(String(rawCode));
-                    setQrCode(img);
-                    setPairingCode(null);
-                } catch (e) {
-                    console.error('[EvolutionContext] Failed to convert raw code to QR:', e);
-                }
+                const img = await QRCode.toDataURL(String(rawCode));
+                setQrCode(img);
+                setPairingCode(null);
             }
 
-            if (rawPairing) {
-                setPairingCode(String(rawPairing));
-            }
+            if (rawPairing) setPairingCode(String(rawPairing));
 
             const rawConnState = qrData?.status || qrData?.instance?.state || "";
             const state = typeof rawConnState === 'string' ? rawConnState.toUpperCase() : "";
@@ -190,7 +175,6 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
                 setPairingCode(null);
             }
         } catch (err: any) {
-            console.error('[EvolutionContext] Connect error:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -206,7 +190,6 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
             const contactsList = Array.isArray(contactsRes) ? contactsRes : [];
             setContacts(contactsList);
 
-            // AUTO-DISCOVERY: Extract names from contacts list to populate cache
             const discovered: Record<string, string> = {};
             const invalidNames = ['Você', 'You', 'Eu', 'Me', 'Desconhecido', 'Unknown', 'Null', 'Undefined'];
 
@@ -217,7 +200,6 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
                     const cleanName = String(name).trim();
                     const isNotPhone = cleanName !== jid.split('@')[0];
                     const isNotInvalid = !invalidNames.some(inv => cleanName.toLowerCase() === inv.toLowerCase());
-
                     if (isNotPhone && isNotInvalid && cleanName.length > 1) {
                         discovered[jid] = cleanName;
                     }
@@ -264,7 +246,7 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (api) {
             checkStatus();
-            const interval = setInterval(checkStatus, 15000); // Polling more frequent while setting up
+            const interval = setInterval(checkStatus, 15000);
             return () => clearInterval(interval);
         }
     }, [api]);
@@ -301,12 +283,20 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
             if (name && typeof name === 'string' && name.length >= 2) {
                 const clean = name.trim();
                 const isId = clean.includes('240605') || clean === phoneNumber || clean === jid.split('@')[0];
-                if (!isId) return clean.startsWith('~') ? clean.substring(1).trim() : clean;
+                const isInvalid = ['desconhecido', 'unknown', 'undefined', 'null'].includes(clean.toLowerCase());
+                if (!isId && !isInvalid) return clean.startsWith('~') ? clean.substring(1).trim() : clean;
             }
         }
 
+        const cleanJid = targetJid.split('@')[0];
         const formatted = formatPhoneNumber(targetJid);
-        return formatted || targetJid.split('@')[0] || fallback || "Desconhecido";
+        const isFallbackValid = fallback && !['desconhecido', 'unknown', 'undefined', 'null'].includes(String(fallback).toLowerCase());
+
+        if (isFallbackValid) return fallback!;
+        if (formatted && formatted.length > 5) return formatted;
+        if (cleanJid) return cleanJid;
+
+        return "Desconhecido";
     }, [lidMapMemo, contacts, customNames, discoveredNames]);
 
     return (

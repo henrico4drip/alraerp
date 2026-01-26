@@ -61,7 +61,6 @@ serve(async (req) => {
         }
 
         const instanceName = `erp_${user.id.split('-')[0]}`
-
         console.log(`[PROXY_ACTION] ${action} for instance ${instanceName}`)
 
         let responseData: any = null
@@ -70,7 +69,6 @@ serve(async (req) => {
         switch (action) {
             case 'get_status': {
                 const res = await EvolutionService.request(`/instance/connectionState/${instanceName}`)
-                // Map errors to 200 with error info to avoid Supabase invoke exception
                 responseData = res.json || { error: res.text || 'Unknown' }
                 responseStatus = (res.status === 404 || res.status === 401) ? 200 : res.status
                 break
@@ -84,8 +82,10 @@ serve(async (req) => {
                 if (res.status === 403 || res.json?.error) {
                     const connectRes = await EvolutionService.request(`/instance/connect/${instanceName}`)
                     responseData = connectRes.json
+                    responseStatus = connectRes.status
                 } else {
                     responseData = res.json
+                    responseStatus = res.status
                 }
                 break
             }
@@ -96,6 +96,7 @@ serve(async (req) => {
                     body: JSON.stringify(payload || { where: {}, limit: 1000 })
                 })
                 responseData = res.json
+                responseStatus = res.status
                 break
             }
 
@@ -105,6 +106,7 @@ serve(async (req) => {
                     body: JSON.stringify(payload || { where: {}, limit: 100 })
                 })
                 responseData = res.json
+                responseStatus = res.status
                 break
             }
 
@@ -114,7 +116,7 @@ serve(async (req) => {
                     body: JSON.stringify(payload)
                 })
                 responseData = res.json
-                responseStatus = res.status === 201 ? 200 : res.status
+                responseStatus = (res.status === 201 || res.status === 200) ? 200 : res.status
                 break
             }
 
@@ -134,12 +136,16 @@ serve(async (req) => {
                 return new Response(JSON.stringify({ error: `Invalid action: ${action}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
+        // Ensure we always return correct CORS headers even on error status
         return new Response(JSON.stringify(responseData), {
-            status: responseStatus,
+            status: responseStatus === 0 ? 500 : responseStatus,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     } catch (error) {
         console.error(`[FATAL_ERROR]`, error.message)
-        return new Response(JSON.stringify({ error: error.message }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
     }
 })

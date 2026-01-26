@@ -1,4 +1,4 @@
-const VERSION = 'v8-permanent-sync-fix';
+const VERSION = 'v9-naming-and-proxy-fix';
 
 self.addEventListener('install', () => {
   self.skipWaiting()

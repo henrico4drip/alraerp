@@ -80,30 +80,36 @@ export class EvolutionAPI {
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const useProxy = !!this.supabase && !isLocalhost;
 
+        let responseData: any;
         if (useProxy) {
             console.log(`[EvolutionAPI] [PROXY] ${method} ${path}`);
             // Force proxy routes to match Edge Function cases
             const pathLower = path.toLowerCase();
-            if (pathLower.includes('/chat/findchats')) return this.proxyInvoke('fetch_inbox', body);
-            if (pathLower.includes('/chat/findcontacts') || pathLower.includes('/contact/findcontacts')) return this.proxyInvoke('fetch_contacts', body);
-            if (pathLower.includes('/instance/create')) return this.proxyInvoke('connect', body);
-            if (pathLower.includes('/instance/connectionstate')) return this.proxyInvoke('get_status', body);
-            if (pathLower.includes('/message/sendtext')) return this.proxyInvoke('send_message', body);
-
-            // Generic fallback
-            return this.proxyInvoke('proxy_request', { path, method, body });
+            if (pathLower.includes('/chat/findchats')) responseData = await this.proxyInvoke('fetch_inbox', body);
+            else if (pathLower.includes('/chat/findcontacts') || pathLower.includes('/contact/findcontacts')) responseData = await this.proxyInvoke('fetch_contacts', body);
+            else if (pathLower.includes('/instance/create')) responseData = await this.proxyInvoke('connect', body);
+            else if (pathLower.includes('/instance/connectionstate')) responseData = await this.proxyInvoke('get_status', body);
+            else if (pathLower.includes('/message/sendtext')) responseData = await this.proxyInvoke('send_message', body);
+            else responseData = await this.proxyInvoke('proxy_request', { path, method, body });
+        } else {
+            console.log(`[EvolutionAPI] [DIRECT] ${method} ${path}`);
+            const response = await (method === 'GET'
+                ? this.client.get(path)
+                : method === 'POST'
+                    ? this.client.post(path, body)
+                    : method === 'PUT'
+                        ? this.client.put(path, body)
+                        : this.client.delete(path));
+            responseData = response.data;
         }
 
-        console.log(`[EvolutionAPI] [DIRECT] ${method} ${path}`);
-        const response = await (method === 'GET'
-            ? this.client.get(path)
-            : method === 'POST'
-                ? this.client.post(path, body)
-                : method === 'PUT'
-                    ? this.client.put(path, body)
-                    : this.client.delete(path));
+        // CRITICAL: Check if the response body contains an error (common in proxy/Evo API)
+        if (responseData && typeof responseData === 'object' && responseData.error) {
+            console.error(`[EvolutionAPI] API Error:`, responseData.error);
+            throw new Error(responseData.error);
+        }
 
-        return response.data;
+        return responseData;
     }
 
     async createInstance(instanceName: string): Promise<any> {
