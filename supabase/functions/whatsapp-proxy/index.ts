@@ -62,10 +62,18 @@ serve(async (req) => {
 
         const instanceName = `erp_${user.id.split('-')[0]}`
 
+        console.log(`[PROXY_ACTION] ${action} for instance ${instanceName}`)
+
+        let responseData: any = null
+        let responseStatus = 200
+
         switch (action) {
             case 'get_status': {
                 const res = await EvolutionService.request(`/instance/connectionState/${instanceName}`)
-                return new Response(JSON.stringify(res.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                // Map errors to 200 with error info to avoid Supabase invoke exception
+                responseData = res.json || { error: res.text || 'Unknown' }
+                responseStatus = (res.status === 404 || res.status === 401) ? 200 : res.status
+                break
             }
 
             case 'connect': {
@@ -75,9 +83,11 @@ serve(async (req) => {
                 })
                 if (res.status === 403 || res.json?.error) {
                     const connectRes = await EvolutionService.request(`/instance/connect/${instanceName}`)
-                    return new Response(JSON.stringify(connectRes.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                    responseData = connectRes.json
+                } else {
+                    responseData = res.json
                 }
-                return new Response(JSON.stringify(res.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                break
             }
 
             case 'fetch_contacts': {
@@ -85,7 +95,8 @@ serve(async (req) => {
                     method: 'POST',
                     body: JSON.stringify(payload || { where: {}, limit: 1000 })
                 })
-                return new Response(JSON.stringify(res.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                responseData = res.json
+                break
             }
 
             case 'fetch_inbox': {
@@ -93,7 +104,8 @@ serve(async (req) => {
                     method: 'POST',
                     body: JSON.stringify(payload || { where: {}, limit: 100 })
                 })
-                return new Response(JSON.stringify(res.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                responseData = res.json
+                break
             }
 
             case 'send_message': {
@@ -101,10 +113,9 @@ serve(async (req) => {
                     method: 'POST',
                     body: JSON.stringify(payload)
                 })
-                return new Response(JSON.stringify(res.json), {
-                    status: res.status === 201 ? 200 : res.status,
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                })
+                responseData = res.json
+                responseStatus = res.status === 201 ? 200 : res.status
+                break
             }
 
             case 'proxy_request': {
@@ -114,16 +125,21 @@ serve(async (req) => {
                     method: method || 'GET',
                     body: proxyBody ? JSON.stringify(proxyBody) : undefined
                 })
-                return new Response(JSON.stringify(res.json || res.text), {
-                    status: res.status === 0 ? 500 : res.status,
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                })
+                responseData = res.json || res.text
+                responseStatus = res.status === 0 ? 500 : res.status
+                break
             }
 
             default:
                 return new Response(JSON.stringify({ error: `Invalid action: ${action}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
+
+        return new Response(JSON.stringify(responseData), {
+            status: responseStatus,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
     } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        console.error(`[FATAL_ERROR]`, error.message)
+        return new Response(JSON.stringify({ error: error.message }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 })
