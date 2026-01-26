@@ -1,4 +1,4 @@
-const VERSION = 'v5-force-icon-update-now';
+const VERSION = 'v6-cache-purge';
 
 self.addEventListener('install', () => {
   self.skipWaiting()

@@ -119,7 +119,7 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
 
         console.log(`[EvolutionContext] Initializing API for instance ${instanceName}`);
         setApi(new EvolutionAPI(
-            import.meta.env.VITE_EVOLUTION_API_URL || 'http://84.247.143.180:8080',
+            import.meta.env.VITE_EVOLUTION_API_URL || '',
             import.meta.env.VITE_EVOLUTION_API_KEY || 'Henrico9516',
             instanceName,
             supabase

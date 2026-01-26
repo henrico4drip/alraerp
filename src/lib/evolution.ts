@@ -214,15 +214,32 @@ export class EvolutionAPI {
 
     async markRead(remoteJid: string): Promise<any> {
         try {
-            await this.request('POST', `/chat/readMessages/${this.instanceName}`, { number: remoteJid, readMessages: true });
+            return await this.request('POST', `/chat/readMessages/${this.instanceName}`, { number: remoteJid, readMessages: true });
         } catch (e) { }
         return null;
     }
+
+    async syncContacts(): Promise<any> {
+        try {
+            return await this.request('POST', `/contact/sync/${this.instanceName}`);
+        } catch (e) {
+            return null;
+        }
+    }
 }
 
-function isSameJid(j1: string, j2: string): boolean {
+export function isSameJid(j1: string, j2: string): boolean {
     if (!j1 || !j2) return false;
     const p1 = j1.split('@')[0];
     const p2 = j2.split('@')[0];
     return p1 === p2;
+}
+
+export function formatPhoneNumber(jid: string): string {
+    if (!jid) return "";
+    const num = jid.split('@')[0];
+    if (num.length >= 12) {
+        return `+${num.slice(0, 2)} (${num.slice(2, 4)}) ${num.slice(4, 9)}-${num.slice(9)}`;
+    }
+    return num;
 }
