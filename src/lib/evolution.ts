@@ -91,31 +91,68 @@ export class EvolutionAPI {
         return data;
     }
 
-    // Instance Management
-    async createInstance(instanceName: string): Promise<any> {
-        if (this.supabase) return this.proxyInvoke('connect');
+    private async request(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: any) {
+        if (this.supabase) {
+            // Check if there is a specialized action in the proxy
+            // If not, use the generic 'proxy_request'
+            const specializedActions: Record<string, string> = {
+                '/instance/create': 'connect',
+                '/instance/connect/': 'connect',
+                '/instance/connectionState/': 'get_status',
+                '/instance/logout/': 'logout',
+                '/instance/delete/': 'delete_instance',
+                '/message/sendText/': 'send_message',
+                '/chat/findContacts/': 'fetch_contacts',
+                '/chat/findChats/': 'fetch_inbox',
+                '/chat/sync/': 'sync_contacts'
+            };
 
-        const response = await this.client.post("/instance/create", {
-            instanceName,
-            qrcode: true, // v2.3.0 handles QR generation correctly
-            integration: "WHATSAPP-BAILEYS",
-        });
+            // Heuristic matching
+            let action = 'proxy_request';
+            for (const [route, act] of Object.entries(specializedActions)) {
+                if (path.startsWith(route)) {
+                    action = act;
+                    break;
+                }
+            }
+
+            if (action === 'proxy_request') {
+                return this.proxyInvoke('proxy_request', { path, method, body });
+            } else {
+                // For specialized actions, we often need to transform the body or just pass it as payload
+                return this.proxyInvoke(action, body ? { ...body } : undefined);
+            }
+        }
+
+        // Standard direct request (localhost/dev only)
+        const response = await (method === 'GET'
+            ? this.client.get(path)
+            : method === 'POST'
+                ? this.client.post(path, body)
+                : method === 'PUT'
+                    ? this.client.put(path, body)
+                    : this.client.delete(path));
+
         return response.data;
     }
 
-    async getInstanceStatus(): Promise<any> {
-        if (this.supabase) return this.proxyInvoke('get_status');
+    // Instance Management
+    async createInstance(instanceName: string): Promise<any> {
+        return this.request('POST', "/instance/create", {
+            instanceName,
+            qrcode: true,
+            integration: "WHATSAPP-BAILEYS",
+        });
+    }
 
+    async getInstanceStatus(): Promise<any> {
         try {
-            // Try connectionState first (v1.6+)
-            const response = await this.client.get(`/instance/connectionState/${this.instanceName}`);
-            return response.data;
+            return await this.request('GET', `/instance/connectionState/${this.instanceName}`);
         } catch (error: any) {
             // Fallback for older v1.x or variations
             if (error.response?.status === 404) {
                 try {
-                    const fallback = await this.client.get(`/instance/displayState/${this.instanceName}`);
-                    return fallback.data;
+                    return await this.request('GET', `/instance/displayState/${this.instanceName}`);
                 } catch {
                     throw error;
                 }
@@ -125,11 +162,8 @@ export class EvolutionAPI {
     }
 
     async getQRCode(): Promise<any> {
-        if (this.supabase) return this.proxyInvoke('connect');
-
         try {
-            const response = await this.client.get(`/instance/connect/${this.instanceName}`);
-            let data = response.data;
+            const data = await this.request('GET', `/instance/connect/${this.instanceName}`);
 
             // Handle cases where data is nested or direct
             if (data?.qrcode) return data.qrcode;
@@ -145,8 +179,7 @@ export class EvolutionAPI {
 
     async listInstances(): Promise<any[]> {
         try {
-            const response = await this.client.get("/instance/fetchInstances");
-            const data = response.data;
+            const data = await this.request('GET', "/instance/fetchInstances");
 
             if (Array.isArray(data)) return data;
             if (Array.isArray(data?.instances)) return data.instances;
@@ -159,20 +192,15 @@ export class EvolutionAPI {
     }
 
     async deleteInstance(): Promise<any> {
-        if (this.supabase) return this.proxyInvoke('delete_instance');
-        const response = await this.client.delete(`/instance/delete/${this.instanceName}`);
-        return response.data;
+        return this.request('DELETE', `/instance/delete/${this.instanceName}`);
     }
 
     async logoutInstance(): Promise<any> {
-        if (this.supabase) return this.proxyInvoke('logout');
-        const response = await this.client.delete(`/instance/logout/${this.instanceName}`);
-        return response.data;
+        return this.request('DELETE', `/instance/logout/${this.instanceName}`);
     }
 
     async restartInstance(): Promise<any> {
-        const response = await this.client.put(`/instance/restart/${this.instanceName}`);
-        return response.data;
+        return this.request('PUT', `/instance/restart/${this.instanceName}`);
     }
 
     async findContact(jid: string): Promise<any> {
@@ -181,8 +209,7 @@ export class EvolutionAPI {
 
     async syncContacts(): Promise<any> {
         try {
-            const response = await this.client.post(`/contact/sync/${this.instanceName}`);
-            return response.data;
+            return await this.request('POST', `/contact/sync/${this.instanceName}`);
         } catch (e) {
             return null;
         }
@@ -192,7 +219,7 @@ export class EvolutionAPI {
         try {
             // HACK V2: Fetching the profile picture forces the server to look up the user's public record,
             // which often populates the internal LID->Phone mapping cache.
-            await this.client.post(`/chat/fetchProfilePictureUrl/${this.instanceName}`, {
+            await this.request('POST', `/chat/fetchProfilePictureUrl/${this.instanceName}`, {
                 number: jid
             });
             return true;
@@ -204,14 +231,6 @@ export class EvolutionAPI {
 
     // Messages
     async sendTextMessage(remoteJid: string, text: string, quoted?: any): Promise<any> {
-        if (this.supabase) {
-            return this.proxyInvoke('send_message', {
-                jid: remoteJid,
-                message: text,
-                phone: remoteJid.split('@')[0]
-            });
-        }
-
         // GLOBAL LID RESOLUTION: Check if we have a mapping for this LID in local storage
         let finalJid = remoteJid;
         if (remoteJid.includes('@lid')) {
@@ -250,8 +269,7 @@ export class EvolutionAPI {
         console.log(`[EvolutionAPI] Sending text to ${target} (Instance: ${this.instanceName})`);
 
         try {
-            const response = await this.client.post(`/message/sendText/${this.instanceName}`, payload);
-            return response.data;
+            return await this.request('POST', `/message/sendText/${this.instanceName}`, payload);
         } catch (error: any) {
             if (error.response?.data) {
                 console.error(`[EvolutionAPI] DETALHE DO ERRO ${error.response.status}:`, JSON.stringify(error.response.data));
@@ -307,7 +325,7 @@ export class EvolutionAPI {
                 // FALLBACK 2: Brute force with simplified payload (Last Resort)
                 try {
                     console.log(`[EvolutionAPI] Trying brute force send to LID...`);
-                    const fallbackResponse = await this.client.post(`/message/sendText/${this.instanceName}`, {
+                    return await this.request('POST', `/message/sendText/${this.instanceName}`, {
                         number: remoteJid,
                         text: text,
                         textMessage: {
@@ -318,13 +336,12 @@ export class EvolutionAPI {
                         forceSend: true,
                         linkPreview: false
                     });
-                    return fallbackResponse.data;
                 } catch (fError: any) {
                     // FALLBACK 3: QUOTED MESSAGE STRATEGY
                     if (quoted) {
                         console.log(`[EvolutionAPI] Trying QUOTED fallback for LID...`);
                         try {
-                            const quoteResponse = await this.client.post(`/message/sendText/${this.instanceName}`, {
+                            return await this.request('POST', `/message/sendText/${this.instanceName}`, {
                                 number: remoteJid,
                                 text: text,
                                 textMessage: {
@@ -334,7 +351,6 @@ export class EvolutionAPI {
                                 forceSend: true,
                                 quoted: { key: quoted.key, message: quoted.message }
                             });
-                            return quoteResponse.data;
                         } catch (qErr) {
                             console.warn("Quoted fallback failed", qErr);
                         }
@@ -375,7 +391,7 @@ export class EvolutionAPI {
         console.log(`[EvolutionAPI] Sending media to ${target} using instance ${this.instanceName}`);
 
         try {
-            const response = await this.client.post(endpoint, {
+            return await this.request('POST', endpoint, {
                 number: target,
                 checkContact: false,
                 forceSend: true,
@@ -390,7 +406,6 @@ export class EvolutionAPI {
                     fileName,
                 }
             });
-            return response.data;
         } catch (error: any) {
             if (error.response?.data) {
                 console.error(`[EvolutionAPI] DETALHE DO ERRO MEDIA ${error.response.status}:`, JSON.stringify(error.response.data));
@@ -416,7 +431,7 @@ export class EvolutionAPI {
 
                 // FALLBACK 2: Brute force payload
                 try {
-                    const fallbackResponse = await this.client.post(endpoint, {
+                    return await this.request('POST', endpoint, {
                         number: remoteJid,
                         checkContact: false,
                         check_contact: false,
@@ -429,7 +444,6 @@ export class EvolutionAPI {
                             fileName,
                         }
                     });
-                    return fallbackResponse.data;
                 } catch (fError: any) {
                     if (fError.response?.data) {
                         console.error(`[EvolutionAPI] DETALHE DO ERRO FALLBACK MEDIA:`, JSON.stringify(fError.response.data));
@@ -457,7 +471,7 @@ export class EvolutionAPI {
 
         try {
             // v2.3.0 uses findMessages endpoint
-            const response = await this.client.post(`/chat/findMessages/${this.instanceName}`, {
+            const data = await this.request('POST', `/chat/findMessages/${this.instanceName}`, {
                 where: {
                     key: {
                         remoteJid: remoteJid
@@ -468,8 +482,6 @@ export class EvolutionAPI {
             });
 
             let messages = [];
-            const data = response.data;
-
             console.log('[EvolutionAPI] fetchMessages response type:', typeof data, 'isArray:', Array.isArray(data));
             if (data && !Array.isArray(data)) {
                 console.log('[EvolutionAPI] fetchMessages response keys:', Object.keys(data));
@@ -555,9 +567,8 @@ export class EvolutionAPI {
     // Contacts
     async fetchContacts(): Promise<EvolutionContact[]> {
         try {
-            const response = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
+            const rawData = await this.request('POST', `/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
             // v2.3.0 can return an object or an array
-            const rawData = response.data;
             const contacts = Array.isArray(rawData) ? rawData : (rawData?.records || rawData?.data || (typeof rawData === 'object' ? Object.values(rawData) : []));
 
             const processed = contacts.map((c: any) => ({
@@ -577,10 +588,10 @@ export class EvolutionAPI {
 
     async getProfilePicture(remoteJid: string): Promise<string | null> {
         try {
-            const response = await this.client.post(`/chat/fetchProfilePictureUrl/${this.instanceName}`, {
+            const data = await this.request('POST', `/chat/fetchProfilePictureUrl/${this.instanceName}`, {
                 number: remoteJid,
             });
-            return response.data?.profilePictureUrl || null;
+            return data?.profilePictureUrl || null;
         } catch (e: any) {
             return null;
         }
@@ -590,14 +601,13 @@ export class EvolutionAPI {
         if (!remoteId) return null;
         try {
             // Use findChats with a specific ID filter as a reliable alternative to the failing contact route
-            const response = await this.client.post(`/chat/findChats/${this.instanceName}`, {
+            const data = await this.request('POST', `/chat/findChats/${this.instanceName}`, {
                 where: {
                     id: remoteId
                 },
                 limit: 1
             });
 
-            const data = response.data;
             const records = Array.isArray(data) ? data : (data?.records || data?.chats || data?.data || []);
 
             if (records.length > 0) {
@@ -628,11 +638,10 @@ export class EvolutionAPI {
 
     async getBase64Media(message: any): Promise<{ base64: string } | null> {
         try {
-            const response = await this.client.post(`/chat/getBase64FromMediaMessage/${this.instanceName}`, {
+            return await this.request('POST', `/chat/getBase64FromMediaMessage/${this.instanceName}`, {
                 message: message,
                 convertToMp4: false
             });
-            return response.data;
         } catch (error: any) {
             console.warn("Error getting base64 media:", error.message);
             return null;
@@ -648,8 +657,8 @@ export class EvolutionAPI {
             }
 
             // 1. Fetch Agenda First (The absolute source of truth for names in v2.3.0)
-            const contactRes = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
-            const rawContacts = Array.isArray(contactRes.data) ? contactRes.data : Object.values(contactRes.data || {});
+            const contactData = await this.request('POST', `/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
+            const rawContacts = Array.isArray(contactData) ? contactData : Object.values(contactData || {});
 
             const identityMap = new Map<string, string>();
             const savedMappings: Record<string, string> = JSON.parse(localStorage.getItem('lid_mappings') || '{}');
@@ -664,15 +673,13 @@ export class EvolutionAPI {
             });
 
             // 2. Fetch raw chats
-            const chatResponse = await this.client.post(`/chat/findChats/${this.instanceName}`, { where: {}, limit: 1000 });
-            const rawChatsData = chatResponse.data;
+            const rawChatsData = await this.request('POST', `/chat/findChats/${this.instanceName}`, { where: {}, limit: 1000 });
             const rawChats = Array.isArray(rawChatsData) ? rawChatsData : (rawChatsData?.records || rawChatsData?.data || Object.values(rawChatsData || {}));
 
             // 3. Fetch recent messages for deep bridge discovery
             let recentMessages: any[] = [];
             try {
-                const msgRes = await this.client.post(`/chat/findMessages/${this.instanceName}`, { where: {}, limit: 200, offset: 0 });
-                const mData = msgRes.data;
+                const mData = await this.request('POST', `/chat/findMessages/${this.instanceName}`, { where: {}, limit: 200, offset: 0 });
                 recentMessages = Array.isArray(mData) ? mData : (mData?.messages?.records || mData?.records || mData?.data || []);
             } catch (e) { }
 
@@ -771,20 +778,19 @@ export class EvolutionAPI {
 
     async markRead(remoteJid: string): Promise<any> {
         try {
-            await this.client.post(`/chat/readMessages/${this.instanceName}`, { number: remoteJid, readMessages: true });
+            await this.request('POST', `/chat/readMessages/${this.instanceName}`, { number: remoteJid, readMessages: true });
         } catch (e) {
             try {
-                await this.client.post(`/chat/markRead/${this.instanceName}`, { number: remoteJid });
+                await this.request('POST', `/chat/markRead/${this.instanceName}`, { number: remoteJid });
             } catch (e2) { }
         }
         return null;
     }
 
     async setWebhook(webhookUrl: string, events: string[]): Promise<any> {
-        const response = await this.client.post(`/webhook/set/${this.instanceName}`, {
+        return this.request('POST', `/webhook/set/${this.instanceName}`, {
             webhook: { enabled: true, url: webhookUrl, webhookByEvents: true, events },
         });
-        return response.data;
     }
 }
 
