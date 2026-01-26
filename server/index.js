@@ -20,6 +20,7 @@ app.use((req, res, next) => {
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const PUBLISHABLE_KEY = process.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
+// const stripe = null
 const APP_URL = process.env.APP_URL || 'https://alraerp.com.br'
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 
@@ -255,8 +256,8 @@ app.get('/subscription-status', async (req, res) => {
 })
 
 const PORT = process.env.PORT || 4242
-app.listen(PORT, () => {
-  console.log(`Stripe server listening on http://localhost:${PORT}`)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Stripe server listening on http://0.0.0.0:${PORT}`)
 })
 // Stripe Webhook (must read raw body)
 app.post('/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {

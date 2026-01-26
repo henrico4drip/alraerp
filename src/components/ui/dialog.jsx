@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 
-export function Dialog({ open = false, onOpenChange = () => {}, children }) {
+export function Dialog({ open = false, onOpenChange = () => { }, children }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -42,3 +42,21 @@ export function DialogTitle({ className = "", children }) {
 export function DialogDescription({ className = "", children }) {
   return <p className={`text-sm text-gray-600 ${className}`}>{children}</p>;
 }
+
+export function DialogFooter({ className = "", children }) {
+  return <div className={`mt-6 flex justify-end gap-2 ${className}`}>{children}</div>;
+}
+
+export function DialogTrigger({ children, onOpenChange }) {
+  if (React.isValidElement(children)) {
+    return React.cloneElement(children, {
+      onClick: (e) => {
+        if (children.props.onClick) children.props.onClick(e);
+        onOpenChange && onOpenChange(true);
+      }
+    });
+  }
+  return children;
+}
+
+

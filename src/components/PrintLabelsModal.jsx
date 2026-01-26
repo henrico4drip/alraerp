@@ -65,7 +65,7 @@ export default function PrintLabelsModal({ products, settings, open, onOpenChang
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
     documentTitle: 'Etiquetas de Produtos',
-    pageStyle: `@page { size: auto; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }`,
+    pageStyle: `@page { size: auto; margin: 0mm; }`,
     removeAfterPrint: false,
     copyStyles: true,
   });
@@ -80,7 +80,7 @@ export default function PrintLabelsModal({ products, settings, open, onOpenChang
       const doc = win.document
       const html = printRef.current.outerHTML
       doc.open()
-      doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas de Produtos</title><style>@page{size:auto;margin:${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;}body{margin:0;padding:0}*{box-sizing:border-box}</style></head><body>${html}</body></html>`)
+      doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas de Produtos</title><style>@page{size:auto;margin:0mm;}body{margin:0;padding:0}*{box-sizing:border-box}</style></head><body>${html}</body></html>`)
       doc.close()
       win.focus()
       setTimeout(() => { try { win.print() } finally { win.close() } }, 300)
@@ -98,9 +98,15 @@ export default function PrintLabelsModal({ products, settings, open, onOpenChang
         backgroundColor: '#ffffff',
         logging: false,
         onclone: (clonedDoc) => {
-          // You can modify the cloned document here if needed
           const el = clonedDoc.getElementById('print-container');
-          if (el) el.style.padding = '20px';
+          if (el) {
+            el.style.padding = '0px';
+            // Remove borders from each label during PNG generation if needed
+            const labels = el.getElementsByClassName('bg-white');
+            for (let label of labels) {
+              label.style.border = 'none';
+            }
+          }
         }
       });
       const link = document.createElement('a');
@@ -256,7 +262,19 @@ export default function PrintLabelsModal({ products, settings, open, onOpenChang
                   {labelsToPrint.slice(0, 10).map((product, index) => {
                     const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
                     return (
-                      <LabelComponent key={index} product={product} settings={settings} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} showPrice={showPrice} showBarcode={showBarcode} showNumbers={showNumbers} />
+                      <LabelComponent
+                        key={index}
+                        product={product}
+                        settings={settings}
+                        width={sizeMap.w}
+                        height={sizeMap.h}
+                        parcelas={parcelas}
+                        typeLabel={typeLabel}
+                        showPrice={showPrice}
+                        showBarcode={showBarcode}
+                        showNumbers={showNumbers}
+                        margins={margins}
+                      />
                     )
                   })}
                   {labelsToPrint.length > 10 && (
@@ -281,11 +299,23 @@ export default function PrintLabelsModal({ products, settings, open, onOpenChang
       </Dialog>
       {/* Offscreen print container to ensure react-to-print captures content */}
       <div style={{ position: 'absolute', left: '-10000px', top: '-10000px' }}>
-        <div id="print-container" ref={printRef} className="flex flex-col items-center" style={{ backgroundColor: 'white', padding: '10px' }}>
+        <div id="print-container" ref={printRef} className="flex flex-col items-center" style={{ backgroundColor: 'white', padding: '0px' }}>
           {labelsToPrint.map((product, index) => {
             const sizeMap = sheetType === '58mm' ? { w: '58mm', h: '40mm' } : sheetType === '88mm' ? { w: '88mm', h: '50mm' } : { w: `${labelSize.w}mm`, h: `${labelSize.h}mm` };
             return (
-              <LabelComponent key={index} product={product} settings={settings} width={sizeMap.w} height={sizeMap.h} parcelas={parcelas} typeLabel={typeLabel} showPrice={showPrice} showBarcode={showBarcode} showNumbers={showNumbers} />
+              <LabelComponent
+                key={index}
+                product={product}
+                settings={settings}
+                width={sizeMap.w}
+                height={sizeMap.h}
+                parcelas={parcelas}
+                typeLabel={typeLabel}
+                showPrice={showPrice}
+                showBarcode={showBarcode}
+                showNumbers={showNumbers}
+                margins={margins}
+              />
             )
           })}
         </div>

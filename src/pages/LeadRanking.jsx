@@ -163,7 +163,7 @@ export default function LeadRanking() {
 
             // Get latest message per contact
             const map = new Map()
-            data.forEach(msg => {
+            data?.forEach(msg => {
                 if (!msg.contact_phone) return
                 const normalized = String(msg.contact_phone || '').replace(/\D/g, '')
                 if (!map.has(normalized)) {
@@ -249,7 +249,7 @@ export default function LeadRanking() {
                 </div>
 
                 {/* Ranking List */}
-                {customers.length === 0 ? (
+                {!customers || customers.length === 0 ? (
                     <Card className="p-12 text-center bg-white border border-gray-200 shadow-sm">
                         <Brain className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                         <h3 className="text-lg font-semibold text-gray-900 mb-1">Nenhum lead analisado</h3>
@@ -300,8 +300,8 @@ export default function LeadRanking() {
                             </Button>
                         </div>
 
-                        {customers.map((customer, index) => {
-                            const conversation = conversations.find(c =>
+                        {customers?.map((customer, index) => {
+                            const conversation = conversations?.find(c =>
                                 normalizePhone(c.contact_phone) === normalizePhone(customer.phone)
                             )
                             // We keep colors but make them less overwhelming
