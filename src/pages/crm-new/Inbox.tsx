@@ -345,23 +345,6 @@ export default function Inbox() {
         if (JSON.stringify(prev) === JSON.stringify(response)) return prev;
         return response;
       });
-
-      // Update discovered names for future resolution
-      const newNames: Record<string, string> = {};
-      const invalidNames = ['Você', 'You', 'Eu', 'Me', 'Desconhecido', 'Unknown', 'Null', 'Undefined'];
-      const isInvalid = (n: any) => {
-        if (!n || typeof n !== 'string') return true;
-        const clean = n.trim().toLowerCase();
-        return clean.includes('@') || invalidNames.some(inv => clean === inv.toLowerCase() || clean.startsWith(inv.toLowerCase() + " "));
-      };
-
-      response.forEach(c => {
-        const jid = c.id || c.remoteJid;
-        if (jid && c.name && !isInvalid(c.name) && c.name !== jid.split('@')[0]) {
-          newNames[jid] = c.name;
-        }
-      });
-      setDiscoveredNames(prev => ({ ...prev, ...newNames }));
     } catch (error: any) {
       if (!silent) toast.error("Erro ao carregar conversas: " + error.message);
     } finally {

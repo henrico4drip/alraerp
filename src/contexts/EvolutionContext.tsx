@@ -201,8 +201,32 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         if (!api || !isConnected || isSyncing) return;
         setIsSyncing(true);
         try {
+            console.log("[EvolutionContext] Running auto-sync...");
             const contactsRes = await api.fetchContacts();
-            setContacts(Array.isArray(contactsRes) ? contactsRes : []);
+            const contactsList = Array.isArray(contactsRes) ? contactsRes : [];
+            setContacts(contactsList);
+
+            // AUTO-DISCOVERY: Extract names from contacts list to populate cache
+            const discovered: Record<string, string> = {};
+            const invalidNames = ['Você', 'You', 'Eu', 'Me', 'Desconhecido', 'Unknown', 'Null', 'Undefined'];
+
+            contactsList.forEach((c: any) => {
+                const jid = c.id || c.remoteJid || c.jid;
+                const name = c.name || c.pushName || c.verifiedName;
+                if (jid && name) {
+                    const cleanName = String(name).trim();
+                    const isNotPhone = cleanName !== jid.split('@')[0];
+                    const isNotInvalid = !invalidNames.some(inv => cleanName.toLowerCase() === inv.toLowerCase());
+
+                    if (isNotPhone && isNotInvalid && cleanName.length > 1) {
+                        discovered[jid] = cleanName;
+                    }
+                }
+            });
+
+            if (Object.keys(discovered).length > 0) {
+                setDiscoveredNames(prev => ({ ...prev, ...discovered }));
+            }
         } catch (err) {
             console.error("Auto sync error:", err);
         } finally {
