@@ -61,7 +61,7 @@ serve(async (req) => {
         }
 
         const instanceName = `erp_${user.id.split('-')[0]}`
-        console.log(`[PROXY_ACTION] ${action} for instance ${instanceName}`)
+        console.log(`[PROXY] Action: ${action} | Instance: ${instanceName}`)
 
         let responseData: any = null
         let responseStatus = 200
@@ -69,34 +69,25 @@ serve(async (req) => {
         switch (action) {
             case 'get_status': {
                 const res = await EvolutionService.request(`/instance/connectionState/${instanceName}`)
-                responseData = res.json || { error: res.text || 'Unknown' }
-                responseStatus = (res.status === 404 || res.status === 401) ? 200 : res.status
-                break
-            }
-
-            case 'connect': {
-                const res = await EvolutionService.request('/instance/create', {
-                    method: 'POST',
-                    body: JSON.stringify({ instanceName, qrcode: true, integration: "WHATSAPP-BAILEYS" })
-                })
-                if (res.status === 403 || res.json?.error) {
-                    const connectRes = await EvolutionService.request(`/instance/connect/${instanceName}`)
-                    responseData = connectRes.json
-                    responseStatus = connectRes.status
-                } else {
-                    responseData = res.json
-                    responseStatus = res.status
-                }
+                responseData = res.json || { status: 'disconnected' }
                 break
             }
 
             case 'fetch_contacts': {
-                const res = await EvolutionService.request(`/contact/findContacts/${instanceName}`, {
+                // Try /chat/findContacts (newer) then /contact/findContacts (older)
+                let res = await EvolutionService.request(`/chat/findContacts/${instanceName}`, {
                     method: 'POST',
                     body: JSON.stringify(payload || { where: {}, limit: 1000 })
                 })
-                responseData = res.json
-                responseStatus = res.status
+
+                if (res.status === 404) {
+                    res = await EvolutionService.request(`/contact/findContacts/${instanceName}`, {
+                        method: 'POST',
+                        body: JSON.stringify(payload || { where: {}, limit: 1000 })
+                    })
+                }
+
+                responseData = res.json || []
                 break
             }
 
@@ -105,8 +96,7 @@ serve(async (req) => {
                     method: 'POST',
                     body: JSON.stringify(payload || { where: {}, limit: 100 })
                 })
-                responseData = res.json
-                responseStatus = res.status
+                responseData = res.json || []
                 break
             }
 
@@ -122,30 +112,25 @@ serve(async (req) => {
 
             case 'proxy_request': {
                 const { path, method, body: proxyBody } = payload || {}
-                if (!path) throw new Error("Path is required for proxy_request")
                 const res = await EvolutionService.request(path, {
                     method: method || 'GET',
                     body: proxyBody ? JSON.stringify(proxyBody) : undefined
                 })
                 responseData = res.json || res.text
-                responseStatus = res.status === 0 ? 500 : res.status
                 break
             }
 
             default:
-                return new Response(JSON.stringify({ error: `Invalid action: ${action}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                responseData = { error: 'Invalid action' }
+                responseStatus = 400
         }
 
-        // Ensure we always return correct CORS headers even on error status
         return new Response(JSON.stringify(responseData), {
-            status: responseStatus === 0 ? 500 : responseStatus,
+            status: 200, // Always 200 for internal invoke stability
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
+
     } catch (error) {
-        console.error(`[FATAL_ERROR]`, error.message)
-        return new Response(JSON.stringify({ error: error.message }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
+        return new Response(JSON.stringify({ error: error.message }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 })
