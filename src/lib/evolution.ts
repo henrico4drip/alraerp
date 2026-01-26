@@ -91,34 +91,46 @@ export class EvolutionAPI {
         return data;
     }
 
+    // Smart request wrapper: uses proxy in production (HTTPS), direct in localhost
+    private async smartRequest(method: 'GET' | 'POST', path: string, body?: any): Promise<any> {
+        const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const useProxy = !!this.supabase && !isLocalhost;
+
+        if (useProxy) {
+            // Route through Supabase proxy (HTTPS)
+            return this.proxyInvoke('proxy_request', { path, method, body });
+        } else {
+            // Direct request (HTTP, localhost only)
+            const response = method === 'GET'
+                ? await this.client.get(path)
+                : await this.client.post(path, body);
+            return response.data;
+        }
+    }
+
     // Instance Management
     async createInstance(instanceName: string): Promise<any> {
         if (this.supabase) return this.proxyInvoke('connect');
 
-        const response = await this.client.post("/instance/create", {
+        const data = await this.smartRequest('POST', "/instance/create", {
             instanceName,
             qrcode: true, // v2.3.0 handles QR generation correctly
             integration: "WHATSAPP-BAILEYS",
         });
-        return response.data;
+        return data;
     }
 
     async getInstanceStatus(): Promise<any> {
         if (this.supabase) return this.proxyInvoke('get_status');
-
         try {
-            // Try connectionState first (v1.6+)
-            const response = await this.client.get(`/instance/connectionState/${this.instanceName}`);
-            return response.data;
+            const data = await this.smartRequest('GET', `/instance/connectionState/${this.instanceName}`);
+            return data;
         } catch (error: any) {
-            // Fallback for older v1.x or variations
             if (error.response?.status === 404) {
                 try {
-                    const fallback = await this.client.get(`/instance/displayState/${this.instanceName}`);
-                    return fallback.data;
-                } catch {
-                    throw error;
-                }
+                    const fallback = await this.smartRequest('GET', `/instance/displayState/${this.instanceName}`);
+                    return fallback;
+                } catch { throw error; }
             }
             throw error;
         }
@@ -126,16 +138,11 @@ export class EvolutionAPI {
 
     async getQRCode(): Promise<any> {
         if (this.supabase) return this.proxyInvoke('connect');
-
         try {
-            const response = await this.client.get(`/instance/connect/${this.instanceName}`);
-            let data = response.data;
-
-            // Handle cases where data is nested or direct
+            const data = await this.smartRequest('GET', `/instance/connect/${this.instanceName}`);
             if (data?.qrcode) return data.qrcode;
             if (data?.instance?.qrcode) return data.instance.qrcode;
             if (typeof data === 'string') return { code: data };
-
             return data;
         } catch (error: any) {
             if (error.response?.data) return error.response.data;
@@ -181,8 +188,8 @@ export class EvolutionAPI {
 
     async syncContacts(): Promise<any> {
         try {
-            const response = await this.client.post(`/contact/sync/${this.instanceName}`);
-            return response.data;
+            const data = await this.smartRequest('POST', `/contact/sync/${this.instanceName}`);
+            return data;
         } catch (e) {
             return null;
         }
@@ -250,8 +257,8 @@ export class EvolutionAPI {
         console.log(`[EvolutionAPI] Sending text to ${target} (Instance: ${this.instanceName})`);
 
         try {
-            const response = await this.client.post(`/message/sendText/${this.instanceName}`, payload);
-            return response.data;
+            const data = await this.smartRequest('POST', `/message/sendText/${this.instanceName}`, payload);
+            return data;
         } catch (error: any) {
             if (error.response?.data) {
                 console.error(`[EvolutionAPI] DETALHE DO ERRO ${error.response.status}:`, JSON.stringify(error.response.data));
@@ -307,24 +314,33 @@ export class EvolutionAPI {
                 // FALLBACK 2: Brute force with simplified payload (Last Resort)
                 try {
                     console.log(`[EvolutionAPI] Trying brute force send to LID...`);
-                    const fallbackResponse = await this.client.post(`/message/sendText/${this.instanceName}`, {
-                        number: remoteJid,
+                    const phoneDigits = remoteJid.split('@')[0]; // Extract phone number from LID
+                    const dataFallback = await this.smartRequest('POST', `/message/sendText/${this.instanceName}`, {
+                        number: phoneDigits,
                         text: text,
-                        textMessage: {
-                            text: text
-                        },
-                        checkContact: false,
-                        check_contact: false,
-                        forceSend: true,
-                        linkPreview: false
+                        checkStatus: false,
+                        forceSend: true
                     });
-                    return fallbackResponse.data;
-                } catch (fError: any) {
-                    // FALLBACK 3: QUOTED MESSAGE STRATEGY
+                    return dataFallback;
+                } catch (fail) {
+                    // FINAL FALLBACK: Quote the last message (highest success rate on some versions)
+                    try {
+                        const history = await this.fetchMessages(remoteJid, 1);
+                        if (history.length > 0) {
+                            const dataQuote = await this.smartRequest('POST', `/message/sendText/${this.instanceName}`, {
+                                number: target,
+                                text: text,
+                                quoted: { key: history[0].key, message: history[0].message }
+                            });
+                            return dataQuote;
+                        }
+                    } catch (e) { /* Ignore error, proceed to next fallback */ }
+
+                    // Original FALLBACK 3 (now effectively a 4th fallback if the above fails)
                     if (quoted) {
                         console.log(`[EvolutionAPI] Trying QUOTED fallback for LID...`);
                         try {
-                            const quoteResponse = await this.client.post(`/message/sendText/${this.instanceName}`, {
+                            const dataQuoteFallback = await this.smartRequest('POST', `/message/sendText/${this.instanceName}`, {
                                 number: remoteJid,
                                 text: text,
                                 textMessage: {
@@ -334,16 +350,16 @@ export class EvolutionAPI {
                                 forceSend: true,
                                 quoted: { key: quoted.key, message: quoted.message }
                             });
-                            return quoteResponse.data;
+                            return dataQuoteFallback;
                         } catch (qErr) {
                             console.warn("Quoted fallback failed", qErr);
                         }
                     }
 
-                    if (fError.response?.data) {
-                        console.error(`[EvolutionAPI] DETALHE DO ERRO FALLBACK:`, JSON.stringify(fError.response.data));
+                    if (fail.response?.data) {
+                        console.error(`[EvolutionAPI] DETALHE DO ERRO FALLBACK:`, JSON.stringify(fail.response.data));
                     }
-                    throw fError;
+                    throw fail;
                 }
             }
             console.error(`[EvolutionAPI] Error sending text to ${target}:`, error.response?.data || error.message);
@@ -375,7 +391,7 @@ export class EvolutionAPI {
         console.log(`[EvolutionAPI] Sending media to ${target} using instance ${this.instanceName}`);
 
         try {
-            const response = await this.client.post(endpoint, {
+            return await this.smartRequest('POST', endpoint, {
                 number: target,
                 checkContact: false,
                 forceSend: true,
@@ -390,7 +406,6 @@ export class EvolutionAPI {
                     fileName,
                 }
             });
-            return response.data;
         } catch (error: any) {
             if (error.response?.data) {
                 console.error(`[EvolutionAPI] DETALHE DO ERRO MEDIA ${error.response.status}:`, JSON.stringify(error.response.data));
@@ -416,7 +431,7 @@ export class EvolutionAPI {
 
                 // FALLBACK 2: Brute force payload
                 try {
-                    const fallbackResponse = await this.client.post(endpoint, {
+                    return await this.smartRequest('POST', endpoint, {
                         number: remoteJid,
                         checkContact: false,
                         check_contact: false,
@@ -429,21 +444,16 @@ export class EvolutionAPI {
                             fileName,
                         }
                     });
-                    return fallbackResponse.data;
-                } catch (fError: any) {
-                    if (fError.response?.data) {
-                        console.error(`[EvolutionAPI] DETALHE DO ERRO FALLBACK MEDIA:`, JSON.stringify(fError.response.data));
-                    }
-                    throw fError;
+                } catch (ffErr: any) {
+                    console.error("Absolute fallback for media failed", ffErr);
+                    throw ffErr;
                 }
             }
-
-            console.error(`[EvolutionAPI] Error sending media to ${target}:`, error.response?.data || error.message);
             throw error;
         }
     }
 
-    async fetchMessages(remoteJid: string, count: number = 50): Promise<EvolutionMessage[]> {
+    async fetchMessages(remoteJid: string, count: number = 100): Promise<EvolutionMessage[]> {
         if (this.supabase) {
             const data = await this.proxyInvoke('sync_chat', { jid: remoteJid, phone: remoteJid.split('@')[0] });
             // The sync_chat in proxy saves to DB, but as a fallback for the CRM UI, 
@@ -555,18 +565,7 @@ export class EvolutionAPI {
     // Contacts
     async fetchContacts(): Promise<EvolutionContact[]> {
         try {
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const useProxy = !!this.supabase && !isLocalhost;
-
-            let rawData: any;
-            if (useProxy) {
-                console.log('[EvolutionAPI] [PROXY] Fetching contacts via Supabase');
-                rawData = await this.proxyInvoke('fetch_contacts', { where: {}, limit: 2000 });
-            } else {
-                console.log('[EvolutionAPI] [DIRECT] Fetching contacts');
-                const response = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
-                rawData = response.data;
-            }
+            const rawData = await this.smartRequest('POST', `/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
 
             // v2.3.0 can return an object or an array
             const contacts = Array.isArray(rawData) ? rawData : (rawData?.records || rawData?.data || (typeof rawData === 'object' ? Object.values(rawData) : []));
@@ -588,10 +587,10 @@ export class EvolutionAPI {
 
     async getProfilePicture(remoteJid: string): Promise<string | null> {
         try {
-            const response = await this.client.post(`/chat/fetchProfilePictureUrl/${this.instanceName}`, {
+            const data = await this.smartRequest('POST', `/chat/fetchProfilePictureUrl/${this.instanceName}`, {
                 number: remoteJid,
             });
-            return response.data?.profilePictureUrl || null;
+            return data?.profilePictureUrl || null;
         } catch (e: any) {
             return null;
         }
@@ -601,14 +600,13 @@ export class EvolutionAPI {
         if (!remoteId) return null;
         try {
             // Use findChats with a specific ID filter as a reliable alternative to the failing contact route
-            const response = await this.client.post(`/chat/findChats/${this.instanceName}`, {
+            const data = await this.smartRequest('POST', `/chat/findChats/${this.instanceName}`, {
                 where: {
                     id: remoteId
                 },
                 limit: 1
             });
 
-            const data = response.data;
             const records = Array.isArray(data) ? data : (data?.records || data?.chats || data?.data || []);
 
             if (records.length > 0) {
@@ -639,13 +637,12 @@ export class EvolutionAPI {
 
     async getBase64Media(message: any): Promise<{ base64: string } | null> {
         try {
-            const response = await this.client.post(`/chat/getBase64FromMediaMessage/${this.instanceName}`, {
+            const data = await this.smartRequest('POST', `/chat/getBase64FromMediaMessage/${this.instanceName}`, {
                 message: message,
                 convertToMp4: false
             });
-            return response.data;
+            return data;
         } catch (error: any) {
-            console.warn("Error getting base64 media:", error.message);
             return null;
         }
     }
@@ -662,14 +659,8 @@ export class EvolutionAPI {
             }
 
             // 1. Fetch Agenda First (The absolute source of truth for names in v2.3.0)
-            let rawContacts: any[];
-            if (useProxy) {
-                const contactData = await this.proxyInvoke('fetch_contacts', { where: {}, limit: 2000 });
-                rawContacts = Array.isArray(contactData) ? contactData : Object.values(contactData || {});
-            } else {
-                const contactRes = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
-                rawContacts = Array.isArray(contactRes.data) ? contactRes.data : Object.values(contactRes.data || {});
-            }
+            const contactData = await this.smartRequest('POST', `/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
+            const rawContacts = Array.isArray(contactData) ? contactData : Object.values(contactData || {});
 
             const identityMap = new Map<string, string>();
             const savedMappings: Record<string, string> = JSON.parse(localStorage.getItem('lid_mappings') || '{}');
@@ -684,31 +675,14 @@ export class EvolutionAPI {
             });
 
             // 2. Fetch raw chats
-            let rawChats: any[];
-            if (useProxy) {
-                const chatData = await this.proxyInvoke('fetch_inbox', { where: {}, limit: 1000 });
-                rawChats = Array.isArray(chatData) ? chatData : (chatData?.records || chatData?.data || Object.values(chatData || {}));
-            } else {
-                const chatResponse = await this.client.post(`/chat/findChats/${this.instanceName}`, { where: {}, limit: 1000 });
-                const rawChatsData = chatResponse.data;
-                rawChats = Array.isArray(rawChatsData) ? rawChatsData : (rawChatsData?.records || rawChatsData?.data || Object.values(rawChatsData || {}));
-            }
+            const chatData = await this.smartRequest('POST', `/chat/findChats/${this.instanceName}`, { where: {}, limit: 1000 });
+            const rawChats = Array.isArray(chatData) ? chatData : (chatData?.records || chatData?.data || Object.values(chatData || {}));
 
             // 3. Fetch recent messages for deep bridge discovery
             let recentMessages: any[] = [];
             try {
-                if (useProxy) {
-                    const msgData = await this.proxyInvoke('proxy_request', {
-                        path: `/chat/findMessages/${this.instanceName}`,
-                        method: 'POST',
-                        body: { where: {}, limit: 200, offset: 0 }
-                    });
-                    recentMessages = Array.isArray(msgData) ? msgData : (msgData?.messages?.records || msgData?.records || msgData?.data || []);
-                } else {
-                    const msgRes = await this.client.post(`/chat/findMessages/${this.instanceName}`, { where: {}, limit: 200, offset: 0 });
-                    const mData = msgRes.data;
-                    recentMessages = Array.isArray(mData) ? mData : (mData?.messages?.records || mData?.records || mData?.data || []);
-                }
+                const mData = await this.smartRequest('POST', `/chat/findMessages/${this.instanceName}`, { where: {}, limit: 200, offset: 0 });
+                recentMessages = Array.isArray(mData) ? mData : (mData?.messages?.records || mData?.records || mData?.data || []);
             } catch (e) { }
 
             const lastMsgMap = new Map<string, any>();
@@ -806,20 +780,19 @@ export class EvolutionAPI {
 
     async markRead(remoteJid: string): Promise<any> {
         try {
-            await this.client.post(`/chat/readMessages/${this.instanceName}`, { number: remoteJid, readMessages: true });
+            await this.smartRequest('POST', `/chat/readMessages/${this.instanceName}`, { number: remoteJid, readMessages: true });
         } catch (e) {
             try {
-                await this.client.post(`/chat/markRead/${this.instanceName}`, { number: remoteJid });
+                await this.smartRequest('POST', `/chat/markRead/${this.instanceName}`, { number: remoteJid });
             } catch (e2) { }
         }
         return null;
     }
 
     async setWebhook(webhookUrl: string, events: string[]): Promise<any> {
-        const response = await this.client.post(`/webhook/set/${this.instanceName}`, {
+        return await this.smartRequest('POST', `/webhook/set/${this.instanceName}`, {
             webhook: { enabled: true, url: webhookUrl, webhookByEvents: true, events },
         });
-        return response.data;
     }
 }
 
