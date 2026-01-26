@@ -498,15 +498,21 @@ serve(async (req) => {
             }
 
             case 'proxy_request': {
-                const { path, method, body: proxyBody } = payload || {}
+                const { path, method: proxyMethod, body: proxyBody } = payload || {}
                 if (!path) throw new Error("Path is required for proxy_request")
 
-                const res = await EvolutionService.request(path, {
-                    method: method || 'GET',
-                    body: proxyBody ? JSON.stringify(proxyBody) : undefined
-                })
+                const method = (proxyMethod || 'GET').toUpperCase()
+                const fetchOptions: RequestInit = { method }
+
+                if (['POST', 'PUT', 'PATCH'].includes(method) && proxyBody) {
+                    fetchOptions.body = typeof proxyBody === 'string' ? proxyBody : JSON.stringify(proxyBody)
+                }
+
+                console.log(`[PROXY] Forwarding ${method} to ${path}`)
+                const res = await EvolutionService.request(path, fetchOptions)
+
                 return new Response(JSON.stringify(res.json || res.text), {
-                    status: res.status,
+                    status: (res.status === 0) ? 500 : res.status,
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 })
             }

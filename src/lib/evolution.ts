@@ -84,46 +84,43 @@ export class EvolutionAPI {
 
     private async proxyInvoke(action: string, payload?: any) {
         if (!this.supabase) throw new Error("Supabase client not provided for proxy mode");
+        console.log(`[EvolutionAPI] Proxy Invoke: ${action}`);
         const { data, error } = await this.supabase.functions.invoke('whatsapp-proxy', {
             body: { action, payload }
         });
-        if (error) throw error;
+        if (error) {
+            console.error(`[EvolutionAPI] Proxy Error:`, error);
+            throw error;
+        }
         return data;
     }
 
     private async request(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: any) {
-        if (this.supabase) {
-            // Check if there is a specialized action in the proxy
-            // If not, use the generic 'proxy_request'
-            const specializedActions: Record<string, string> = {
-                '/instance/create': 'connect',
-                '/instance/connect/': 'connect',
-                '/instance/connectionState/': 'get_status',
-                '/instance/logout/': 'logout',
-                '/instance/delete/': 'delete_instance',
-                '/message/sendText/': 'send_message',
-                '/chat/findContacts/': 'fetch_contacts',
-                '/chat/findChats/': 'fetch_inbox',
-                '/chat/sync/': 'sync_contacts'
-            };
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        // ALWAYS use proxy in production to avoid HTTPS/HTTP mixed content blocked errors
+        const useProxy = !!this.supabase && !isLocalhost;
 
-            // Heuristic matching
-            let action = 'proxy_request';
-            for (const [route, act] of Object.entries(specializedActions)) {
-                if (path.startsWith(route)) {
-                    action = act;
-                    break;
-                }
-            }
+        if (useProxy) {
+            console.log(`[EvolutionAPI] [PROXY MODE] ${method} ${path}`);
 
-            if (action === 'proxy_request') {
-                return this.proxyInvoke('proxy_request', { path, method, body });
-            } else {
-                // For specialized actions, we often need to transform the body or just pass it as payload
-                return this.proxyInvoke(action, body ? { ...body } : undefined);
-            }
+            // Check for routes that have specialized handlers in the proxy
+            const pathLower = path.toLowerCase();
+            if (pathLower.includes('/chat/findchats/')) return this.proxyInvoke('fetch_inbox', body);
+            if (pathLower.includes('/chat/findcontacts/')) return this.proxyInvoke('fetch_contacts', body);
+            if (pathLower.includes('/instance/create')) return this.proxyInvoke('connect', body);
+            if (pathLower.includes('/instance/connect/')) return this.proxyInvoke('connect', body);
+            if (pathLower.includes('/instance/connectionstate/')) return this.proxyInvoke('get_status', body);
+            if (pathLower.includes('/message/sendtext/')) return this.proxyInvoke('send_message', body);
+
+            // For all other routes, use the generic proxy_request
+            return this.proxyInvoke('proxy_request', {
+                path,
+                method,
+                body: body ? (typeof body === 'string' ? JSON.parse(body) : body) : undefined
+            });
         }
 
+        console.log(`[EvolutionAPI] [DIRECT MODE] ${method} ${path}`);
         // Standard direct request (localhost/dev only)
         const response = await (method === 'GET'
             ? this.client.get(path)
