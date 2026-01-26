@@ -1,4 +1,4 @@
-const VERSION = 'v9-naming-and-proxy-fix';
+const VERSION = 'v10-deep-naming-sync';
 
 self.addEventListener('install', () => {
   self.skipWaiting()

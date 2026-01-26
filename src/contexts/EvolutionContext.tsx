@@ -25,6 +25,7 @@ interface EvolutionContextType {
     customNames: Record<string, string>;
     setCustomName: (jid: string, name: string) => void;
     contacts: any[];
+    customers: any[]; // New: List of registered customers from ERP DB
     messageCache: Record<string, any[]>;
     updateMessageCache: (jid: string, messages: any[]) => void;
     syncContacts: () => Promise<any>;
@@ -34,6 +35,7 @@ const EvolutionContext = createContext<EvolutionContextType | undefined>(undefin
 
 export function EvolutionProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
+    const [customers, setCustomers] = useState<any[]>([]);
     const instanceName = useMemo(() => {
         if (!user?.id) return '';
         return `erp_${user.id.split('-')[0]}`;
@@ -185,20 +187,35 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         if (!api || !isConnected || isSyncing) return;
         setIsSyncing(true);
         try {
-            console.log("[EvolutionContext] Running auto-sync...");
+            console.log("[EvolutionContext] Running deep auto-sync (DB + WA)...");
+
+            // 1. Fetch DB Customers (Priority 1)
+            const { data: dbCustomers } = await supabase.from('customers').select('name, phone');
+            const customerList = dbCustomers || [];
+            setCustomers(customerList);
+
+            // 2. Fetch WA Contacts
             const contactsRes = await api.fetchContacts();
             const contactsList = Array.isArray(contactsRes) ? contactsRes : [];
             setContacts(contactsList);
 
+            // 3. Discovery with Priority
             const discovered: Record<string, string> = {};
             const invalidNames = ['Você', 'You', 'Eu', 'Me', 'Desconhecido', 'Unknown', 'Null', 'Undefined'];
 
             contactsList.forEach((c: any) => {
                 const jid = c.id || c.remoteJid || c.jid;
-                const name = c.name || c.pushName || c.verifiedName;
+                const phone = jid.split('@')[0];
+
+                // Priority: Check DB Match first
+                const dbMatch = customerList.find((db: any) =>
+                    db.phone?.replace(/\D/g, '').includes(phone.replace(/\D/g, ''))
+                );
+
+                const name = dbMatch?.name || c.name || c.pushName || c.verifiedName;
                 if (jid && name) {
                     const cleanName = String(name).trim();
-                    const isNotPhone = cleanName !== jid.split('@')[0];
+                    const isNotPhone = cleanName !== phone;
                     const isNotInvalid = !invalidNames.some(inv => cleanName.toLowerCase() === inv.toLowerCase());
                     if (isNotPhone && isNotInvalid && cleanName.length > 1) {
                         discovered[jid] = cleanName;
@@ -268,9 +285,16 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         });
 
         const phoneNumber = targetJid.split('@')[0];
+
+        // Check DB Customer List (High priority for cross-device naming)
+        const dbContact = customers.find(cust =>
+            cust.phone?.replace(/\D/g, '').includes(phoneNumber.replace(/\D/g, ''))
+        );
+
         const candidates = [
             customNames[jid],
             customNames[targetJid],
+            dbContact?.name,
             contact?.name,
             discoveredNames[jid],
             discoveredNames[targetJid],
@@ -322,6 +346,7 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
                 customNames,
                 setCustomName,
                 contacts,
+                customers,
                 messageCache,
                 updateMessageCache,
                 syncContacts
