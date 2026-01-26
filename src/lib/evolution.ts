@@ -228,10 +228,10 @@ export class EvolutionAPI {
     }
 }
 
-export function isSameJid(j1: string, j2: string): boolean {
+export function isSameJid(j1: string, j2: string, lidMap?: Record<string, string>): boolean {
     if (!j1 || !j2) return false;
-    const p1 = j1.split('@')[0];
-    const p2 = j2.split('@')[0];
+    const p1 = (lidMap?.[j1] || j1).split('@')[0];
+    const p2 = (lidMap?.[j2] || j2).split('@')[0];
     return p1 === p2;
 }
 
@@ -243,3 +243,19 @@ export function formatPhoneNumber(jid: string): string {
     }
     return num;
 }
+
+export function extractMessageContent(message: any): { type: string; content: string } {
+    const msg = message?.message || message;
+    if (!msg) return { type: "unknown", content: "" };
+
+    if (msg.conversation) return { type: "text", content: msg.conversation };
+    if (msg.extendedTextMessage?.text) return { type: "text", content: msg.extendedTextMessage.text };
+    if (msg.imageMessage) return { type: "image", content: msg.imageMessage.caption || "[Imagem]" };
+    if (msg.videoMessage) return { type: "video", content: msg.videoMessage.caption || "[Vídeo]" };
+    if (msg.audioMessage) return { type: "audio", content: "[Áudio]" };
+    if (msg.documentMessage) return { type: "document", content: msg.documentMessage.fileName || "[Documento]" };
+    if (msg.stickerMessage) return { type: "sticker", content: "[Sticker]" };
+
+    return { type: "unknown", content: "" };
+}
+
