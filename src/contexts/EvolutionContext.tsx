@@ -143,6 +143,14 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         finally { setIsSyncing(false); setHasAutoSynced(true); }
     };
 
+    const setCustomName = (jid: string, name: string) => {
+        setCustomNames(prev => {
+            const next = { ...prev, [jid]: name };
+            localStorage.setItem('evolution_custom_names', JSON.stringify(next));
+            return next;
+        });
+    };
+
     const resolveName = useCallback((jid: string, fallback?: string) => {
         if (!jid) return fallback || "Desconhecido";
         let targetJid = jid;
