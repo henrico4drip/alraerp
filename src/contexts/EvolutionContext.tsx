@@ -117,21 +117,20 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         if (!api || !isConnected) return;
         setIsSyncing(true);
         try {
-            console.log("[EvolutionContext] Syncing identities (DB + WhatsApp)...");
+            console.log("[EvolutionContext] Deep identity sync (DB + WhatsApp)...");
 
-            // 1. Fetch WA Contacts
-            const contactsList = await api.fetchContacts();
-            const validContacts = Array.isArray(contactsList) ? contactsList : [];
-            setContacts(validContacts);
-
-            // 2. Fetch ERP Customers
+            // 1. Fetch DB Customers
             const { data: dbCustomers } = await supabase.from('customers').select('name, phone');
-            const validCustomers = Array.isArray(dbCustomers) ? dbCustomers : [];
-            setCustomers(validCustomers);
+            if (Array.isArray(dbCustomers)) setCustomers(dbCustomers);
 
-            // 3. Mapping Bridge
+            // 2. Fetch WA Contacts
+            const contactsRes = await api.fetchContacts();
+            const contactsList = Array.isArray(contactsRes) ? contactsRes : [];
+            setContacts(contactsList);
+
+            // 3. Populate naming cache
             const discovered: Record<string, string> = {};
-            validContacts.forEach((c: any) => {
+            contactsList.forEach((c: any) => {
                 const jid = c.id || c.remoteJid;
                 const name = c.name || c.pushName || c.verifiedName;
                 if (jid && name && String(name).length > 1) {
@@ -144,7 +143,7 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
                 setDiscoveredNames(prev => ({ ...prev, ...discovered }));
             }
         } catch (err) {
-            console.error("Auto-sync failed:", err);
+            console.error("Auto-sync error:", err);
         } finally {
             setIsSyncing(false);
             setHasAutoSynced(true);
@@ -162,42 +161,49 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
     const resolveName = useCallback((jid: string, fallback?: string) => {
         if (!jid) return fallback || "Desconhecido";
 
-        const targetJid = (lidMapMemo && lidMapMemo[jid]) ? lidMapMemo[jid] : jid;
-        const phoneDigits = targetJid.split('@')[0];
-        const rawFallback = String(fallback || "").trim();
-        const isInvalidFallback = !rawFallback || ['desconhecido', 'unknown', 'null', 'undefined'].includes(rawFallback.toLowerCase()) || rawFallback === phoneDigits;
+        let targetJid = jid;
+        if (lidMapMemo && lidMapMemo[jid]) targetJid = lidMapMemo[jid];
 
-        // 1. CRM Custom Name
+        const phoneNumber = targetJid.split('@')[0];
+
+        // 1. Priority: CRM Custom Name
         if (customNames[jid]) return customNames[jid];
         if (customNames[targetJid]) return customNames[targetJid];
 
-        // 2. ERP Database Match
-        if (customers.length > 0) {
+        // 2. Priority: ERP Database Match (Restore from working logic but keeping DB)
+        if (Array.isArray(customers) && customers.length > 0) {
             const dbMatch = customers.find(c => {
-                if (!c.phone) return false;
-                const dbDigits = String(c.phone).replace(/\D/g, '');
-                return dbDigits.length >= 8 && phoneDigits.includes(dbDigits);
+                const dbDigits = String(c.phone || "").replace(/\D/g, '');
+                return dbDigits.length >= 8 && phoneNumber.includes(dbDigits);
             });
             if (dbMatch?.name) return dbMatch.name;
         }
 
-        // 3. Discovered in current session
-        if (discoveredNames[jid]) return discoveredNames[jid];
-        if (discoveredNames[targetJid]) return discoveredNames[targetJid];
+        // 3. Priority: Contact List Match (WORKING LOGIC FROM COMMIT de6411b)
+        const contact = contacts.find(c => {
+            const cid = c.id || c.remoteJid || "";
+            return isSameJid(cid, targetJid, lidMapMemo) || (jid !== targetJid && isSameJid(cid, jid, lidMapMemo));
+        });
 
-        // 4. Fallback provided by the list (if valid)
-        if (!isInvalidFallback) return rawFallback;
+        const waName = contact?.name || contact?.pushName || contact?.verifiedName;
 
-        // 5. Contact List Match
-        const contactMatch = contacts.find(c => isSameJid(c.id || c.remoteJid, targetJid, lidMapMemo));
-        const contactName = contactMatch?.name || contactMatch?.pushName || contactMatch?.verifiedName;
-        if (contactName && String(contactName).length > 1 && contactName !== phoneDigits) {
-            return String(contactName).trim();
+        // 4. Priority: Discovered name from cache
+        const discName = discoveredNames[jid] || discoveredNames[targetJid];
+
+        const candidates = [waName, discName, fallback];
+
+        for (let name of candidates) {
+            if (name && typeof name === 'string' && name.length >= 2) {
+                const clean = name.trim();
+                const isId = clean === phoneNumber || clean === jid.split('@')[0];
+                const isInvalid = ['desconhecido', 'unknown', 'undefined', 'null'].includes(clean.toLowerCase());
+                if (!isId && !isInvalid) return clean;
+            }
         }
 
-        // 6. Absolute Fallback: Formatted Phone
+        // 5. Fallback: Formatted Phone
         const formatted = formatPhoneNumber(targetJid);
-        return formatted || phoneDigits || "Desconhecido";
+        return (formatted && formatted.length > 5) ? formatted : (phoneNumber || "Desconhecido");
     }, [lidMapMemo, contacts, customers, discoveredNames, customNames]);
 
     const connect = async () => {

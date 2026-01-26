@@ -64,7 +64,6 @@ serve(async (req) => {
         console.log(`[PROXY] Action: ${action} | Instance: ${instanceName}`)
 
         let responseData: any = null
-        let responseStatus = 200
 
         switch (action) {
             case 'get_status': {
@@ -74,20 +73,22 @@ serve(async (req) => {
             }
 
             case 'fetch_contacts': {
-                // Try /chat/findContacts (newer) then /contact/findContacts (older)
+                // Try BOTH endpoints: newer and older Evolution API versions
                 let res = await EvolutionService.request(`/chat/findContacts/${instanceName}`, {
                     method: 'POST',
                     body: JSON.stringify(payload || { where: {}, limit: 1000 })
                 })
 
-                if (res.status === 404) {
-                    res = await EvolutionService.request(`/contact/findContacts/${instanceName}`, {
+                // If 404 or empty records, try the other one
+                if (res.status === 404 || !(res.json?.records || res.json?.length)) {
+                    const fallbackRes = await EvolutionService.request(`/contact/findContacts/${instanceName}`, {
                         method: 'POST',
                         body: JSON.stringify(payload || { where: {}, limit: 1000 })
                     })
+                    responseData = fallbackRes.json || []
+                } else {
+                    responseData = res.json || []
                 }
-
-                responseData = res.json || []
                 break
             }
 
@@ -106,7 +107,6 @@ serve(async (req) => {
                     body: JSON.stringify(payload)
                 })
                 responseData = res.json
-                responseStatus = (res.status === 201 || res.status === 200) ? 200 : res.status
                 break
             }
 
@@ -122,11 +122,10 @@ serve(async (req) => {
 
             default:
                 responseData = { error: 'Invalid action' }
-                responseStatus = 400
         }
 
         return new Response(JSON.stringify(responseData), {
-            status: 200, // Always 200 for internal invoke stability
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
 
