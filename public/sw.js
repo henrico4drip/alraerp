@@ -1,4 +1,4 @@
-const VERSION = 'v6-cache-purge';
+const VERSION = 'v7-cors-and-sync-fix';
 
 self.addEventListener('install', () => {
   self.skipWaiting()
@@ -19,5 +19,5 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request).catch(() => new Response('', { status: 408 })))
+  event.respondWith(fetch(event.request))
 })
