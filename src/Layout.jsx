@@ -259,6 +259,13 @@ export default function Layout({ children, currentPageName }) {
 
     const fetchCrmCount = async () => {
       if (isCrmViewBroken) return;
+
+      // Botão de emergência caso precise rodar manutenção no banco
+      if (localStorage.getItem('db_maintenance_mode') === 'true') {
+        console.log('[Layout] DB Maintenance Mode: CRM Fetch silenced.');
+        return;
+      }
+
       try {
         const { count, error, status } = await supabase
           .from('distinct_chats')
@@ -303,7 +310,7 @@ export default function Layout({ children, currentPageName }) {
       fetchCrmCount();
     }
 
-    // Background Sync Loop (runs every 60s to pull new messages from API)
+    // Background Sync Loop (runs every 5m to pull new messages from API as fallback)
     const syncInterval = setInterval(async () => {
       if (isCrmViewBroken) return;
       try {
@@ -313,29 +320,39 @@ export default function Layout({ children, currentPageName }) {
       } catch (err) {
         console.warn('Background sync failed:', err);
       }
-    }, 60000);
+    }, 5 * 60 * 1000); // 5 min sync fallback
 
     // Subscribe to new messages (instantly update UI when DB changes)
+    // Use a unique channel name to avoid conflicts with previous sessions
+    const channelName = `crm-notifications-${user?.id?.substring(0, 8) || 'anon'}`;
     const channel = supabase
-      .channel('crm-notifications')
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'whatsapp_messages' },
         () => {
           if (!isCrmViewBroken) {
-            console.log('CRM: Mensagem recebida, agendando atualização badge...');
+            // console.log('CRM: Mensagem recebida, agendando atualização badge...');
             debouncedFetch();
           }
         }
       )
       .subscribe((status) => {
-        if (status === 'CLOSED') {
-          console.warn('Realtime connection closed. Retrying...');
+        if (status === 'SUBSCRIBED') {
+          console.log('CRM: Realtime conectado com sucesso.');
+        }
+        if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.warn('Realtime connection closed/error. Badge auto-sync might be delayed.');
+          // Re-subscribe attempt could be added here if really needed, 
+          // but usually Supabase client retries under the hood. 
+          // The Warning in logs is helpful for user to know status.
         }
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
       clearInterval(syncInterval);
     };
   }, [user]);
