@@ -555,9 +555,20 @@ export class EvolutionAPI {
     // Contacts
     async fetchContacts(): Promise<EvolutionContact[]> {
         try {
-            const response = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const useProxy = !!this.supabase && !isLocalhost;
+
+            let rawData: any;
+            if (useProxy) {
+                console.log('[EvolutionAPI] [PROXY] Fetching contacts via Supabase');
+                rawData = await this.proxyInvoke('fetch_contacts', { where: {}, limit: 2000 });
+            } else {
+                console.log('[EvolutionAPI] [DIRECT] Fetching contacts');
+                const response = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
+                rawData = response.data;
+            }
+
             // v2.3.0 can return an object or an array
-            const rawData = response.data;
             const contacts = Array.isArray(rawData) ? rawData : (rawData?.records || rawData?.data || (typeof rawData === 'object' ? Object.values(rawData) : []));
 
             const processed = contacts.map((c: any) => ({
@@ -642,14 +653,23 @@ export class EvolutionAPI {
     // Chats
     async fetchChats(deepScan: boolean = false): Promise<any[]> {
         try {
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const useProxy = !!this.supabase && !isLocalhost;
+
             if (!localStorage.getItem('evolution_reset_2.4.6')) {
                 localStorage.removeItem('lid_mappings');
                 localStorage.setItem('evolution_reset_2.4.6', 'true');
             }
 
             // 1. Fetch Agenda First (The absolute source of truth for names in v2.3.0)
-            const contactRes = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
-            const rawContacts = Array.isArray(contactRes.data) ? contactRes.data : Object.values(contactRes.data || {});
+            let rawContacts: any[];
+            if (useProxy) {
+                const contactData = await this.proxyInvoke('fetch_contacts', { where: {}, limit: 2000 });
+                rawContacts = Array.isArray(contactData) ? contactData : Object.values(contactData || {});
+            } else {
+                const contactRes = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
+                rawContacts = Array.isArray(contactRes.data) ? contactRes.data : Object.values(contactRes.data || {});
+            }
 
             const identityMap = new Map<string, string>();
             const savedMappings: Record<string, string> = JSON.parse(localStorage.getItem('lid_mappings') || '{}');
@@ -664,16 +684,31 @@ export class EvolutionAPI {
             });
 
             // 2. Fetch raw chats
-            const chatResponse = await this.client.post(`/chat/findChats/${this.instanceName}`, { where: {}, limit: 1000 });
-            const rawChatsData = chatResponse.data;
-            const rawChats = Array.isArray(rawChatsData) ? rawChatsData : (rawChatsData?.records || rawChatsData?.data || Object.values(rawChatsData || {}));
+            let rawChats: any[];
+            if (useProxy) {
+                const chatData = await this.proxyInvoke('fetch_inbox', { where: {}, limit: 1000 });
+                rawChats = Array.isArray(chatData) ? chatData : (chatData?.records || chatData?.data || Object.values(chatData || {}));
+            } else {
+                const chatResponse = await this.client.post(`/chat/findChats/${this.instanceName}`, { where: {}, limit: 1000 });
+                const rawChatsData = chatResponse.data;
+                rawChats = Array.isArray(rawChatsData) ? rawChatsData : (rawChatsData?.records || rawChatsData?.data || Object.values(rawChatsData || {}));
+            }
 
             // 3. Fetch recent messages for deep bridge discovery
             let recentMessages: any[] = [];
             try {
-                const msgRes = await this.client.post(`/chat/findMessages/${this.instanceName}`, { where: {}, limit: 200, offset: 0 });
-                const mData = msgRes.data;
-                recentMessages = Array.isArray(mData) ? mData : (mData?.messages?.records || mData?.records || mData?.data || []);
+                if (useProxy) {
+                    const msgData = await this.proxyInvoke('proxy_request', {
+                        path: `/chat/findMessages/${this.instanceName}`,
+                        method: 'POST',
+                        body: { where: {}, limit: 200, offset: 0 }
+                    });
+                    recentMessages = Array.isArray(msgData) ? msgData : (msgData?.messages?.records || msgData?.records || msgData?.data || []);
+                } else {
+                    const msgRes = await this.client.post(`/chat/findMessages/${this.instanceName}`, { where: {}, limit: 200, offset: 0 });
+                    const mData = msgRes.data;
+                    recentMessages = Array.isArray(mData) ? mData : (mData?.messages?.records || mData?.records || mData?.data || []);
+                }
             } catch (e) { }
 
             const lastMsgMap = new Map<string, any>();
