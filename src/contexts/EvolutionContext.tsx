@@ -117,30 +117,38 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         if (!api || !isConnected) return;
         setIsSyncing(true);
         try {
+            console.log("[EvolutionContext] Syncing identities (DB + WhatsApp)...");
+
             // 1. Fetch WA Contacts
             const contactsList = await api.fetchContacts();
-            if (Array.isArray(contactsList)) setContacts(contactsList);
+            const validContacts = Array.isArray(contactsList) ? contactsList : [];
+            setContacts(validContacts);
 
-            // 2. Fetch CRM Customers
+            // 2. Fetch ERP Customers
             const { data: dbCustomers } = await supabase.from('customers').select('name, phone');
-            if (Array.isArray(dbCustomers)) setCustomers(dbCustomers);
+            const validCustomers = Array.isArray(dbCustomers) ? dbCustomers : [];
+            setCustomers(validCustomers);
 
-            // 3. Identification Bridge
-            if (Array.isArray(contactsList)) {
-                const discovered: Record<string, string> = {};
-                contactsList.forEach((c: any) => {
-                    const jid = c.id || c.remoteJid;
-                    const name = c.name || c.pushName;
-                    if (jid && name && name.length > 1) {
-                        if (name !== jid.split('@')[0]) discovered[jid] = name;
-                    }
-                });
-                if (Object.keys(discovered).length > 0) {
-                    setDiscoveredNames(prev => ({ ...prev, ...discovered }));
+            // 3. Mapping Bridge
+            const discovered: Record<string, string> = {};
+            validContacts.forEach((c: any) => {
+                const jid = c.id || c.remoteJid;
+                const name = c.name || c.pushName || c.verifiedName;
+                if (jid && name && String(name).length > 1) {
+                    const phonePart = jid.split('@')[0];
+                    if (name !== phonePart) discovered[jid] = String(name).trim();
                 }
+            });
+
+            if (Object.keys(discovered).length > 0) {
+                setDiscoveredNames(prev => ({ ...prev, ...discovered }));
             }
-        } catch (err) { console.error("Sync error:", err); }
-        finally { setIsSyncing(false); setHasAutoSynced(true); }
+        } catch (err) {
+            console.error("Auto-sync failed:", err);
+        } finally {
+            setIsSyncing(false);
+            setHasAutoSynced(true);
+        }
     };
 
     const setCustomName = (jid: string, name: string) => {
@@ -153,27 +161,44 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
 
     const resolveName = useCallback((jid: string, fallback?: string) => {
         if (!jid) return fallback || "Desconhecido";
-        let targetJid = jid;
-        if (lidMapMemo && lidMapMemo[jid]) targetJid = lidMapMemo[jid];
 
-        const phoneNumber = targetJid.split('@')[0];
+        const targetJid = (lidMapMemo && lidMapMemo[jid]) ? lidMapMemo[jid] : jid;
+        const phoneDigits = targetJid.split('@')[0];
+        const rawFallback = String(fallback || "").trim();
+        const isInvalidFallback = !rawFallback || ['desconhecido', 'unknown', 'null', 'undefined'].includes(rawFallback.toLowerCase()) || rawFallback === phoneDigits;
 
+        // 1. CRM Custom Name
         if (customNames[jid]) return customNames[jid];
         if (customNames[targetJid]) return customNames[targetJid];
 
-        if (Array.isArray(customers)) {
-            const dbMatch = customers.find(c => c.phone && String(c.phone).replace(/\D/g, '').includes(phoneNumber.replace(/\D/g, '')));
+        // 2. ERP Database Match
+        if (customers.length > 0) {
+            const dbMatch = customers.find(c => {
+                if (!c.phone) return false;
+                const dbDigits = String(c.phone).replace(/\D/g, '');
+                return dbDigits.length >= 8 && phoneDigits.includes(dbDigits);
+            });
             if (dbMatch?.name) return dbMatch.name;
         }
 
+        // 3. Discovered in current session
         if (discoveredNames[jid]) return discoveredNames[jid];
         if (discoveredNames[targetJid]) return discoveredNames[targetJid];
 
-        const formatted = formatPhoneNumber(targetJid);
-        if (formatted && formatted.length > 5) return formatted;
+        // 4. Fallback provided by the list (if valid)
+        if (!isInvalidFallback) return rawFallback;
 
-        return phoneNumber || fallback || "Desconhecido";
-    }, [lidMapMemo, contacts.length, customNames, discoveredNames, customers]);
+        // 5. Contact List Match
+        const contactMatch = contacts.find(c => isSameJid(c.id || c.remoteJid, targetJid, lidMapMemo));
+        const contactName = contactMatch?.name || contactMatch?.pushName || contactMatch?.verifiedName;
+        if (contactName && String(contactName).length > 1 && contactName !== phoneDigits) {
+            return String(contactName).trim();
+        }
+
+        // 6. Absolute Fallback: Formatted Phone
+        const formatted = formatPhoneNumber(targetJid);
+        return formatted || phoneDigits || "Desconhecido";
+    }, [lidMapMemo, contacts, customers, discoveredNames, customNames]);
 
     const connect = async () => {
         if (!api) return;
@@ -192,18 +217,24 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
     const disconnect = async () => { if (api) { await api.logoutInstance(); setIsConnected(false); setQrCode(null); } };
 
     useEffect(() => {
-        if (api) { checkStatus(); const interval = setInterval(checkStatus, 30000); return () => clearInterval(interval); }
+        if (api) {
+            checkStatus();
+            const interval = setInterval(checkStatus, 30000);
+            return () => clearInterval(interval);
+        }
     }, [api]);
 
     useEffect(() => {
-        if (isConnected && !loading && api && !hasAutoSynced) autoSync();
-    }, [isConnected, loading, api, hasAutoSynced]);
+        if (isConnected && api && !hasAutoSynced && !loading) {
+            autoSync();
+        }
+    }, [isConnected, api, hasAutoSynced, loading]);
 
     const contextValue = useMemo(() => ({
         api, isConnected, instanceName, qrCode, pairingCode, loading, error, connect, disconnect, checkStatus,
         stats, setStats, isSyncing, autoSync, resolveName, discoveredNames, setDiscoveredNames, customNames,
         setCustomName, contacts, customers, messageCache, updateMessageCache, syncContacts
-    }), [api, isConnected, instanceName, qrCode, pairingCode, loading, error, stats, isSyncing, contacts.length, customers.length, discoveredNames, customNames]);
+    }), [api, isConnected, instanceName, qrCode, pairingCode, loading, error, stats, isSyncing, contacts.length, customers.length, discoveredNames, customNames, resolveName]);
 
     return (
         <EvolutionContext.Provider value={contextValue}>
