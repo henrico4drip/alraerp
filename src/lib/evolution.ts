@@ -90,12 +90,17 @@ export class EvolutionAPI {
     }
 
     private async smartRequest(method: 'GET' | 'POST', path: string, body?: any): Promise<any> {
-        const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-        const useProxy = !!this.supabase && !isLocalhost;
+        const isLocalhost = typeof window !== 'undefined' &&
+            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-        if (useProxy) {
+        // Se não for localhost, PRECISA usar o proxy para evitar Mixed Content (HTTP vs HTTPS)
+        const useProxy = !isLocalhost;
+
+        if (useProxy && this.supabase) {
+            console.log(`[EvolutionAPI] [PROXY] ${method} ${path}`);
             return this.proxyInvoke('proxy_request', { path, method, body });
         } else {
+            console.log(`[EvolutionAPI] [DIRECT] ${method} ${path}`);
             const response = method === 'GET'
                 ? await this.client.get(path)
                 : await this.client.post(path, body);
