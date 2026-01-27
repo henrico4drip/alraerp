@@ -363,7 +363,7 @@ function CashierProductsContent() {
           </div>
 
           {/* Totals Section */}
-          <div className="shrink-0 bg-white border-t border-gray-100 p-3 sm:p-5 space-y-2 sm:space-y-3 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.03)]">
+          <div className="shrink-0 bg-white border-t border-gray-100 p-3 sm:p-5 space-y-3 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.03)]">
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-[11px] sm:text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Total a Pagar</p>
@@ -371,11 +371,13 @@ function CashierProductsContent() {
                   R$ {effectiveTotal.toFixed(2)}
                 </h3>
               </div>
-              {/* <div className="text-right">
-                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-bold">
-                       {cart.reduce((acc, i) => acc + i.quantity, 0)} itens
-                    </span>
-                 </div> */}
+              <Button
+                onClick={() => navigate('/cashier/payment')}
+                disabled={cart.length === 0}
+                className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-6 py-6 text-lg font-bold shadow-lg shadow-green-500/20"
+              >
+                Pagar (F2) &rarr;
+              </Button>
             </div>
           </div>
         </div>

@@ -288,6 +288,10 @@ export class EvolutionAPI {
                     const dbUnread = dbUnreadMap.get(phone) || 0;
                     const finalUnread = Math.max(apiUnread, dbUnread);
 
+                    if (finalUnread > 0) {
+                        console.log(`[Evolution] Unread for ${phone}: API=${apiUnread}, DB=${dbUnread}, Final=${finalUnread}`);
+                    }
+
                     enrichedInboxMap.set(jid, {
                         ...apiEntry,
                         id: jid,

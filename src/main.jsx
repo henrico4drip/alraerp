@@ -241,8 +241,12 @@ function App() {
                     element={<RequireAuth><Navigate to="/cashier/products" replace /></RequireAuth>}
                   />
                   <Route
-                    path="/cashier/*"
+                    path="/cashier/products"
                     element={<RequireAuth><RequireSubscription><Layout currentPageName="Cashier"><CashierProvider><CashierProducts /></CashierProvider></Layout></RequireSubscription></RequireAuth>}
+                  />
+                  <Route
+                    path="/cashier/payment"
+                    element={<RequireAuth><RequireSubscription><Layout currentPageName="Cashier Payment"><CashierProvider><CashierPayment /></CashierProvider></Layout></RequireSubscription></RequireAuth>}
                   />
                   <Route
                     path="/sales/*"

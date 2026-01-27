@@ -118,22 +118,28 @@ const MessageBubble = memo(({ item, isMe, type, content, mimeType, fileName, api
 
 // --- Memoized Sub-Components for Performance ---
 
-const ChatListItem = memo(({ chat, isSelected, name, phone, onSelect }: { chat: any, isSelected: any, name: string, phone: string, onSelect: (chat: any) => void }) => (
-  <button onClick={() => onSelect(chat)} className={`w-full flex items-center gap-3 p-4 text-left hover:bg-muted/50 transition-colors ${isSelected ? "bg-muted border-l-4 border-primary" : ""}`}>
+const ChatListItem = memo(({ chat, isSelected, name, phone, onSelect, unreadCount }: { chat: any, isSelected: any, name: string, phone: string, onSelect: (chat: any) => void, unreadCount: number }) => (
+  <button onClick={() => onSelect(chat)} className={`w-full flex items-center gap-3 p-4 text-left hover:bg-muted/50 transition-colors relative ${isSelected ? "bg-muted border-l-4 border-primary" : ""}`}>
     <Avatar className="h-10 w-10 shrink-0">
       <AvatarFallback className="bg-primary/10 text-primary">{name.substring(0, 2).toUpperCase()}</AvatarFallback>
     </Avatar>
     <div className="flex-1 min-w-0">
-      <div className="flex justify-between items-baseline">
-        <p className="font-semibold text-sm truncate">{name}</p>
-        {chat.messageTimestamp && <span className="text-[10px] text-muted-foreground">{format(new Date(Number(chat.messageTimestamp) * 1000), "HH:mm")}</span>}
+      <div className="flex justify-between items-baseline mb-0.5">
+        <p className="font-semibold text-sm truncate pr-2">{name}</p>
       </div>
       <div className="flex flex-col">
         <p className="text-[10px] text-muted-foreground mb-0.5">{phone}</p>
         <p className="text-xs text-muted-foreground truncate">{chat.lastMessage || "Sem mensagens"}</p>
       </div>
     </div>
-    {chat.unreadCount > 0 && <span className="h-5 min-w-[1.25rem] rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">{chat.unreadCount}</span>}
+    <div className="ml-auto pl-2 flex flex-col items-end justify-start gap-1 h-full min-w-[50px]">
+      {chat.messageTimestamp && <span className="text-[10px] text-muted-foreground whitespace-nowrap">{format(new Date(Number(chat.messageTimestamp) * 1000), "HH:mm")}</span>}
+      {unreadCount > 0 && (
+        <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold shadow-sm animate-in zoom-in duration-300 mt-1">
+          {unreadCount}
+        </span>
+      )}
+    </div>
   </button>
 ));
 
@@ -731,6 +737,8 @@ export default function Inbox() {
             <div className="divide-y divide-border/10">
               {filteredChats.map((chat) => {
                 const jid = chat.id || chat.remoteJid;
+                // Debug Unread Rendering
+                if (chat.unreadCount > 0) console.log(`[Rentering Chat] ${jid.split('@')[0]} has ${chat.unreadCount} unread`);
                 return (
                   <ChatListItem
                     key={jid}
@@ -739,6 +747,7 @@ export default function Inbox() {
                     name={chat.computedName}
                     phone={chat.computedPhone}
                     onSelect={handleSelectChat}
+                    unreadCount={chat.unreadCount || 0}
                   />
                 );
               })}
