@@ -722,9 +722,9 @@ export default function Inbox() {
           {selectedChat ? (
             <>
               {/* Chat Header */}
-              <div className="border-b border-border/50 bg-card/30 backdrop-blur-sm p-3 sm:px-6 sm:py-3 z-20">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-4 min-w-0">
+              <div className="border-b border-border/50 bg-card/30 backdrop-blur-sm p-3 sm:px-6 z-20">
+                <div className="flex items-center justify-between h-14 gap-4">
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
                     <Avatar className="h-10 w-10 sm:h-11 sm:w-11 border-2 border-primary/10 shadow-sm shrink-0">
                       <AvatarImage src={`https://pps.whatsapp.net/v/t61.2488-24/jid=${selectedChat.id || selectedChat.remoteJid}`} />
                       <AvatarFallback className="bg-primary/10 text-primary font-medium">
@@ -732,28 +732,28 @@ export default function Inbox() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col min-w-0">
-                      <h2 className="font-bold text-base truncate leading-tight">
+                      <h2 className="font-bold text-base truncate leading-none">
                         {resolveName(selectedChat.id || selectedChat.remoteJid, selectedChat.name || selectedChat.pushName)}
                       </h2>
-                      <div className="flex items-center gap-1.5 opacity-60">
-                        <Phone className="h-3 w-3" />
-                        <span className="text-xs font-mono tracking-tight">
+                      <div className="flex items-center gap-1.5 opacity-60 mt-1">
+                        <Phone className="h-2.5 w-2.5" />
+                        <span className="text-[11px] font-mono tracking-tight leading-none">
                           {formatPhoneNumber(selectedChat.id || selectedChat.remoteJid)}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 sm:gap-4 ml-auto sm:ml-0">
-                    <div className="flex items-center gap-2 bg-muted/30 px-3 py-1 rounded-full border border-border/20 transition-all hover:bg-muted/50">
-                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Responsável:</span>
+                  <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                    <div className="flex items-center bg-muted/30 hover:bg-muted/50 border border-border/20 rounded-full h-8 px-3 transition-all">
                       <Select
                         value={assignments[selectedChat.id || selectedChat.remoteJid] || "unassigned"}
                         onValueChange={(val) => assignChat(selectedChat.id || selectedChat.remoteJid, val)}
                       >
-                        <SelectTrigger className="h-6 min-w-[100px] w-auto max-w-[150px] text-[11px] p-0 bg-transparent border-none shadow-none focus:ring-0 focus:ring-offset-0 flex items-center gap-1 outline-none">
-                          <div className="truncate font-semibold">
-                            {agents.find(a => a.id === assignments[selectedChat.id || selectedChat.remoteJid])?.name || "Sem responsável"}
+                        <SelectTrigger className="h-full w-auto max-w-[140px] text-[10px] p-0 bg-transparent border-none shadow-none focus:ring-0 focus:ring-offset-0 flex items-center gap-1.5 outline-none">
+                          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider hidden sm:inline">Resp:</span>
+                          <div className="truncate font-bold text-foreground pointer-events-none">
+                            {agents.find(a => a.id === assignments[selectedChat.id || selectedChat.remoteJid])?.name || "Ninguém"}
                           </div>
                         </SelectTrigger>
                         <SelectContent align="end">
@@ -765,7 +765,7 @@ export default function Inbox() {
                       </Select>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 border-l border-border/50 pl-2 sm:pl-4">
                       {hiddenContacts.includes(selectedChat.id || selectedChat.remoteJid) && (
                         <Button
                           variant="ghost"
@@ -800,30 +800,30 @@ export default function Inbox() {
                 </div>
 
                 {/* Tabs Navigation */}
-                <div className="flex px-0 mt-6 gap-6 text-sm font-medium text-muted-foreground overflow-x-auto no-scrollbar">
+                <div className="flex px-0 mt-4 gap-6 text-sm font-medium text-muted-foreground overflow-x-auto no-scrollbar">
                   <button
                     onClick={() => setActiveTab('chat')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'chat' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
+                    className={`pb-2 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'chat' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
                   >
-                    <MessageCircle className="h-4 w-4" /> Conversa
+                    <MessageCircle className="h-3.5 w-3.5" /> Conversa
                   </button>
                   <button
                     onClick={() => setActiveTab('details')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
+                    className={`pb-2 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
                   >
-                    <User className="h-4 w-4" /> Dados
+                    <User className="h-3.5 w-3.5" /> Dados
                   </button>
                   <button
                     onClick={() => setActiveTab('notes')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'notes' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
+                    className={`pb-2 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'notes' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
                   >
-                    <StickyNote className="h-4 w-4" /> Notas
+                    <StickyNote className="h-3.5 w-3.5" /> Notas
                   </button>
                   <button
                     onClick={() => setActiveTab('sales')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'sales' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
+                    className={`pb-2 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'sales' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
                   >
-                    <Briefcase className="h-4 w-4" /> Vendas
+                    <Briefcase className="h-3.5 w-3.5" /> Vendas
                   </button>
                 </div>
               </div>
