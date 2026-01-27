@@ -752,8 +752,8 @@ export default function Inbox() {
                         onValueChange={(val) => assignChat(selectedChat.id || selectedChat.remoteJid, val)}
                       >
                         <SelectTrigger className="h-8 min-w-[140px] w-auto max-w-[200px] text-[11px] px-3 bg-muted/40 hover:bg-muted/60 rounded-full transition-all border-none shadow-none focus:ring-1 focus:ring-primary/20 flex items-center justify-between gap-2">
-                          <div className="truncate">
-                            <SelectValue placeholder="Sem responsável" />
+                          <div className="truncate font-medium">
+                            {agents.find(a => a.id === assignments[selectedChat.id || selectedChat.remoteJid])?.name || "Sem responsável"}
                           </div>
                         </SelectTrigger>
                         <SelectContent>
