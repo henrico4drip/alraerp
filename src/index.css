@@ -101,7 +101,7 @@
 
 /* CRM Layout Stabilizer */
 .fixed-container-crm {
-  height: calc(100vh - 4.1rem);
+  height: 100vh !important;
   overflow: hidden !important;
   position: relative;
 }
@@ -110,7 +110,12 @@
 body:has(.crm-root) main {
   padding-bottom: 0 !important;
   overflow: hidden !important;
-  height: calc(100vh - 4rem) !important;
+  height: 100vh !important;
+}
+
+body:has(.crm-root) {
+  overflow: hidden !important;
+  height: 100vh !important;
 }
 
 body:has(.crm-root) .pb-20 {

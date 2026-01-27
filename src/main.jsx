@@ -267,7 +267,7 @@ function App() {
                   />
                   <Route
                     path="/crm/*"
-                    element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="CRM"><CRM /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+                    element={<RequireAuth><RequireSubscription><RequireProfile><CRM /></RequireProfile></RequireSubscription></RequireAuth>}
                   />
                   <Route
                     path="/lead-ranking"

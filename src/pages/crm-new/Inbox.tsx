@@ -603,7 +603,7 @@ export default function Inbox() {
 
   return (
     <CRMLayout>
-      <div className="flex h-[calc(100vh-4.1rem)] w-full overflow-hidden bg-background fixed-container-crm">
+      <div className="flex h-screen w-full overflow-hidden bg-background fixed-container-crm">
         <div className="w-80 border-r border-border/50 flex flex-col bg-card">
           <div className="p-4 space-y-4 border-b border-border/50">
             <div className="flex flex-col gap-3">
