@@ -174,7 +174,20 @@ export class EvolutionAPI {
                 limit: count,
                 offset: 0
             });
-            const messages = Array.isArray(data) ? data : (data?.messages?.records || data?.records || data?.data || []);
+            const rawMessages = Array.isArray(data) ? data : (data?.messages?.records || data?.records || data?.data || []);
+
+            // Deduplicate by message ID
+            const seenIds = new Set<string>();
+            const messages: EvolutionMessage[] = [];
+
+            for (const m of rawMessages) {
+                const id = m.key?.id || m.id;
+                if (id && !seenIds.has(id)) {
+                    seenIds.add(id);
+                    messages.push(m);
+                }
+            }
+
             return messages.filter((m: any) => isSameJid(m.key?.remoteJid || m.remoteJid, remoteJid))
                 .sort((a: any, b: any) => Number(b.messageTimestamp || 0) - Number(a.messageTimestamp || 0))
                 .slice(0, count);

@@ -381,12 +381,20 @@ export default function Inbox() {
       const newMessages = response.reverse();
 
       setMessages(prev => {
-        // Simple deduplication logic
-        if (JSON.stringify(prev) === JSON.stringify(newMessages)) return prev;
+        // Advanced deduplication by ID
+        const map = new Map();
+        [...prev, ...newMessages].forEach(m => {
+          const id = m.key?.id || m.id;
+          if (id) map.set(id, m);
+        });
+        const finalMessages = Array.from(map.values())
+          .sort((a: any, b: any) => Number(a.messageTimestamp) - Number(b.messageTimestamp));
+
+        if (JSON.stringify(prev) === JSON.stringify(finalMessages)) return prev;
 
         // Update cache
-        updateMessageCache(jid, newMessages);
-        return newMessages;
+        updateMessageCache(jid, finalMessages);
+        return finalMessages;
       });
     } catch (error: any) {
       if (!silent) toast.error("Erro ao carregar mensagens: " + error.message);
