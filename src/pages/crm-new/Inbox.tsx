@@ -19,19 +19,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useLocation } from "react-router-dom";
 
+const globalMediaCache: Record<string, string> = {};
+
 const MediaMessage = memo(({ message, type, mimeType, fileName, api }: { message: any, type: string, mimeType?: string, fileName?: string, api: any }) => {
-  const [base64, setBase64] = useState<string | null>(null);
+  const msgId = message.key?.id || message.id;
+  const [base64, setBase64] = useState<string | null>(globalMediaCache[msgId] || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (base64 || !message || !api || error) return;
+
     let isMounted = true;
     const fetchMedia = async () => {
-      if (!message || !api) return;
       setLoading(true);
       try {
         const data = await api.getBase64Media(message);
         if (isMounted && data?.base64) {
+          globalMediaCache[msgId] = data.base64;
           setBase64(data.base64);
         } else if (isMounted) {
           setError(true);
@@ -44,7 +49,7 @@ const MediaMessage = memo(({ message, type, mimeType, fileName, api }: { message
     };
     fetchMedia();
     return () => { isMounted = false; };
-  }, [message.key?.id, api]);
+  }, [msgId, api, base64, error]);
 
   if (loading) return <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground p-2 bg-muted/20 rounded min-h-[150px] w-[250px] border border-border/30 animate-pulse"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>;
   if (error || !base64) return <div className="text-xs text-red-500 p-2 bg-red-500/10 rounded border border-red-500/20 w-[250px]">Erro ao carregar mídia</div>;
@@ -260,9 +265,9 @@ export default function Inbox() {
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
     if (scrollViewportRef.current) {
       const viewport = scrollViewportRef.current;
-      viewport.scrollTo({
-        top: viewport.scrollHeight,
-        behavior
+      // Use requestAnimationFrame to ensure the DOM has updated
+      requestAnimationFrame(() => {
+        viewport.scrollTop = viewport.scrollHeight;
       });
     }
   };
@@ -844,7 +849,7 @@ export default function Inbox() {
 
                         return (
                           <MessageBubble
-                            key={idx}
+                            key={msg.key?.id || msg.id || idx}
                             item={item}
                             isMe={isMe}
                             type={type}
