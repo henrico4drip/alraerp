@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, QrCode, Smartphone, RefreshCw, LogOut, CheckCircle2, Send, AlertCircle, Settings, Terminal, Eye, X, Power, Users, Lock, EyeOff, UserPlus, Pencil, Save, Trash2 } from 'lucide-react'
+import { Loader2, QrCode, Smartphone, RefreshCw, LogOut, CheckCircle2, Send, X, Lock, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '@/api/supabaseClient'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import { useEvolution } from '@/contexts/EvolutionContext'
 import { useCrm } from '@/contexts/CrmContext'
@@ -15,21 +14,11 @@ import { toast } from 'sonner'
 
 export default function WhatsappSettings() {
     const { isConnected, qrCode, pairingCode, loading, error, connect, disconnect, checkStatus, instanceName } = useEvolution()
-    const { agents, addAgent, updateAgent, removeAgent, hiddenChatPassword, setHiddenChatPassword, currentUser, setCurrentUser } = useCrm()
+    const { hiddenChatPassword, setHiddenChatPassword } = useCrm()
 
-    const [proxyLogs, setProxyLogs] = useState([])
     const [autoSendCashback, setAutoSendCashback] = useState(false)
     const effectiveDetails = useEffectiveSettings()
-    const [diagEnabled, setDiagEnabled] = useState(false)
     const [syncing, setSyncing] = useState(false)
-
-    // Agent Form State
-    const [newAgentName, setNewAgentName] = useState("");
-    const [newAgentEmail, setNewAgentEmail] = useState("");
-    const [editingAgentId, setEditingAgentId] = useState(null);
-    const [editAgentName, setEditAgentName] = useState("");
-    const [editAgentEmail, setEditAgentEmail] = useState("");
-    const [editAgentRole, setEditAgentRole] = useState("agent");
 
     // Password state
     const [newPassword, setNewPassword] = useState(hiddenChatPassword);
@@ -78,27 +67,6 @@ export default function WhatsappSettings() {
             toast.error('Erro ao limpar: ' + e.message)
         }
     }
-
-    // Agent Handlers
-    const handleAddAgent = () => {
-        if (!newAgentName.trim() || !newAgentEmail.trim()) return;
-        addAgent({
-            id: Math.random().toString(36).substr(2, 9),
-            name: newAgentName.trim(),
-            email: newAgentEmail.trim(),
-            avatar: `https://i.pravatar.cc/150?u=${newAgentEmail}`,
-            role: "agent"
-        });
-        setNewAgentName("");
-        setNewAgentEmail("");
-        toast.success("Agente adicionado");
-    };
-
-    const handleSaveAgentEdit = (id) => {
-        updateAgent(id, { name: editAgentName, email: editAgentEmail, role: editAgentRole });
-        setEditingAgentId(null);
-        toast.success("Agente atualizado");
-    };
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -252,46 +220,7 @@ export default function WhatsappSettings() {
                 </Card>
             )}
 
-            {/* 3. CRM Team Management (Agents) */}
-            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
-                <CardHeader className="border-b bg-gray-50/30">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <Users className="w-5 h-5 text-indigo-500" /> Agentes de Atendimento (CRM)
-                    </CardTitle>
-                    <CardDescription>Gerencie quem pode responder clientes no CRM</CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                    <div className="space-y-4 p-4 bg-muted/20 rounded-2xl border border-dashed">
-                        <h4 className="text-sm font-semibold flex items-center gap-2"><UserPlus className="w-4 h-4" /> Adicionar Novo Agente</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Input placeholder="Nome" value={newAgentName} onChange={e => setNewAgentName(e.target.value)} />
-                            <Input placeholder="Email" value={newAgentEmail} onChange={e => setNewAgentEmail(e.target.value)} />
-                        </div>
-                        <Button onClick={handleAddAgent} className="w-full bg-indigo-600 hover:bg-indigo-700">Adicionar Agente</Button>
-                    </div>
-
-                    <div className="space-y-3">
-                        {agents.map(agent => (
-                            <div key={agent.id} className="flex items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <img src={agent.avatar} className="w-10 h-10 rounded-full border shadow-sm" alt={agent.name} />
-                                    <div>
-                                        <p className="font-medium text-sm">{agent.name}</p>
-                                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{agent.role}</p>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => removeAgent(agent.id)}>
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* 4. Privacy & Hidden Chats */}
+            {/* 3. Privacy & Hidden Chats */}
             <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
                 <CardHeader className="border-b bg-amber-50/30">
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -335,7 +264,7 @@ export default function WhatsappSettings() {
                 </CardContent>
             </Card>
 
-            {/* 5. Emergency & Diagnostics */}
+            {/* 4. Emergency & Diagnostics */}
             <div className="flex flex-col items-center gap-4 py-8">
                 <button onClick={handleForceReset} className="text-xs text-gray-400 hover:text-red-500 transition-colors underline">
                     Problemas com o QR Code? Clique para Reset Total da Instância

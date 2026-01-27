@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useProfile } from "@/context/ProfileContext";
+import { base44 } from "@/api/base44Client";
 
 // --- Types ---
 
@@ -42,11 +44,6 @@ interface CrmContextType {
     // Agents
     agents: Agent[];
     currentUser: Agent;
-    setCurrentUser: (agent: Agent) => void;
-    addAgent: (agent: Agent) => void;
-    updateAgent: (agentId: string, updates: Partial<Agent>) => void;
-    removeAgent: (agentId: string) => void;
-
     // Assignments
     assignments: Record<string, string>; // chatId -> agentId
     assignChat: (chatId: string, agentId: string) => void;
@@ -100,19 +97,38 @@ const CrmContext = createContext<CrmContextType | undefined>(undefined);
 
 export function CrmProvider({ children }: { children: React.ReactNode }) {
     // --- State ---
-    const [agents, setAgents] = useState<Agent[]>(() => {
-        const saved = localStorage.getItem("crm_agents");
-        return saved ? JSON.parse(saved) : MOCK_AGENTS;
-    });
+    const { currentProfile } = useProfile();
+    const [agents, setAgents] = useState<Agent[]>([]);
 
-    const [currentUser, setCurrentUser] = useState<Agent>(() => {
-        const saved = localStorage.getItem("crm_current_user");
-        if (saved) {
-            const savedUser = JSON.parse(saved);
-            return savedUser;
-        }
-        return MOCK_AGENTS[0];
-    });
+    const currentUser: Agent = {
+        id: currentProfile?.id || "admin",
+        name: currentProfile?.name || "Administrador",
+        avatar: "",
+        role: (currentProfile?.role === "admin" ? "admin" : "agent") as any,
+        email: ""
+    };
+
+    const setCurrentUser = () => { /* No-op: now handled by ProfileContext */ };
+
+    // Fetch live agents from Staff
+    useEffect(() => {
+        const fetchAgents = async () => {
+            try {
+                const staff = await base44.entities.Staff.list();
+                const mappedAgents: Agent[] = staff.map((s: any) => ({
+                    id: s.id,
+                    name: s.name,
+                    avatar: "",
+                    role: s.role === "admin" ? "admin" : "agent",
+                    email: ""
+                }));
+                setAgents(mappedAgents);
+            } catch (e) {
+                console.error("Failed to fetch staff for CRM agents:", e);
+            }
+        };
+        fetchAgents();
+    }, []);
 
     // Persisted Assignments (chatId -> agentId)
     const [assignments, setAssignments] = useState<Record<string, string>>(() => {
@@ -239,32 +255,6 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
         setHiddenContacts((prev) => prev.filter(id => id !== chatId));
     };
 
-    const addAgent = (agent: Agent) => {
-        setAgents((prev) => [...prev, agent]);
-    };
-
-    const updateAgent = (agentId: string, updates: Partial<Agent>) => {
-        setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, ...updates } : a)));
-        // If updating current user, update it too
-        if (currentUser.id === agentId) {
-            setCurrentUser((prev) => ({ ...prev, ...updates }));
-        }
-    };
-
-    const removeAgent = (agentId: string) => {
-        setAgents((prev) => prev.filter((a) => a.id !== agentId));
-        // Clean up assignments for this agent
-        setAssignments((prev) => {
-            const newAssignments = { ...prev };
-            Object.keys(newAssignments).forEach(chatId => {
-                if (newAssignments[chatId] === agentId) {
-                    delete newAssignments[chatId];
-                }
-            });
-            return newAssignments;
-        });
-    };
-
     const addStage = (stage: FunnelStage) => {
         setStages((prev) => [...prev, stage]);
     };
@@ -295,10 +285,6 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
             value={{
                 agents,
                 currentUser,
-                setCurrentUser,
-                addAgent,
-                updateAgent,
-                removeAgent,
                 assignments,
                 assignChat,
                 getChatAssignee,

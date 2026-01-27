@@ -225,7 +225,6 @@ export default function Inbox() {
   const {
     agents,
     currentUser,
-    setCurrentUser,
     assignments,
     assignChat,
     getChatAssignee,
