@@ -19,6 +19,8 @@ interface EvolutionContextType {
     setStats: (stats: { contacts: number; chats: number; messages: number }) => void;
     isSyncing: boolean;
     autoSync: () => Promise<void>;
+    chats: any[];
+    updateChats: (newChats: any[]) => void;
     resolveName: (jid: string, fallback?: string) => string;
     discoveredNames: Record<string, string>;
     setDiscoveredNames: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -98,17 +100,39 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
-    useEffect(() => {
-        localStorage.setItem('evolution_discovered_names', JSON.stringify(discoveredNames));
-    }, [discoveredNames]);
+    const [chats, setChatsState] = useState<any[]>(() => {
+        const saved = localStorage.getItem('evolution_chats_cache');
+        try { return saved ? JSON.parse(saved) : []; } catch { return []; }
+    });
 
-    const [messageCache, setMessageCache] = useState<Record<string, any[]>>({});
+    const updateChats = (newChats: any[]) => {
+        setChatsState(newChats);
+        localStorage.setItem('evolution_chats_cache', JSON.stringify(newChats));
+    };
+
+    const [messageCache, setMessageCache] = useState<Record<string, any[]>>(() => {
+        const saved = localStorage.getItem('evolution_messages_cache');
+        try { return saved ? JSON.parse(saved) : {}; } catch { return {}; }
+    });
 
     const updateMessageCache = (jid: string, newMessages: any[]) => {
         setMessageCache(prev => {
             const existing = prev[jid] || [];
-            if (JSON.stringify(existing) === JSON.stringify(newMessages)) return prev;
-            return { ...prev, [jid]: newMessages };
+            // Keep only last 50 messages per chat in cache to avoid exceeding localStorage quota
+            const limitedMessages = newMessages.slice(-50);
+            if (JSON.stringify(existing) === JSON.stringify(limitedMessages)) return prev;
+
+            const next = { ...prev, [jid]: limitedMessages };
+            // Background save to local storage
+            setTimeout(() => {
+                try {
+                    localStorage.setItem('evolution_messages_cache', JSON.stringify(next));
+                } catch (e) {
+                    console.warn('[EvolutionContext] Cache quota exceeded, clearing old entries');
+                    localStorage.removeItem('evolution_messages_cache');
+                }
+            }, 0);
+            return next;
         });
     };
 
@@ -340,6 +364,8 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
                 setStats,
                 isSyncing,
                 autoSync,
+                chats,
+                updateChats,
                 resolveName,
                 discoveredNames,
                 setDiscoveredNames,

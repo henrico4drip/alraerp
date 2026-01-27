@@ -183,12 +183,14 @@ export default function Inbox() {
     setCustomName,
     messageCache,
     updateMessageCache,
+    chats,
+    updateChats,
     syncContacts,
     autoSync,
-    isSyncing: contextIsSyncing
+    isSyncing: contextIsSyncing,
+    syncToDatabase
   } = useEvolution();
   const location = useLocation();
-  const [chats, setChats] = useState<any[]>([]);
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -337,10 +339,7 @@ export default function Inbox() {
     if (!silent) setLoading(true);
     try {
       const response = await api.fetchChats();
-      setChats(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(response)) return prev;
-        return response;
-      });
+      updateChats(response);
 
       // Update discovered names for future resolution
       const newNames: Record<string, string> = {};
