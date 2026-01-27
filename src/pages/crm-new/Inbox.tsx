@@ -722,101 +722,106 @@ export default function Inbox() {
           {selectedChat ? (
             <>
               {/* Chat Header */}
-              <div className="border-b border-border/50 bg-card/50 backdrop-blur z-10">
-                <div className="h-16 flex items-center justify-between px-6">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9 border border-border/50">
-                      <AvatarImage src={selectedChat.profilePicUrl} />
+              <div className="border-b border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6 z-20">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-primary/10 shadow-sm shrink-0">
+                      <AvatarImage src={`https://pps.whatsapp.net/v/t61.2488-24/jid=${selectedChat.id || selectedChat.remoteJid}`} />
                       <AvatarFallback className="bg-primary/10 text-primary font-medium">
                         {resolveName(selectedChat.id || selectedChat.remoteJid, selectedChat.name || selectedChat.pushName).substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-sm leading-none">
-                          {resolveName(selectedChat.id || selectedChat.remoteJid, selectedChat.name || selectedChat.pushName)}
-                        </p>
-                        <span className="text-[10px] text-muted-foreground opacity-60">
+                    <div className="flex flex-col min-w-0">
+                      <h2 className="font-bold text-base sm:text-lg truncate leading-tight">
+                        {resolveName(selectedChat.id || selectedChat.remoteJid, selectedChat.name || selectedChat.pushName)}
+                      </h2>
+                      <div className="flex items-center gap-1.5 opacity-60">
+                        <Phone className="h-3 w-3" />
+                        <span className="text-xs font-mono tracking-tight">
                           {formatPhoneNumber(selectedChat.id || selectedChat.remoteJid)}
                         </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-muted-foreground">Responsável:</span>
-                        <Select
-                          value={assignments[selectedChat.id || selectedChat.remoteJid] || "unassigned"}
-                          onValueChange={(val) => assignChat(selectedChat.id || selectedChat.remoteJid, val)}
-                        >
-                          <SelectTrigger className="h-5 w-[100px] text-[10px] px-2 py-0 border-border/30 bg-background/50">
-                            <SelectValue placeholder="Ninguém" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Ninguém</SelectItem>
-                            {agents.map(a => (
-                              <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
                       </div>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    {hiddenContacts.includes(selectedChat.id || selectedChat.remoteJid) && (
+                  <div className="flex items-center gap-3 sm:gap-6 ml-auto sm:ml-0">
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Responsável</span>
+                      <Select
+                        value={assignments[selectedChat.id || selectedChat.remoteJid] || "unassigned"}
+                        onValueChange={(val) => assignChat(selectedChat.id || selectedChat.remoteJid, val)}
+                      >
+                        <SelectTrigger className="h-8 min-w-[140px] w-auto max-w-[200px] text-[11px] px-3 bg-muted/40 hover:bg-muted/60 rounded-full transition-all border-none shadow-none focus:ring-1 focus:ring-primary/20 flex items-center justify-between gap-2">
+                          <div className="truncate">
+                            <SelectValue placeholder="Sem responsável" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned" className="text-xs italic text-muted-foreground">Ninguém (Livre)</SelectItem>
+                          {agents.map(a => (
+                            <SelectItem key={a.id} value={a.id} className="text-xs font-medium">{a.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      {hiddenContacts.includes(selectedChat.id || selectedChat.remoteJid) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-green-500 hover:bg-green-500/10 rounded-full"
+                          title="Desocultar"
+                          onClick={() => {
+                            unhideContact(selectedChat.id || selectedChat.remoteJid);
+                            toast.success("Contato visível novamente!");
+                          }}
+                        >
+                          <Unlock className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-green-500 hover:bg-green-500/10"
-                        title="Desocultar"
+                        className="h-9 w-9 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full"
+                        title="Ocultar do CRM"
                         onClick={() => {
-                          unhideContact(selectedChat.id || selectedChat.remoteJid);
-                          toast.success("Contato visível novamente!");
+                          if (confirm("Deseja ocultar permanentemente este contato do CRM? (Acessível via senha)")) {
+                            hideContact(selectedChat.id || selectedChat.remoteJid);
+                            setSelectedChat(null);
+                            toast.success("Contato ocultado!");
+                          }
                         }}
                       >
-                        <Unlock className="h-4 w-4" />
+                        <EyeOff className="h-4 w-4" />
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
-                      title="Ocultar do CRM"
-                      onClick={() => {
-                        if (confirm("Deseja ocultar permanentemente este contato do CRM? (Acessível via senha)")) {
-                          hideContact(selectedChat.id || selectedChat.remoteJid);
-                          setSelectedChat(null);
-                          toast.success("Contato ocultado!");
-                        }
-                      }}
-                    >
-                      <EyeOff className="h-4 w-4" />
-                    </Button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Tabs Navigation */}
-                <div className="flex px-6 gap-6 text-sm font-medium text-muted-foreground">
+                <div className="flex px-0 mt-6 gap-6 text-sm font-medium text-muted-foreground overflow-x-auto no-scrollbar">
                   <button
                     onClick={() => setActiveTab('chat')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'chat' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
+                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'chat' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
                   >
                     <MessageCircle className="h-4 w-4" /> Conversa
                   </button>
                   <button
                     onClick={() => setActiveTab('details')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
+                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
                   >
                     <User className="h-4 w-4" /> Dados
                   </button>
                   <button
                     onClick={() => setActiveTab('notes')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'notes' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
+                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'notes' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
                   >
                     <StickyNote className="h-4 w-4" /> Notas
                   </button>
                   <button
                     onClick={() => setActiveTab('sales')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'sales' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
+                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'sales' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
                   >
                     <Briefcase className="h-4 w-4" /> Vendas
                   </button>
