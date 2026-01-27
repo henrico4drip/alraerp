@@ -371,13 +371,6 @@ function CashierProductsContent() {
                   R$ {effectiveTotal.toFixed(2)}
                 </h3>
               </div>
-              <Button
-                onClick={() => navigate('/cashier/payment')}
-                disabled={cart.length === 0}
-                className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-6 py-6 text-lg font-bold shadow-lg shadow-green-500/20"
-              >
-                Pagar (F2) &rarr;
-              </Button>
             </div>
           </div>
         </div>

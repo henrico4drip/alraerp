@@ -629,7 +629,14 @@ export default function CashierPayment() {
             const { data: waRes, error: waCallErr } = await supabase.functions.invoke('whatsapp-proxy', {
               body: {
                 action: 'send_message',
-                payload: { phone, message: msg }
+                // Evolution API V2 expects: { number, text }
+                payload: {
+                  number: phone,
+                  text: msg,
+                  // Legacy fallback hooks might expect these, keeping them safe 
+                  phone,
+                  message: msg
+                }
               }
             });
             console.log('Step 5 Result:', { waRes, waCallErr });
@@ -717,7 +724,15 @@ export default function CashierPayment() {
       if (phone) {
         try {
           const { error: waErr } = await supabase.functions.invoke('whatsapp-proxy', {
-            body: { action: 'send_message', payload: { phone, message: msg } }
+            body: {
+              action: 'send_message',
+              payload: {
+                number: phone,
+                text: msg,
+                phone, // legacy backup
+                message: msg // legacy backup
+              }
+            }
           });
           if (!waErr) {
             delivered = true;
