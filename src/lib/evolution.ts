@@ -174,21 +174,20 @@ export class EvolutionAPI {
                 limit: count,
                 offset: 0
             });
-            const rawMessages = Array.isArray(data) ? data : (data?.messages?.records || data?.records || data?.data || []);
 
-            // Deduplicate by message ID
-            const seenIds = new Set<string>();
-            const messages: EvolutionMessage[] = [];
+            let messages = Array.isArray(data) ? data : (data?.messages?.records || data?.records || data?.data || []);
 
-            for (const m of rawMessages) {
+            // Strict Deduplication by key.id
+            const uniqueMap = new Map<string, any>();
+            messages.forEach((m: any) => {
                 const id = m.key?.id || m.id;
-                if (id && !seenIds.has(id)) {
-                    seenIds.add(id);
-                    messages.push(m);
+                if (id && !uniqueMap.has(id)) {
+                    uniqueMap.set(id, m);
                 }
-            }
+            });
 
-            return messages.filter((m: any) => isSameJid(m.key?.remoteJid || m.remoteJid, remoteJid))
+            return Array.from(uniqueMap.values())
+                .filter((m: any) => isSameJid(m.key?.remoteJid || m.remoteJid, remoteJid))
                 .sort((a: any, b: any) => Number(b.messageTimestamp || 0) - Number(a.messageTimestamp || 0))
                 .slice(0, count);
         } catch (e) { return []; }

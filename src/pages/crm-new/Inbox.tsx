@@ -370,31 +370,32 @@ export default function Inbox() {
     const jid = chat.id || chat.remoteJid || chat.key?.remoteJid;
     if (!jid) return;
 
-    // Use cache immediately if available
-    if (!silent && messageCache[jid]) {
+    // Clear current messages list or show cache to prevent leaking from previous chat
+    if (messageCache[jid]) {
       setMessages(messageCache[jid]);
+    } else {
+      setMessages([]);
     }
 
     if (!silent) setLoadingMessages(true);
     try {
-      const response = await api.fetchMessages(jid, 200); // Reduced for better performance
+      const response = await api.fetchMessages(jid, 200);
       const newMessages = response.reverse();
 
       setMessages(prev => {
-        // Advanced deduplication by ID
-        const map = new Map();
-        [...prev, ...newMessages].forEach(m => {
+        // Final guard: Deduplicate by ID to prevent ghost duplicates
+        const unique = new Map();
+        newMessages.forEach(m => {
           const id = m.key?.id || m.id;
-          if (id) map.set(id, m);
+          if (id) unique.set(id, m);
         });
-        const finalMessages = Array.from(map.values())
-          .sort((a: any, b: any) => Number(a.messageTimestamp) - Number(b.messageTimestamp));
+        const finalArr = Array.from(unique.values());
 
-        if (JSON.stringify(prev) === JSON.stringify(finalMessages)) return prev;
+        if (JSON.stringify(prev) === JSON.stringify(finalArr)) return prev;
 
         // Update cache
-        updateMessageCache(jid, finalMessages);
-        return finalMessages;
+        updateMessageCache(jid, finalArr);
+        return finalArr;
       });
     } catch (error: any) {
       if (!silent) toast.error("Erro ao carregar mensagens: " + error.message);
