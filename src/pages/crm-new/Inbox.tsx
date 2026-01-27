@@ -473,7 +473,7 @@ export default function Inbox() {
       const jid = selectedChat.id || selectedChat.remoteJid;
       if (jid && api) {
         api.markRead(jid);
-        setChats(prev => prev.map(c => isSameJid(c.id || c.remoteJid, jid) ? { ...c, unreadCount: 0 } : c));
+        updateChats(chats.map(c => isSameJid(c.id || c.remoteJid, jid) ? { ...c, unreadCount: 0 } : c));
       }
     }
   }, [selectedChat, api]);
