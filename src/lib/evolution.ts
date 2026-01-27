@@ -167,7 +167,7 @@ export class EvolutionAPI {
         } catch (e) { return []; }
     }
 
-    async fetchMessages(remoteJid: string, count: number = 100): Promise<EvolutionMessage[]> {
+    async fetchMessages(remoteJid: string, count: number = 200): Promise<EvolutionMessage[]> {
         try {
             const data = await this.smartRequest('POST', `/chat/findMessages/${this.instanceName}`, {
                 where: { key: { remoteJid: remoteJid } },

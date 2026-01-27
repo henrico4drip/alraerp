@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { EvolutionAPI, isSameJid, formatPhoneNumber } from '../lib/evolution';
+import { crmStorage } from '../lib/storage';
 import { useAuth } from '../auth/AuthContext';
 import { supabase } from '../api/supabaseClient';
 import QRCode from 'qrcode';
@@ -100,41 +101,45 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
-    const [chats, setChatsState] = useState<any[]>(() => {
-        const saved = localStorage.getItem('evolution_chats_cache');
-        try { return saved ? JSON.parse(saved) : []; } catch { return []; }
-    });
+    const [chats, setChatsState] = useState<any[]>([]);
+    const [messageCache, setMessageCache] = useState<Record<string, any[]>>({});
 
     const updateChats = (newChats: any[]) => {
         setChatsState(newChats);
-        localStorage.setItem('evolution_chats_cache', JSON.stringify(newChats));
+        crmStorage.saveChats(newChats);
     };
-
-    const [messageCache, setMessageCache] = useState<Record<string, any[]>>(() => {
-        const saved = localStorage.getItem('evolution_messages_cache');
-        try { return saved ? JSON.parse(saved) : {}; } catch { return {}; }
-    });
 
     const updateMessageCache = (jid: string, newMessages: any[]) => {
         setMessageCache(prev => {
             const existing = prev[jid] || [];
-            // Keep only last 50 messages per chat in cache to avoid exceeding localStorage quota
-            const limitedMessages = newMessages.slice(-50);
+            // Keep last 100 messages in memory/cache for better context
+            const limitedMessages = newMessages.slice(-100);
             if (JSON.stringify(existing) === JSON.stringify(limitedMessages)) return prev;
 
             const next = { ...prev, [jid]: limitedMessages };
-            // Background save to local storage
-            setTimeout(() => {
-                try {
-                    localStorage.setItem('evolution_messages_cache', JSON.stringify(next));
-                } catch (e) {
-                    console.warn('[EvolutionContext] Cache quota exceeded, clearing old entries');
-                    localStorage.removeItem('evolution_messages_cache');
-                }
-            }, 0);
+            // Save to IndexedDB in background
+            crmStorage.saveMessages(jid, limitedMessages);
             return next;
         });
     };
+
+    // Hydrate Cache from IndexedDB on startup
+    useEffect(() => {
+        const hydrate = async () => {
+            try {
+                console.log('[EvolutionContext] Hydrating cache from IndexedDB...');
+                const [storedChats, lastMessages] = await Promise.all([
+                    crmStorage.getChats(),
+                    // We don't load all messages into memory at once, we'll load them on demand in loadMessages
+                    Promise.resolve({})
+                ]);
+                if (storedChats.length > 0) setChatsState(storedChats);
+            } catch (e) {
+                console.error('[EvolutionContext] Hydration failed:', e);
+            }
+        };
+        hydrate();
+    }, []);
 
     // Initialize API when user is available
     useEffect(() => {

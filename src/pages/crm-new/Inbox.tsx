@@ -10,6 +10,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatPhoneNumber, isSameJid, extractMessageContent } from "@/lib/evolution";
+import { crmStorage } from "@/lib/storage";
 import { memo } from "react";
 import { useCrm } from "@/contexts/CrmContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -369,11 +370,15 @@ export default function Inbox() {
     const jid = chat.id || chat.remoteJid || chat.key?.remoteJid;
     if (!jid) return;
 
-    // Clear current messages list or show cache to prevent leaking from previous chat
+    // Clear current messages list and prioritize IndexedDB for instant UI
     if (messageCache[jid]) {
       setMessages(messageCache[jid]);
     } else {
       setMessages([]);
+      // Pull from Disk if context is empty
+      crmStorage.getMessages(jid, 200).then(saved => {
+        if (saved.length > 0) setMessages(saved.reverse());
+      });
     }
 
     if (!silent) setLoadingMessages(true);
@@ -702,7 +707,7 @@ export default function Inbox() {
           </ScrollArea>
         </div>
 
-        <div className="flex-1 flex flex-col bg-muted/5">
+        <div className="flex-1 flex flex-col bg-muted/5 min-w-0" key={selectedChat?.id || selectedChat?.remoteJid || 'empty'}>
           {selectedChat ? (
             <>
               {/* Chat Header */}
