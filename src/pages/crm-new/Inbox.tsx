@@ -3,7 +3,7 @@ import CRMLayout from "@/components/CRMLayout";
 import { useEvolution } from "@/contexts/EvolutionContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, MessageSquare, Clock, Send, Loader2, RefreshCw, FileText, Download, User, StickyNote, Briefcase, MessageCircle, Save, Plus, Phone, Check, EyeOff, X, Eye, Ghost, Lock, Unlock } from "lucide-react";
+import { Search, MessageSquare, Clock, Send, Loader2, RefreshCw, FileText, Download, User, StickyNote, Briefcase, MessageCircle, Save, Plus, Phone, Check, EyeOff, X, Eye, Ghost, Lock, Unlock, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
