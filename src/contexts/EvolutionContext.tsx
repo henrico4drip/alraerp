@@ -28,6 +28,8 @@ interface EvolutionContextType {
     messageCache: Record<string, any[]>;
     updateMessageCache: (jid: string, messages: any[]) => void;
     syncContacts: () => Promise<any>;
+    syncToDatabase: (limit?: number) => Promise<any>;
+    setupWebhook: () => Promise<any>;
 }
 
 const EvolutionContext = createContext<EvolutionContextType | undefined>(undefined);
@@ -203,11 +205,48 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         try {
             const contactsRes = await api.fetchContacts();
             setContacts(Array.isArray(contactsRes) ? contactsRes : []);
+
+            // Trigger background sync to DB
+            syncToDatabase(20);
         } catch (err) {
             console.error("Auto sync error:", err);
         } finally {
             setIsSyncing(false);
             setHasAutoSynced(true);
+        }
+    };
+
+    const syncToDatabase = async (limit: number = 20) => {
+        if (!api || !isConnected) return;
+        try {
+            console.log('[EvolutionContext] Triggering DB Sync...');
+            const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+                body: { action: 'sync_recent', payload: { limit } }
+            });
+            if (error) throw error;
+            return data;
+        } catch (e) {
+            console.error("Sync to database error:", e);
+        }
+    };
+
+    const setupWebhook = async () => {
+        if (!api || !isConnected) return;
+        try {
+            const projectUrl = import.meta.env.VITE_SUPABASE_URL;
+            if (!projectUrl) throw new Error("SUPABASE_URL not found");
+
+            const webhookUrl = `${projectUrl.replace('http://', 'https://')}/functions/v1/whatsapp-proxy`;
+            console.log('[EvolutionContext] Setting up webhook:', webhookUrl);
+
+            const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+                body: { action: 'set_webhook', payload: { webhookUrl } }
+            });
+            if (error) throw error;
+            return data;
+        } catch (e) {
+            console.error("Setup webhook error:", e);
+            throw e;
         }
     };
 
@@ -309,7 +348,9 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
                 contacts,
                 messageCache,
                 updateMessageCache,
-                syncContacts
+                syncContacts,
+                syncToDatabase,
+                setupWebhook
             }}
         >
             {children}

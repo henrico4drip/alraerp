@@ -648,9 +648,31 @@ export default function Inbox() {
                 />
               </div>
             )}
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Pesquisar conversas ou mensagens..." className="pl-9 h-9 bg-muted/50 border-none text-xs" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <div className="p-4 border-b border-gray-100 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar conversas..."
+                  className="pl-9 h-10 border-gray-100 bg-gray-50/50 focus:bg-white transition-colors"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all"
+                onClick={() => {
+                  toast.promise(syncToDatabase(30), {
+                    loading: 'Sincronizando banco...',
+                    success: 'Banco de dados sincronizado!',
+                    error: 'Falha ao sincronizar'
+                  });
+                }}
+                title="Sincronizar Mensagens com Banco de Dados (IA Ranking)"
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           <ScrollArea className="flex-1">

@@ -304,6 +304,12 @@ export class EvolutionAPI {
             return records.length > 0 ? records[0] : null;
         } catch (e) { return null; }
     }
+
+    async syncContacts(): Promise<any> {
+        try {
+            return await this.smartRequest('POST', `/contact/sync/${this.instanceName}`);
+        } catch (e) { return null; }
+    }
 }
 
 export function extractMessageContent(message: any): { type: string; content: string } {
