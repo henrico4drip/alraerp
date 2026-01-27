@@ -274,8 +274,8 @@ export default function Settings() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full group flex items-center gap-3 px-4 py-3.5 transition-all rounded-xl relative ${activeTab === tab.id
-                    ? 'bg-indigo-50 text-indigo-700 shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-indigo-50 text-indigo-700 shadow-sm'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                   }`}
               >
                 <tab.icon className={`w-5 h-5 transition-colors ${activeTab === tab.id ? 'text-indigo-600' : 'group-hover:text-slate-700'}`} />
@@ -831,6 +831,43 @@ export default function Settings() {
                     <option value="admin">Administrador</option>
                   </select>
                 </div>
+              </div>
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Permissões de Acesso aos Módulos</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { id: 'dashboard', label: 'Dashboard' },
+                    { id: 'cashier', label: 'Caixa' },
+                    { id: 'inventory', label: 'Estoque' },
+                    { id: 'sales', label: 'Vendas' },
+                    { id: 'customers', label: 'Clientes' },
+                    { id: 'financial', label: 'Financeiro' },
+                    { id: 'reports', label: 'Relatórios' },
+                    { id: 'crm', label: 'CRM' },
+                    { id: 'marketing', label: 'Marketing' },
+                    { id: 'settings', label: 'Configurações' },
+                  ].map((perm) => (
+                    <div key={perm.id} className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <input
+                        type="checkbox"
+                        id={`perm-${perm.id}`}
+                        checked={staffForm.role === 'admin' || !!staffForm.permissions?.[perm.id]}
+                        disabled={staffForm.role === 'admin'}
+                        onChange={(e) => {
+                          const newPerms = { ...staffForm.permissions, [perm.id]: e.target.checked }
+                          setStaffForm({ ...staffForm, permissions: newPerms })
+                        }}
+                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                      />
+                      <label htmlFor={`perm-${perm.id}`} className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                        {perm.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {staffForm.role === 'admin' && (
+                  <p className="text-[10px] text-indigo-500 font-bold italic">* Administradores possuem acesso total por padrão.</p>
+                )}
               </div>
               <div className="flex gap-4 pt-8">
                 <Button onClick={() => setShowStaffDialog(false)} variant="ghost" className="flex-1 rounded-2xl h-12 uppercase font-bold tracking-widest text-[10px]">Cancelar</Button>

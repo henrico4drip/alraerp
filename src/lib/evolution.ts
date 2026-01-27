@@ -249,7 +249,27 @@ export class EvolutionAPI {
 
             const enrichedInboxMap = new Map<string, any>();
 
+            // NEW: Fetch unread counts from Supabase to augment the API data
+            let dbUnreadMap = new Map<string, number>();
+            try {
+                if (this.supabase) {
+                    const { data: unreadData } = await this.supabase
+                        .from('whatsapp_messages')
+                        .select('contact_phone')
+                        .eq('direction', 'inbound')
+                        .eq('is_read', false);
+
+                    if (unreadData) {
+                        unreadData.forEach((m: any) => {
+                            const count = dbUnreadMap.get(m.contact_phone) || 0;
+                            dbUnreadMap.set(m.contact_phone, count + 1);
+                        });
+                    }
+                }
+            } catch (e) { console.warn('[fetchChats] DB unread fetch failed', e); }
+
             allJidSet.forEach(jid => {
+                const phone = jid.split('@')[0];
                 const mappedId = savedMappings[jid] || jid;
                 const apiEntry = rawChats.find((c: any) => isSameJid(c.id || c.remoteJid || c.jid, jid)) || {};
                 const bestMsg = lastMsgMap.get(jid) || lastMsgMap.get(mappedId);
@@ -262,12 +282,18 @@ export class EvolutionAPI {
                 const existing = enrichedInboxMap.get(jid);
                 if (!existing) {
                     const resName = identityMap.get(jid) || identityMap.get(mappedId) || resolveContactName(apiEntry, bestMsg, jid);
+
+                    // Combine API unread with DB unread
+                    const apiUnread = apiEntry.unreadCount || 0;
+                    const dbUnread = dbUnreadMap.get(phone) || 0;
+                    const finalUnread = Math.max(apiUnread, dbUnread);
+
                     enrichedInboxMap.set(jid, {
                         ...apiEntry,
                         id: jid,
                         remoteJid: jid,
                         messageTimestamp: timestamp,
-                        unreadCount: apiEntry.unreadCount || 0,
+                        unreadCount: finalUnread,
                         lastMessage: bestMsg ? extractMessageContent(bestMsg).content : null,
                         name: resName
                     });

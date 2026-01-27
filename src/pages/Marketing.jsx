@@ -37,7 +37,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
+import RequirePermission from "@/components/RequirePermission";
+
 export default function Marketing() {
+  return (
+    <RequirePermission permission="marketing">
+      <MarketingContent />
+    </RequirePermission>
+  );
+}
+
+function MarketingContent() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);

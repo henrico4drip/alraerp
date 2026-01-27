@@ -17,7 +17,17 @@ import CustomerDialog from "@/components/CustomerDialog";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
+import RequirePermission from "@/components/RequirePermission";
+
 export default function Customers() {
+  return (
+    <RequirePermission permission="customers">
+      <CustomersContent />
+    </RequirePermission>
+  );
+}
+
+function CustomersContent() {
   const [showDialog, setShowDialog] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [formData, setFormData] = useState({

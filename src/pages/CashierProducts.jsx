@@ -13,7 +13,17 @@ import { useEffectiveSettings } from "@/hooks/useEffectiveSettings";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
+import RequirePermission from "@/components/RequirePermission";
+
 export default function CashierProducts() {
+  return (
+    <RequirePermission permission="cashier">
+      <CashierProductsContent />
+    </RequirePermission>
+  );
+}
+
+function CashierProductsContent() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const searchRef = useRef(null);

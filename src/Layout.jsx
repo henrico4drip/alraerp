@@ -34,12 +34,14 @@ import { supabase } from '@/api/supabaseClient'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import Tutorial from '@/components/Tutorial'
 import { useProfile } from "@/context/ProfileContext";
+import { useEvolution } from "@/contexts/EvolutionContext";
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const { currentProfile, logoutProfile } = useProfile();
+  const { api, isConnected, updateChats } = useEvolution();
   const settings = useEffectiveSettings();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -250,6 +252,17 @@ export default function Layout({ children, currentPageName }) {
     syncSignupProfile()
   }, [user])
 
+  const playNotificationSound = () => {
+    try {
+      // Som de "Ding" em Data URI
+      const audio = new Audio("data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTv9Pj6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fH5+fA==");
+      audio.volume = 0.5;
+      audio.play().catch(() => console.log("[Audio] Som bloqueado - interaja com a página primeiro."));
+    } catch (e) {
+      console.warn('Erro ao tocar som:', e);
+    }
+  };
+
   const crmDebounceTimer = React.useRef(null);
   const lastCrmFetchTime = React.useRef(0);
 
@@ -258,7 +271,7 @@ export default function Layout({ children, currentPageName }) {
     if (!user) return;
 
     const fetchCrmCount = async () => {
-      if (isCrmViewBroken) return;
+      if (isCrmViewBroken || !supabase) return;
 
       // Botão de emergência caso precise rodar manutenção no banco
       if (localStorage.getItem('db_maintenance_mode') === 'true') {
@@ -267,12 +280,15 @@ export default function Layout({ children, currentPageName }) {
       }
 
       try {
+        console.log('[CRM] Fetching unread count from database...')
         const { count, error, status } = await supabase
-          .from('distinct_chats')
+          .from('whatsapp_messages')
           .select('*', { count: 'exact', head: true })
-          .eq('direction', 'inbound');
+          .eq('direction', 'inbound')
+          .eq('is_read', false);
 
         if (error) {
+          console.error('[CRM] Database error:', { error, status });
           if (status === 500 || status === 404 || status === 503 || status === 504) {
             console.error(`[Layout] CRM View is struggling (${status}). Silencing CRM count for 5 minutes.`);
             setIsCrmViewBroken(true);
@@ -282,7 +298,10 @@ export default function Layout({ children, currentPageName }) {
           console.error('[Layout] CRM Fetch Error:', { error, status });
           return;
         }
-        setCrmNotificationCount(count || 0);
+        if (!error) {
+          setCrmNotificationCount(count || 0);
+          console.log('[CRM] Notificações não lidas no banco:', count, '| Query: SELECT COUNT(*) FROM whatsapp_messages WHERE direction=inbound AND is_read=false');
+        }
         lastCrmFetchTime.current = Date.now();
       } catch (err) {
         console.warn('[Layout] Exception fetching CRM notification count:', err);
@@ -308,31 +327,55 @@ export default function Layout({ children, currentPageName }) {
 
     if (!isCrmViewBroken) {
       fetchCrmCount();
+      // Força um sync inicial ao carregar o Layout
+      supabase.functions.invoke('whatsapp-proxy', { body: { action: 'sync_recent' } }).catch(() => { });
     }
 
-    // Background Sync Loop (runs every 5m to pull new messages from API as fallback)
+    // Background Sync Loop (runs every 30s to pull new messages)
     const syncInterval = setInterval(async () => {
-      if (isCrmViewBroken) return;
+      if (isCrmViewBroken || !supabase || !user) {
+        // console.log('[CRM-Sync] Skipped:', { isCrmViewBroken, hasSupabase: !!supabase, hasUser: !!user });
+        return;
+      }
       try {
+        // console.log('[CRM-Sync] Starting background sync...');
+        // 1. Force Proxy to populate DB (check all active chats, not just 10)
         await supabase.functions.invoke('whatsapp-proxy', {
           body: { action: 'sync_recent' }
         });
+
+        // 2. Fetch via client API (Triggers the POST logs you want to see)
+        if (api && isConnected) {
+          // console.log('[CRM-Sync] API is connected, fetching chats...');
+          const chats = await api.fetchChats();
+          if (chats) updateChats(chats);
+        } else {
+          // console.log('[CRM-Sync] API not connected yet:', { hasApi: !!api, isConnected });
+        }
+
+        fetchCrmCount();
       } catch (err) {
-        console.warn('Background sync failed:', err);
+        console.warn('[CRM-Sync] Error during background task:', err);
       }
-    }, 5 * 60 * 1000); // 5 min sync fallback
+    }, 2 * 60 * 1000);
 
     // Subscribe to new messages (instantly update UI when DB changes)
     // Use a unique channel name to avoid conflicts with previous sessions
     const channelName = `crm-notifications-${user?.id?.substring(0, 8) || 'anon'}`;
-    const channel = supabase
+    const channel = supabase ? supabase
       .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'whatsapp_messages' },
-        () => {
-          if (!isCrmViewBroken) {
-            // console.log('CRM: Mensagem recebida, agendando atualização badge...');
+        (payload) => {
+          if (!isCrmViewBroken && payload.new) {
+            const isRead = payload.new.is_read;
+            const isInbound = payload.new.direction === 'inbound';
+
+            if (isInbound && (isRead === false || isRead === undefined)) {
+              console.log('[CRM] Nova mensagem detectada!', payload.new);
+              playNotificationSound();
+            }
             debouncedFetch();
           }
         }
@@ -347,7 +390,7 @@ export default function Layout({ children, currentPageName }) {
           // but usually Supabase client retries under the hood. 
           // The Warning in logs is helpful for user to know status.
         }
-      });
+      }) : null;
 
     return () => {
       if (channel) {
@@ -358,25 +401,33 @@ export default function Layout({ children, currentPageName }) {
   }, [user]);
 
   const allNavItems = [
-    { name: "Dashboard", path: createPageUrl("Dashboard"), icon: LayoutDashboard, tutorialId: "dashboard-link" },
-    { name: "Caixa", path: createPageUrl("Cashier"), icon: ShoppingCart, tutorialId: "cashier-link" },
-    { name: "Vendas", path: createPageUrl("Sales"), icon: TrendingUp },
-    { name: "Clientes", path: createPageUrl("Customers"), icon: Users, tutorialId: "customers-link" },
-    { name: "Estoque", path: createPageUrl("Inventory"), icon: Package, tutorialId: "inventory-link" },
-    { name: "Pagamentos", path: createPageUrl("Payments"), icon: Wallet, tutorialId: "payments-link" },
-    { name: "Relatórios", path: createPageUrl("Reports"), icon: BarChart3 },
-    { name: "CRM", path: createPageUrl("CRM"), icon: MessageSquare },
-    { name: "Marketing", path: createPageUrl("Marketing"), icon: Megaphone },
-    { name: "Configurações", path: createPageUrl("Settings"), icon: SettingsIcon, tutorialId: "settings-link" },
-  ];
+    { name: "Dashboard", path: createPageUrl("Dashboard"), icon: LayoutDashboard, tutorialId: "dashboard-link", permission: "dashboard" },
+    { name: "Caixa", path: createPageUrl("Cashier"), icon: ShoppingCart, tutorialId: "cashier-link", permission: "cashier" },
+    { name: "Vendas", path: createPageUrl("Sales"), icon: TrendingUp, permission: "sales" },
+    { name: "Clientes", path: createPageUrl("Customers"), icon: Users, tutorialId: "customers-link", permission: "customers" },
+    { name: "Estoque", path: createPageUrl("Inventory"), icon: Package, tutorialId: "inventory-link", permission: "inventory" },
+    { name: "Pagamentos", path: createPageUrl("Payments"), icon: Wallet, tutorialId: "payments-link", permission: "financial" },
+    { name: "Relatórios", path: createPageUrl("Reports"), icon: BarChart3, permission: "reports" },
+    { name: "CRM", path: createPageUrl("CRM"), icon: MessageSquare, permission: "crm" },
+    { name: "Marketing", path: createPageUrl("Marketing"), icon: Megaphone, permission: "marketing" },
+    { name: "Configurações", path: createPageUrl("Settings"), icon: SettingsIcon, tutorialId: "settings-link", permission: "settings" },
+  ].filter(item =>
+    currentProfile?.role === 'admin' ||
+    currentProfile?.permissions?.all ||
+    (item.permission && currentProfile?.permissions?.[item.permission])
+  );
 
   const bottomNavItems = [
-    { name: "CAIXA", path: createPageUrl("Cashier"), icon: ShoppingCart },
-    { name: "VENDAS", path: createPageUrl("Sales"), icon: TrendingUp },
-    { name: "CLIENTES", path: createPageUrl("Customers"), icon: Users },
-    { name: "ESTOQUE", path: createPageUrl("Inventory"), icon: Package },
-    { name: "MARKETING", path: createPageUrl("Marketing"), icon: Megaphone },
-  ];
+    { name: "CAIXA", path: createPageUrl("Cashier"), icon: ShoppingCart, permission: "cashier" },
+    { name: "VENDAS", path: createPageUrl("Sales"), icon: TrendingUp, permission: "sales" },
+    { name: "CLIENTES", path: createPageUrl("Customers"), icon: Users, permission: "customers" },
+    { name: "ESTOQUE", path: createPageUrl("Inventory"), icon: Package, permission: "inventory" },
+    { name: "MARKETING", path: createPageUrl("Marketing"), icon: Megaphone, permission: "marketing" },
+  ].filter(item =>
+    currentProfile?.role === 'admin' ||
+    currentProfile?.permissions?.all ||
+    (item.permission && currentProfile?.permissions?.[item.permission])
+  );
 
 
 

@@ -11,7 +11,17 @@ import Contacts from './crm-new/Contacts';
 import Funnel from './crm-new/Funnel';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
+import RequirePermission from "@/components/RequirePermission";
+
 export default function CRM() {
+    return (
+        <RequirePermission permission="crm">
+            <CRMContent />
+        </RequirePermission>
+    );
+}
+
+function CRMContent() {
     return (
         <div className="h-screen w-screen overflow-hidden bg-background text-foreground crm-root">
             <ThemeProvider defaultTheme="light">

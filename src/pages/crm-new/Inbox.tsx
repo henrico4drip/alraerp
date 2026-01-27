@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useLocation } from "react-router-dom";
+import { supabase } from "@/api/supabaseClient";
 
 const globalMediaCache: Record<string, string> = {};
 
@@ -376,6 +377,33 @@ export default function Inbox() {
     if (!api || !isConnected) return;
     const jid = chat.id || chat.remoteJid || chat.key?.remoteJid;
     if (!jid) return;
+
+    // Mark as read logic
+    try {
+      if (!supabase) return;
+      const phone = jid.split('@')[0];
+      // 1. Mark in Supabase
+      supabase.from('whatsapp_messages')
+        .update({ is_read: true })
+        .eq('contact_phone', phone)
+        .eq('direction', 'inbound')
+        .eq('is_read', false)
+        .then(() => {
+          // Optional: trigger local event to update count elsewhere if necessary
+        });
+
+      // 2. Mark in Evolution API
+      api.markRead(jid);
+
+      // 3. Update local state for instant feedback
+      updateChats(chats.map(c => {
+        const cjid = c.id || c.remoteJid;
+        if (cjid === jid) return { ...c, unreadCount: 0 };
+        return c;
+      }));
+    } catch (e) {
+      console.warn('Failed to mark messages as read:', e);
+    }
 
     // Clear current messages list and prioritize IndexedDB for instant UI
     if (messageCache[jid]) {

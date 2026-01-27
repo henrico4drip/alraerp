@@ -315,7 +315,10 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (isConnected && !loading && api && !hasAutoSynced) {
-            autoSync();
+            autoSync().then(() => {
+                // After initial sync, ensure webhook is active for real-time delivery
+                setupWebhook().catch(err => console.warn('[EvolutionContext] Auto-webhook setup failed:', err));
+            });
         }
     }, [isConnected, loading, api, hasAutoSynced]);
 

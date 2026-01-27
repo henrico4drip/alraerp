@@ -9,7 +9,17 @@ import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
+import RequirePermission from "@/components/RequirePermission";
+
 export default function Sales() {
+  return (
+    <RequirePermission permission="sales">
+      <SalesContent />
+    </RequirePermission>
+  );
+}
+
+function SalesContent() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const { data: sales = [] } = useQuery({

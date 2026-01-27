@@ -36,7 +36,17 @@ import {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
+import RequirePermission from "@/components/RequirePermission";
+
 export default function Reports() {
+  return (
+    <RequirePermission permission="reports">
+      <ReportsContent />
+    </RequirePermission>
+  );
+}
+
+function ReportsContent() {
   const { data: sales = [] } = useQuery({
     queryKey: ['sales'],
     queryFn: () => base44.entities.Sale.list('-created_date'),

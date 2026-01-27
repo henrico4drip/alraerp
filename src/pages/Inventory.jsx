@@ -19,7 +19,17 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import PrintLabelsModal from "@/components/PrintLabelsModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
+import RequirePermission from "@/components/RequirePermission";
+
 export default function Inventory() {
+  return (
+    <RequirePermission permission="inventory">
+      <InventoryContent />
+    </RequirePermission>
+  );
+}
+
+function InventoryContent() {
   const settingsEff = useEffectiveSettings();
   const navigate = useNavigate();
   const wholesaleEnabled = !!settingsEff?.wholesale_enabled;
