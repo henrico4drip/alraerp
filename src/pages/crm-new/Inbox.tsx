@@ -722,17 +722,17 @@ export default function Inbox() {
           {selectedChat ? (
             <>
               {/* Chat Header */}
-              <div className="border-b border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6 z-20">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="border-b border-border/50 bg-card/30 backdrop-blur-sm p-3 sm:px-6 sm:py-3 z-20">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-4 min-w-0">
-                    <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-primary/10 shadow-sm shrink-0">
+                    <Avatar className="h-10 w-10 sm:h-11 sm:w-11 border-2 border-primary/10 shadow-sm shrink-0">
                       <AvatarImage src={`https://pps.whatsapp.net/v/t61.2488-24/jid=${selectedChat.id || selectedChat.remoteJid}`} />
                       <AvatarFallback className="bg-primary/10 text-primary font-medium">
                         {resolveName(selectedChat.id || selectedChat.remoteJid, selectedChat.name || selectedChat.pushName).substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col min-w-0">
-                      <h2 className="font-bold text-base sm:text-lg truncate leading-tight">
+                      <h2 className="font-bold text-base truncate leading-tight">
                         {resolveName(selectedChat.id || selectedChat.remoteJid, selectedChat.name || selectedChat.pushName)}
                       </h2>
                       <div className="flex items-center gap-1.5 opacity-60">
@@ -744,20 +744,20 @@ export default function Inbox() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 sm:gap-6 ml-auto sm:ml-0">
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Responsável</span>
+                  <div className="flex items-center gap-3 sm:gap-4 ml-auto sm:ml-0">
+                    <div className="flex items-center gap-2 bg-muted/30 px-3 py-1 rounded-full border border-border/20 transition-all hover:bg-muted/50">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Resposnável:</span>
                       <Select
                         value={assignments[selectedChat.id || selectedChat.remoteJid] || "unassigned"}
                         onValueChange={(val) => assignChat(selectedChat.id || selectedChat.remoteJid, val)}
                       >
-                        <SelectTrigger className="h-8 min-w-[140px] w-auto max-w-[200px] text-[11px] px-3 bg-muted/40 hover:bg-muted/60 rounded-full transition-all border-none shadow-none focus:ring-1 focus:ring-primary/20 flex items-center justify-between gap-2">
-                          <div className="truncate font-medium">
+                        <SelectTrigger className="h-6 min-w-[100px] w-auto max-w-[150px] text-[11px] p-0 bg-transparent border-none shadow-none focus:ring-0 focus:ring-offset-0 flex items-center gap-1 outline-none">
+                          <div className="truncate font-semibold">
                             {agents.find(a => a.id === assignments[selectedChat.id || selectedChat.remoteJid])?.name || "Sem responsável"}
                           </div>
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned" className="text-xs italic text-muted-foreground">Ninguém (Livre)</SelectItem>
+                        <SelectContent align="end">
+                          <SelectItem value="unassigned" className="text-xs italic text-muted-foreground">Livre (Ninguém)</SelectItem>
                           {agents.map(a => (
                             <SelectItem key={a.id} value={a.id} className="text-xs font-medium">{a.name}</SelectItem>
                           ))}
@@ -765,12 +765,12 @@ export default function Inbox() {
                       </Select>
                     </div>
 
-                    <div className="flex items-center gap-1 sm:gap-2">
+                    <div className="flex items-center gap-1">
                       {hiddenContacts.includes(selectedChat.id || selectedChat.remoteJid) && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 text-green-500 hover:bg-green-500/10 rounded-full"
+                          className="h-8 w-8 text-green-500 hover:bg-green-500/10 rounded-full"
                           title="Desocultar"
                           onClick={() => {
                             unhideContact(selectedChat.id || selectedChat.remoteJid);
@@ -783,7 +783,7 @@ export default function Inbox() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-9 w-9 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full"
+                        className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full"
                         title="Ocultar do CRM"
                         onClick={() => {
                           if (confirm("Deseja ocultar permanentemente este contato do CRM? (Acessível via senha)")) {
