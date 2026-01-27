@@ -331,9 +331,12 @@ export default function Inbox() {
 
   useEffect(() => {
     if (!loadingMessages && messages.length > 0) {
-      if (isAtBottomRef.current) setTimeout(() => scrollToBottom("auto"), 50);
+      // Only auto-scroll if it's a significant change or we were already at bottom
+      if (isAtBottomRef.current) {
+        scrollToBottom("auto");
+      }
     }
-  }, [messages.length]);
+  }, [messages.length, loadingMessages]);
 
   const loadChats = async (silent: boolean = false) => {
     if (!api || !isConnected) return;
@@ -387,17 +390,33 @@ export default function Inbox() {
       const newMessages = response.reverse();
 
       setMessages(prev => {
-        // Final guard: Deduplicate by ID to prevent ghost duplicates
+        // Smart Merge Strategy: Keep existing references to avoid flicker/jumping
+        const existingIds = new Map(prev.map(m => [m.key?.id || m.id, m]));
+        const hasNew = newMessages.some(m => !existingIds.has(m.key?.id || m.id));
+        const countsDifferent = prev.length !== newMessages.length;
+
+        // If data is basically the same, return prev to prevent re-render (stable reference)
+        if (!hasNew && !countsDifferent) return prev;
+
+        // Efficiently merge maintaining reference stability
         const unique = new Map();
+        // Add existing ones first (reference preservation)
+        prev.forEach(m => {
+          const id = m.key?.id || m.id;
+          if (id) unique.set(id, m);
+        });
+
+        // Overwrite or add new ones (newly fetched objects)
         newMessages.forEach(m => {
           const id = m.key?.id || m.id;
           if (id) unique.set(id, m);
         });
-        const finalArr = Array.from(unique.values());
 
-        if (JSON.stringify(prev) === JSON.stringify(finalArr)) return prev;
+        const finalArr = Array.from(unique.values()).sort((a: any, b: any) =>
+          Number(a.messageTimestamp || 0) - Number(b.messageTimestamp || 0)
+        );
 
-        // Update cache
+        // Sync cache with live server data
         updateMessageCache(jid, finalArr);
         return finalArr;
       });
