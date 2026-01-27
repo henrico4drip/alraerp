@@ -11,21 +11,23 @@ import Contacts from './crm-new/Contacts';
 import Funnel from './crm-new/Funnel';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
-return (
-    <div className="h-screen w-screen overflow-hidden bg-background text-foreground crm-root">
-        <ThemeProvider defaultTheme="light">
-            <TooltipProvider>
-                <Toaster richColors position="top-right" />
-                <Suspense fallback={<div className="flex items-center justify-center p-8 h-screen w-screen">Carregando CRM...</div>}>
-                    <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/inbox" element={<Inbox />} />
-                        <Route path="/contacts" element={<Contacts />} />
-                        <Route path="/funnel" element={<Funnel />} />
-                        <Route path="*" element={<Navigate to="/crm/inbox" replace />} />
-                    </Routes>
-                </Suspense>
-            </TooltipProvider>
-        </ThemeProvider>
-    </div>
-);
+export default function CRM() {
+    return (
+        <div className="h-screen w-screen overflow-hidden bg-background text-foreground crm-root">
+            <ThemeProvider defaultTheme="light">
+                <TooltipProvider>
+                    <Toaster richColors position="top-right" />
+                    <Suspense fallback={<div className="flex items-center justify-center p-8 h-screen w-screen">Carregando CRM...</div>}>
+                        <Routes>
+                            <Route path="/" element={<Home />} />
+                            <Route path="/inbox" element={<Inbox />} />
+                            <Route path="/contacts" element={<Contacts />} />
+                            <Route path="/funnel" element={<Funnel />} />
+                            <Route path="*" element={<Navigate to="/crm/inbox" replace />} />
+                        </Routes>
+                    </Suspense>
+                </TooltipProvider>
+            </ThemeProvider>
+        </div>
+    );
+}
