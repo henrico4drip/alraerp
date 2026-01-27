@@ -603,7 +603,7 @@ export default function Inbox() {
 
   return (
     <CRMLayout>
-      <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-background">
+      <div className="flex h-[calc(100vh-4.1rem)] w-full overflow-hidden bg-background fixed-container-crm">
         <div className="w-80 border-r border-border/50 flex flex-col bg-card">
           <div className="p-4 space-y-4 border-b border-border/50">
             <div className="flex flex-col gap-3">
@@ -630,18 +630,6 @@ export default function Inbox() {
                     Novo
                   </Button>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={currentUser.id} onValueChange={(id) => setCurrentUser(agents.find(a => a.id === id) || agents[0])}>
-                  <SelectTrigger className="flex-1 h-9 text-xs bg-muted/30 border-none shadow-none focus:ring-1 focus:ring-primary/20">
-                    <SelectValue placeholder="Usuário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {agents.map(agent => (
-                      <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
             <div className="flex rounded-lg bg-muted p-1">
@@ -940,9 +928,10 @@ export default function Inbox() {
             </div>
           )}
         </div>
-      </div>
+      </div >
       {/* Manual Resolution Dialog */}
-      <div className={`fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 transition-all duration-200 ${resolutionDialogOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      < div className={`fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 transition-all duration-200 ${resolutionDialogOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`
+      }>
         <div className="bg-card border border-border rounded-lg shadow-lg max-w-md w-full p-6 space-y-4">
           <div className="space-y-2">
             <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -972,8 +961,8 @@ export default function Inbox() {
             <Button onClick={handleManualResolution}>Salvar e Reenviar</Button>
           </div>
         </div>
-      </div>
-    </CRMLayout>
+      </div >
+    </CRMLayout >
   );
 }
 

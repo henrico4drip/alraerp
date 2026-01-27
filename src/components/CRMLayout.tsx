@@ -194,9 +194,6 @@ function CRMLayoutContent({
                   <span className="font-semibold tracking-tight truncate text-sm">
                     CRM WhatsApp
                   </span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    Evolution API
-                  </span>
                 </div>
               )}
             </div>
@@ -280,7 +277,7 @@ function CRMLayoutContent({
           }}
           style={{ zIndex: 50 }}
         />
-      </div>
+      </div >
 
       <SidebarInset className="bg-background">
         {isMobile && (
@@ -293,7 +290,7 @@ function CRMLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-hidden">{children}</main>
       </SidebarInset>
     </>
   );

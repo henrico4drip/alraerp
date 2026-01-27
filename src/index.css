@@ -98,3 +98,21 @@
 .animate-progress {
   animation: progress 2.5s linear forwards;
 }
+
+/* CRM Layout Stabilizer */
+.fixed-container-crm {
+  height: calc(100vh - 4.1rem);
+  overflow: hidden !important;
+  position: relative;
+}
+
+/* Prevent double scroll on ERP Main Layout when CRM is active */
+body:has(.crm-root) main {
+  padding-bottom: 0 !important;
+  overflow: hidden !important;
+  height: calc(100vh - 4rem) !important;
+}
+
+body:has(.crm-root) .pb-20 {
+  padding-bottom: 0 !important;
+}
