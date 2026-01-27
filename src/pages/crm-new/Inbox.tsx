@@ -746,7 +746,7 @@ export default function Inbox() {
 
                   <div className="flex items-center gap-3 sm:gap-4 ml-auto sm:ml-0">
                     <div className="flex items-center gap-2 bg-muted/30 px-3 py-1 rounded-full border border-border/20 transition-all hover:bg-muted/50">
-                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Resposnável:</span>
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Responsável:</span>
                       <Select
                         value={assignments[selectedChat.id || selectedChat.remoteJid] || "unassigned"}
                         onValueChange={(val) => assignChat(selectedChat.id || selectedChat.remoteJid, val)}
