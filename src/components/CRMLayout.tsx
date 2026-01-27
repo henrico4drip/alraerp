@@ -201,6 +201,17 @@ function CRMLayoutContent({
 
           <SidebarContent className="gap-0 py-4">
             <SidebarMenu className="px-2 space-y-1">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => navigate("/dashboard")}
+                  tooltip="Sair do CRM"
+                  className="h-10 transition-all font-medium rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground mb-4 border border-border/50 shadow-sm"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  <span>Painel ERP</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {menuItems.map(item => {
                 const isActive = location.pathname.startsWith(item.path);
                 return (
