@@ -35,11 +35,10 @@ const EvolutionContext = createContext<EvolutionContextType | undefined>(undefin
 export function EvolutionProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
 
-    // Instance name matching the Proxy convention: erp_USERID (first part)
+    // Instance name: use the pre-configured 'alraerp' instance that has Chatwoot integration
     const instanceName = useMemo(() => {
-        if (!user?.id) return '';
-        return `erp_${user.id.split('-')[0]}`;
-    }, [user?.id]);
+        return import.meta.env.VITE_EVOLUTION_INSTANCE || 'alraerp';
+    }, []);
 
     const [stats, setStatsState] = useState(() => {
         const saved = localStorage.getItem('evolution_stats');
@@ -120,7 +119,7 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         console.log(`[EvolutionContext] Initializing API for instance ${instanceName}`);
         setApi(new EvolutionAPI(
             import.meta.env.VITE_EVOLUTION_API_URL || 'http://84.247.143.180:8080',
-            import.meta.env.VITE_EVOLUTION_API_KEY || 'Henrico9516',
+            import.meta.env.VITE_EVOLUTION_API_KEY || 'mypassy',
             instanceName,
             supabase
         ));

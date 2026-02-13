@@ -9,7 +9,8 @@ const corsHeaders = {
 
 const EVO_CONFIG = {
     url: Deno.env.get('WPP_URL')?.replace(/\/$/, '') || 'http://84.247.143.180:8080',
-    apiKey: Deno.env.get('WPPCONNECT_SECRET_KEY') || 'Henrico9516',
+    apiKey: Deno.env.get('WPPCONNECT_SECRET_KEY') || 'mypassy',
+    instanceName: Deno.env.get('EVOLUTION_INSTANCE') || 'alraerp',
 }
 
 const OPENAI_KEY = Deno.env.get('OPENAI_API_KEY')
@@ -192,8 +193,8 @@ serve(async (req) => {
             }
 
             // --- MESSAGES HANDLING ---
-            // Filter out status updates or weird events
-            if (!data || data.key?.fromMe) return new Response('ok', { headers: corsHeaders })
+            // Save BOTH inbound and outbound messages for full history
+            if (!data) return new Response('ok', { headers: corsHeaders })
 
             const jid = data.key.remoteJid
             // Ignore status updates (@status.broadcast) and groups (@g.us) if not needed
@@ -220,9 +221,9 @@ serve(async (req) => {
                     user_id: userId,
                     contact_phone: phone,
                     content,
-                    direction: 'inbound',
+                    direction: data.key.fromMe ? 'outbound' : 'inbound',
                     wa_message_id: data.key.id,
-                    status: 'received'
+                    status: data.key.fromMe ? 'sent' : 'received'
                 })
             }
             return new Response('ok', { headers: corsHeaders })
@@ -245,7 +246,7 @@ serve(async (req) => {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        const instanceName = `erp_${user.id.split('-')[0]}`
+        const instanceName = EVO_CONFIG.instanceName
 
         switch (action) {
 
@@ -495,6 +496,86 @@ serve(async (req) => {
                 const { messages } = payload || {}
                 const suggestion = await AIService.suggestResponse((messages || []).slice(-10))
                 return new Response(JSON.stringify({ suggestion }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            case 'sync_history': {
+                // Sync ALL recent chats and their messages into Supabase
+                console.log(`[SYNC_HISTORY] Starting full history sync for instance ${instanceName}`)
+
+                // 1. Fetch all chats
+                const chatsRes = await EvolutionService.request(`/chat/findChats/${instanceName}`, {
+                    method: 'POST', body: JSON.stringify({ where: {}, limit: 500 })
+                })
+                let allChats = Array.isArray(chatsRes.json) ? chatsRes.json : (chatsRes.json?.records || chatsRes.json?.data || [])
+
+                // Filter only personal chats
+                allChats = allChats.filter((c: any) => {
+                    const id = c.id || c.remoteJid || ''
+                    return id.includes('@s.whatsapp.net') || id.includes('@lid')
+                })
+
+                console.log(`[SYNC_HISTORY] Found ${allChats.length} personal chats to sync`)
+
+                let totalSaved = 0
+                let chatsProcessed = 0
+
+                // 2. For each chat, fetch messages and save
+                for (const chat of allChats.slice(0, 100)) { // Limit to 100 chats to avoid timeout
+                    const chatJid = chat.id || chat.remoteJid
+                    if (!chatJid) continue
+
+                    const chatPhone = chatJid.split('@')[0]
+
+                    try {
+                        // Try Prisma-style first (Evolution v2.3+)
+                        let msgRes = await EvolutionService.request(`/chat/findMessages/${instanceName}`, {
+                            method: 'POST', body: JSON.stringify({ where: { key: { remoteJid: chatJid } }, limit: 50, offset: 0 })
+                        })
+                        let msgs = Array.isArray(msgRes.json) ? msgRes.json : (msgRes.json?.messages?.records || msgRes.json?.messages || msgRes.json?.data || [])
+                        if (Array.isArray(msgs) === false) msgs = []
+
+                        for (const m of msgs) {
+                            if (!m.key?.id || !m.message) continue
+
+                            let content = ''
+                            const msgObj = m.message
+                            if (msgObj.conversation) content = msgObj.conversation
+                            else if (msgObj.extendedTextMessage?.text) content = msgObj.extendedTextMessage.text
+                            else if (msgObj.imageMessage) content = msgObj.imageMessage.caption || '[Imagem]'
+                            else if (msgObj.videoMessage) content = msgObj.videoMessage.caption || '[Vídeo]'
+                            else if (msgObj.audioMessage) content = '[Áudio]'
+                            else if (msgObj.documentMessage) content = msgObj.documentMessage.fileName || '[Documento]'
+                            else if (msgObj.stickerMessage) content = '[Sticker]'
+                            else content = '[Mídia]'
+
+                            // Check duplicate
+                            const { data: exists } = await supabaseAdmin
+                                .from('whatsapp_messages')
+                                .select('id')
+                                .eq('wa_message_id', m.key.id)
+                                .maybeSingle()
+
+                            if (!exists) {
+                                await supabaseAdmin.from('whatsapp_messages').insert({
+                                    user_id: user.id,
+                                    contact_phone: chatPhone,
+                                    content,
+                                    direction: m.key.fromMe ? 'outbound' : 'inbound',
+                                    wa_message_id: m.key.id,
+                                    status: m.key.fromMe ? 'sent' : 'received',
+                                    created_at: m.messageTimestamp ? new Date(Number(m.messageTimestamp) * 1000).toISOString() : new Date().toISOString()
+                                })
+                                totalSaved++
+                            }
+                        }
+                        chatsProcessed++
+                    } catch (chatErr) {
+                        console.warn(`[SYNC_HISTORY] Error syncing chat ${chatJid}:`, chatErr.message)
+                    }
+                }
+
+                console.log(`[SYNC_HISTORY] Done! Processed ${chatsProcessed} chats, saved ${totalSaved} new messages`)
+                return new Response(JSON.stringify({ success: true, chats: chatsProcessed, count: totalSaved }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
             default:
