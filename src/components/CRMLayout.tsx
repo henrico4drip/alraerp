@@ -184,8 +184,17 @@ function CRMLayoutContent({
           className="border-r border-border/50"
           disableTransition={isResizing}
         >
-          <SidebarHeader className="h-16 justify-center border-b border-border/50">
-            <div className="flex items-center gap-3 px-3 transition-all w-full">
+          <SidebarHeader className="gap-0 border-b border-border/50">
+            <div className="p-2 border-b border-border/10">
+              <SidebarMenuButton
+                onClick={() => navigate("/dashboard")}
+                className="h-10 text-primary hover:bg-primary/5 font-bold"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Voltar ao Painel ERP</span>
+              </SidebarMenuButton>
+            </div>
+            <div className="flex items-center gap-3 px-3 h-16 transition-all w-full">
               <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                 <MessageCircle className="h-5 w-5 text-primary" />
               </div>

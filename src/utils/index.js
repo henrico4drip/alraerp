@@ -12,6 +12,7 @@ export function createPageUrl(name) {
     Billing: '/billing',
     Payments: '/payments',
     CRM: '/crm',
+    Tasks: '/tasks',
   }
   return map[name] || '/'
 }

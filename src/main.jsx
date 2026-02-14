@@ -23,6 +23,7 @@ import Settings from './pages/Settings'
 import Billing from './pages/Billing'
 import Login from './pages/Login'
 import TrialOffer from './pages/TrialOffer'
+import Tasks from './pages/Tasks'
 // Force cache invalidation - v2
 import SelectProfilePage from './pages/SelectProfile'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -292,6 +293,10 @@ function App() {
                   <Route
                     path="/payments"
                     element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Payments"><Payments /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+                  />
+                  <Route
+                    path="/tasks"
+                    element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Tasks"><Tasks /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
                   />
                   <Route path="/:storeSlug/cashback" element={<CustomerLogin />} />
                   <Route path="*" element={<Navigate to="/" replace />} />

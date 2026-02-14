@@ -1,0 +1,207 @@
+{
+    "name": "Integração Limpa - Evolution x Chatwoot (Fix @lid)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "webhook/evolution",
+                "options": {}
+            },
+            "id": "e936780c-7b23-4246-814a-101112223333",
+            "name": "Webhook Evolution",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                380,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// --- LÓGICA DE LIMPEZA E PADRONIZAÇÃO ---\n\nconst data = items[0].json;\nconst key = data.key || {};\nconst message = data.message || {};\n\n// 1. TENTA PEGAR O JID REAL (Evita o @lid)\n// remoteJidOut é enviado pela Evolution API para corrigir LIDs.\n// Se não existir, pega o participant (grupo) ou o remoteJid normal.\nlet rawId = key.remoteJidOut || key.participant || key.remoteJid;\n\n// 2. EXTRAI APENAS OS NÚMEROS\n// Remove @s.whatsapp.net, @lid, @g.us, +, e letras.\nlet onlyNumbers = rawId ? rawId.replace(/\\D/g, '') : '';\n\n// 3. FORMATA PARA CHATWOOT (+55...)\nconst phoneForChatwoot = `+${onlyNumbers}`;\n\n// 4. FORMATA PARA ENVIO FUTURO (55...@s.whatsapp.net)\nconst wid = `${onlyNumbers}@s.whatsapp.net`;\n\n// 5. PEGA O CONTEÚDO DA MENSAGEM (Texto Simples ou Extendido)\nlet content = message.conversation || \n              message.extendedTextMessage?.text || \n              (message.imageMessage ? '📷 [Imagem Recebida]' : \n              (message.audioMessage ? '🎤 [Áudio Recebido]' : 'Arquivo/Outros'));\n\n// 6. NOME DO CONTATO (PushName ou o próprio número)\nconst contactName = data.pushName || phoneForChatwoot;\n\nreturn {\n  json: {\n    contact_name: contactName,\n    phone_number: phoneForChatwoot,\n    identifier: wid,\n    message_content: content,\n    inbox_id: 1 // <--- ALTERE AQUI SE SEU INBOX ID FOR DIFERENTE DE 1\n  }\n};"
+            },
+            "id": "d1234567-89ab-4cde-0123-456789abcdef",
+            "name": "Limpar Dados (@lid Fix)",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                600,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "search",
+                "query": "={{ $json.phone_number }}"
+            },
+            "id": "a1b2c3d4-e5f6-4a5b-8c7d-9e0f1a2b3c4d",
+            "name": "Buscar Contato",
+            "type": "n8n-nodes-base.chatwoot",
+            "typeVersion": 1,
+            "position": [
+                820,
+                240
+            ],
+            "credentials": {
+                "chatwootApi": {
+                    "id": "SEU_CREDENTIAL_ID_AQUI",
+                    "name": "Chatwoot Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.payload.length > 0 }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "f5e4d3c2-b1a0-9876-5432-10fedcba9876",
+            "name": "Contato Existe?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1040,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "inboxId": "={{ $node[\"Limpar Dados (@lid Fix)\"].json.inbox_id }}",
+                "contactId": "={{ $json.payload[0].id }}",
+                "content": "={{ $node[\"Limpar Dados (@lid Fix)\"].json.message_content }}",
+                "additionalFields": {
+                    "message_type": "incoming"
+                }
+            },
+            "id": "11112222-3333-4444-5555-666677778888",
+            "name": "Criar Mensagem (Existente)",
+            "type": "n8n-nodes-base.chatwoot",
+            "typeVersion": 1,
+            "position": [
+                1340,
+                140
+            ],
+            "credentials": {
+                "chatwootApi": {
+                    "id": "SEU_CREDENTIAL_ID_AQUI",
+                    "name": "Chatwoot Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "inboxId": "={{ $node[\"Limpar Dados (@lid Fix)\"].json.inbox_id }}",
+                "identifier": "={{ $node[\"Limpar Dados (@lid Fix)\"].json.identifier }}",
+                "name": "={{ $node[\"Limpar Dados (@lid Fix)\"].json.contact_name }}",
+                "phoneNumber": "={{ $node[\"Limpar Dados (@lid Fix)\"].json.phone_number }}"
+            },
+            "id": "99998888-7777-6666-5555-444433332222",
+            "name": "Criar Novo Contato",
+            "type": "n8n-nodes-base.chatwoot",
+            "typeVersion": 1,
+            "position": [
+                1340,
+                360
+            ],
+            "credentials": {
+                "chatwootApi": {
+                    "id": "SEU_CREDENTIAL_ID_AQUI",
+                    "name": "Chatwoot Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "inboxId": "={{ $node[\"Limpar Dados (@lid Fix)\"].json.inbox_id }}",
+                "contactId": "={{ $json.id }}",
+                "content": "={{ $node[\"Limpar Dados (@lid Fix)\"].json.message_content }}",
+                "additionalFields": {
+                    "message_type": "incoming"
+                }
+            },
+            "id": "aaaaa-bbbb-cccc-dddd-eeeeeeee",
+            "name": "Criar Mensagem (Novo)",
+            "type": "n8n-nodes-base.chatwoot",
+            "typeVersion": 1,
+            "position": [
+                1560,
+                360
+            ],
+            "credentials": {
+                "chatwootApi": {
+                    "id": "SEU_CREDENTIAL_ID_AQUI",
+                    "name": "Chatwoot Account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook Evolution": {
+            "main": [
+                [
+                    {
+                        "node": "Limpar Dados (@lid Fix)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Limpar Dados (@lid Fix)": {
+            "main": [
+                [
+                    {
+                        "node": "Buscar Contato",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Buscar Contato": {
+            "main": [
+                [
+                    {
+                        "node": "Contato Existe?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Contato Existe?": {
+            "main": [
+                [
+                    {
+                        "node": "Criar Mensagem (Existente)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Criar Novo Contato",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Criar Novo Contato": {
+            "main": [
+                [
+                    {
+                        "node": "Criar Mensagem (Novo)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

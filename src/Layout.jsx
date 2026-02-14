@@ -24,7 +24,8 @@ import {
   Wallet,
   Download,
   MessageSquare,
-  Loader2
+  Loader2,
+  LayoutGrid
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,6 +124,7 @@ export default function Layout({ children, currentPageName }) {
   const [editTaskPriority, setEditTaskPriority] = useState("Média");
   const [editTaskCategory, setEditTaskCategory] = useState("Outro");
   const isCashierRoute = location.pathname.startsWith('/cashier');
+  const isCrmRoute = location.pathname.startsWith('/crm');
   const [keepBottomNavForEntry, setKeepBottomNavForEntry] = useState(false);
 
   useEffect(() => {
@@ -366,6 +368,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Pagamentos", path: createPageUrl("Payments"), icon: Wallet, tutorialId: "payments-link" },
     { name: "Relatórios", path: createPageUrl("Reports"), icon: BarChart3 },
     { name: "CRM", path: createPageUrl("CRM"), icon: MessageSquare },
+    { name: "Tarefas", path: createPageUrl("Tasks"), icon: LayoutGrid },
     { name: "Marketing", path: createPageUrl("Marketing"), icon: Megaphone },
     { name: "Configurações", path: createPageUrl("Settings"), icon: SettingsIcon, tutorialId: "settings-link" },
   ];
@@ -456,136 +459,148 @@ export default function Layout({ children, currentPageName }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-[#3490c7] border-b border-[#3490c7] fixed top-0 left-0 right-0 z-30 shadow-sm w-full overflow-visible">
-          <div className="w-full px-1.5 sm:px-4 py-0.5 sm:py-1 flex items-center justify-between text-white">
-            <div className="flex flex-wrap items-center gap-4 md:gap-6">
-              <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline -mt-0.5">
-                <span className="text-sm sm:text-base md:text-lg tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.7em', fontWeight: 300 }}>erp+</span></span>
-              </Link>
-              <Link
-                to={createPageUrl("Dashboard")}
-                className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
-                title={settings?.erp_name || "Minha Loja"}
-                data-tutorial="dashboard-link"
-              >
-                <Store className="w-4 h-4" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => setShowAgendaDialog(true)}
-                className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
-                title="Agenda"
-              >
-                <Calendar className="w-4 h-4" />
-              </button>
-
-              <Link
-                to={createPageUrl("CRM")}
-                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
-                title="CRM"
-              >
-                <MessageSquare className="w-4 h-4" />
-                {crmNotificationCount > 0 && (
-                  <span className="absolute top-0 right-0 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-[#3490c7]"></span>
-                  </span>
-                )}
-              </Link>
-
-            </div>
-
-            <div className="flex items-center gap-2 md:gap-3 shrink-0">
-              <div className="hidden sm:flex items-center gap-2">
-                {(!isStandalone && (installAvailable || swActive)) && (
-                  <Button
-                    variant="secondary"
-                    className="px-2 sm:px-3 py-1 h-6 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs uppercase font-normal inline-flex items-center gap-2"
-                    onClick={async () => {
-                      if (installPrompt) {
-                        await installPrompt.prompt();
-                        try { await installPrompt.userChoice; } catch { }
-                        setInstallPrompt(null); setInstallAvailable(false);
-                      } else {
-                        setShowInstallHelp(true);
-                      }
-                    }}
+        {!isCrmRoute && (
+          <>
+            <header className="bg-[#3490c7] border-b border-[#3490c7] fixed top-0 left-0 right-0 z-30 shadow-sm w-full overflow-visible">
+              <div className="w-full px-1.5 sm:px-4 py-0.5 sm:py-1 flex items-center justify-between text-white">
+                <div className="flex flex-wrap items-center gap-4 md:gap-6">
+                  <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline -mt-0.5">
+                    <span className="text-sm sm:text-base md:text-lg tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.7em', fontWeight: 300 }}>erp+</span></span>
+                  </Link>
+                  <Link
+                    to={createPageUrl("Dashboard")}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
+                    title={settings?.erp_name || "Minha Loja"}
+                    data-tutorial="dashboard-link"
                   >
-                    <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">INSTALAR</span>
-                  </Button>
-                )}
+                    <Store className="w-4 h-4" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setShowAgendaDialog(true)}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
+                    title="Agenda"
+                  >
+                    <Calendar className="w-4 h-4" />
+                  </button>
 
-              </div>
-              <div className="relative ml-auto">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`rounded-full shadow-sm border border-white/20 w-8 h-8 ${currentProfile?.role === 'admin' ? 'bg-blue-600' : 'bg-gray-600'}`}
-                  onClick={() => setAccountOpen((v) => !v)}
-                  aria-haspopup="menu"
-                  aria-expanded={accountOpen}
-                  data-tutorial="profile-menu-btn"
-                >
-                  {/* Initials */}
-                  <span className="font-bold text-xs text-white">{currentProfile?.name?.charAt(0) || <UserCircle className="w-5 h-5" />}</span>
-                </Button>
+                  <Link
+                    to={createPageUrl("Tasks")}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
+                    title="Quadro de Tarefas (Kanban)"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </Link>
 
-                {accountOpen && (
-                  <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="px-3 py-2 border-b border-gray-100 mb-1">
-                      <p className="font-bold text-gray-900">{currentProfile?.name}</p>
-                      <p className="text-xs text-gray-500 uppercase">{currentProfile?.role}</p>
-                      <p className="text-xs text-gray-400 mt-1 truncate">{user?.email}</p>
-                    </div>
+                  <Link
+                    to={createPageUrl("CRM")}
+                    className="relative inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
+                    title="CRM"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    {crmNotificationCount > 0 && (
+                      <span className="absolute top-0 right-0 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-[#3490c7]"></span>
+                      </span>
+                    )}
+                  </Link>
 
-                    <Link
-                      to={createPageUrl("Settings")}
-                      onClick={() => setAccountOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <SettingsIcon className="w-4 h-4" />
-                      Configurações
-                    </Link>
+                </div>
 
-                    {/* Switch Profile Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountOpen(false);
-                        logoutProfile();
-                        navigate('/select-profile');
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <Users className="w-4 h-4" />
-                      Trocar Perfil
-                    </button>
+                <div className="flex items-center gap-2 md:gap-3 shrink-0">
+                  <div className="hidden sm:flex items-center gap-2">
+                    {(!isStandalone && (installAvailable || swActive)) && (
+                      <Button
+                        variant="secondary"
+                        className="px-2 sm:px-3 py-1 h-6 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs uppercase font-normal inline-flex items-center gap-2"
+                        onClick={async () => {
+                          if (installPrompt) {
+                            await installPrompt.prompt();
+                            try { await installPrompt.userChoice; } catch { }
+                            setInstallPrompt(null); setInstallAvailable(false);
+                          } else {
+                            setShowInstallHelp(true);
+                          }
+                        }}
+                      >
+                        <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">INSTALAR</span>
+                      </Button>
+                    )}
 
-                    <div className="border-t border-gray-100 my-1"></div>
-
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setAccountOpen(false);
-                        logoutProfile();
-                        try {
-                          await logout();
-                        } catch { }
-                        navigate('/login', { replace: true });
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Sair Totalmente
-                    </button>
                   </div>
-                )}
+                  <div className="relative ml-auto">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`rounded-full shadow-sm border border-white/20 w-8 h-8 ${currentProfile?.role === 'admin' ? 'bg-blue-600' : 'bg-gray-600'}`}
+                      onClick={() => setAccountOpen((v) => !v)}
+                      aria-haspopup="menu"
+                      aria-expanded={accountOpen}
+                      data-tutorial="profile-menu-btn"
+                    >
+                      {/* Initials */}
+                      <span className="font-bold text-xs text-white">{currentProfile?.name?.charAt(0) || <UserCircle className="w-5 h-5" />}</span>
+                    </Button>
+
+                    {accountOpen && (
+                      <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="px-3 py-2 border-b border-gray-100 mb-1">
+                          <p className="font-bold text-gray-900">{currentProfile?.name}</p>
+                          <p className="text-xs text-gray-500 uppercase">{currentProfile?.role}</p>
+                          <p className="text-xs text-gray-400 mt-1 truncate">{user?.email}</p>
+                        </div>
+
+                        <Link
+                          to={createPageUrl("Settings")}
+                          onClick={() => setAccountOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <SettingsIcon className="w-4 h-4" />
+                          Configurações
+                        </Link>
+
+                        {/* Switch Profile Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAccountOpen(false);
+                            logoutProfile();
+                            navigate('/select-profile');
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <Users className="w-4 h-4" />
+                          Trocar Perfil
+                        </button>
+
+                        <div className="border-t border-gray-100 my-1"></div>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setAccountOpen(false);
+                            logoutProfile();
+                            try {
+                              await logout();
+                            } catch { }
+                            navigate('/login', { replace: true });
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sair Totalmente
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </header>
-        {/* Spacer to avoid content being hidden under fixed header */}
-        <div className="h-10 sm:h-12"></div>
+            </header>
+            {/* Spacer to avoid content being hidden under fixed header */}
+            <div className="h-10 sm:h-12"></div>
+          </>
+        )}
         {showInstallHelp && (
           <Dialog open={showInstallHelp} onOpenChange={setShowInstallHelp}>
             <DialogContent className="sm:max-w-[420px] rounded-xl">
@@ -1062,7 +1077,7 @@ export default function Layout({ children, currentPageName }) {
         </Dialog>
 
         {/* Standard Bottom Navigation - Hidden on Cashier Route (except during entry animation) */}
-        {(!isCashierRoute || keepBottomNavForEntry) && (
+        {((!isCashierRoute && !isCrmRoute) || keepBottomNavForEntry) && (
           <nav className="fixed bottom-0 left-0 right-0 z-30">
             <div className="relative bg-gray-100 border-t border-gray-200 h-[64px] sm:h-[56px]">
               {/* Destaque verde/azul que acompanha o item ativo */}

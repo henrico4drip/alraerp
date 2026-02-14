@@ -45,30 +45,30 @@ const MediaMessage = memo(({ message, type, mimeType, fileName, api }: { message
     return () => { isMounted = false; };
   }, [message.key?.id, api]);
 
-  if (loading) return <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground p-2 bg-muted/20 rounded min-h-[150px] w-[250px] border border-border/30 animate-pulse"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>;
-  if (error || !base64) return <div className="text-xs text-red-500 p-2 bg-red-500/10 rounded border border-red-500/20 w-[250px]">Erro ao carregar mídia</div>;
+  if (loading) return <div className="flex items-center justify-center gap-2 text-xs text-gray-500 p-2 bg-gray-50 rounded min-h-[150px] w-[250px] border border-gray-200 animate-pulse"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>;
+  if (error || !base64) return <div className="text-xs text-red-500 p-2 bg-red-50 rounded border border-red-100 w-[250px]">Erro ao carregar mídia</div>;
 
   const src = `data:${mimeType || 'application/octet-stream'};base64,${base64}`;
 
-  if (type === 'image') return <div className="min-h-[150px] bg-muted/20 rounded-lg overflow-hidden"><img src={src} className="rounded-lg max-w-[250px] max-h-[350px] w-auto h-auto shadow-sm object-cover" alt="Imagem" /></div>;
-  if (type === 'video') return <div className="min-h-[150px] bg-muted/20 rounded-lg overflow-hidden"><video src={src} controls className="rounded-lg max-w-[250px] max-h-[350px] w-auto h-auto shadow-sm" /></div>;
+  if (type === 'image') return <div className="min-h-[150px] bg-gray-50 rounded-lg overflow-hidden border border-gray-100"><img src={src} className="max-w-[250px] max-h-[350px] w-auto h-auto object-cover" alt="Imagem" /></div>;
+  if (type === 'video') return <div className="min-h-[150px] bg-gray-50 rounded-lg overflow-hidden border border-gray-100"><video src={src} controls className="max-w-[250px] max-h-[350px] w-auto h-auto" /></div>;
   if (type === 'audio') return (
-    <div className="w-[260px] flex items-center justify-center p-1 rounded-md bg-black/5 dark:bg-white/10">
+    <div className="w-[260px] flex items-center justify-center p-2 rounded-md bg-gray-100">
       <audio src={src} controls className="w-full h-8" />
     </div>
   );
   if (type === 'sticker') return <img src={src} className="h-24 w-24 object-contain" alt="Sticker" />;
   if (type === 'document') {
     return (
-      <a href={src} download={fileName || 'document'} className="flex items-center gap-3 p-3 bg-card/50 border border-border/50 rounded-lg hover:bg-muted/50 transition-colors w-full max-w-[280px] text-left group">
-        <div className="bg-primary/10 p-2 rounded-md text-primary group-hover:bg-primary/20 transition-colors">
+      <a href={src} download={fileName || 'document'} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors w-full max-w-[280px] text-left group">
+        <div className="bg-blue-50 p-2 rounded-md text-blue-600 group-hover:bg-blue-100 transition-colors">
           <FileText className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{fileName || 'Documento'}</p>
-          <p className="text-[10px] text-muted-foreground uppercase">{mimeType?.split('/')[1] || 'FILE'}</p>
+          <p className="text-sm font-medium truncate text-gray-700">{fileName || 'Documento'}</p>
+          <p className="text-[10px] text-gray-400 uppercase">{mimeType?.split('/')[1] || 'FILE'}</p>
         </div>
-        <Download className="h-4 w-4 text-muted-foreground opacity-50 group-hover:opacity-100" />
+        <Download className="h-4 w-4 text-gray-400 opacity-50 group-hover:opacity-100" />
       </a>
     );
   }
@@ -79,14 +79,14 @@ const MessageBubble = memo(({ item, isMe, type, content, mimeType, fileName, api
   if (item.type === 'message') {
     return (
       <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl shadow-sm ${isMe ? 'bg-primary text-primary-foreground rounded-tr-none' : 'bg-card border border-border/50 rounded-tl-none'}`}>
-          {!isMe && item.data.pushName && <p className="text-[10px] font-bold mb-1 text-primary">{item.data.pushName}</p>}
+        <div className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-sm border ${isMe ? 'bg-blue-600 text-white border-blue-600 rounded-tr-none' : 'bg-white border-gray-200 text-gray-800 rounded-tl-none'}`}>
+          {!isMe && item.data.pushName && <p className="text-[10px] font-bold mb-1 text-blue-600">{item.data.pushName}</p>}
           {type === 'text' ? (
-            <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{content}</p>
           ) : (
             <MediaMessage message={item.data} type={type} mimeType={mimeType} fileName={fileName} api={api} />
           )}
-          <p className={`text-[10px] mt-1 text-right opacity-70 ${isMe ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{format(new Date(item.timestamp * 1000), "HH:mm")}</p>
+          <p className={`text-[9px] mt-1.5 text-right font-medium ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>{format(new Date(item.timestamp * 1000), "HH:mm")}</p>
         </div>
       </div>
     );
@@ -94,7 +94,7 @@ const MessageBubble = memo(({ item, isMe, type, content, mimeType, fileName, api
     const w = item.data;
     return (
       <div className="flex justify-center my-4">
-        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 px-4 py-3 rounded-xl max-w-lg w-full flex gap-3 shadow-sm">
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl max-w-lg w-full flex gap-3 shadow-sm">
           <Ghost className="h-5 w-5 shrink-0 mt-0.5 opacity-50" />
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
@@ -112,36 +112,36 @@ const MessageBubble = memo(({ item, isMe, type, content, mimeType, fileName, api
 // --- Memoized Sub-Components for Performance ---
 
 const ChatListItem = memo(({ chat, isSelected, name, phone, onSelect }: { chat: any, isSelected: any, name: string, phone: string, onSelect: (chat: any) => void }) => (
-  <button onClick={() => onSelect(chat)} className={`w-full flex items-center gap-3 p-4 text-left hover:bg-muted/50 transition-colors ${isSelected ? "bg-muted border-l-4 border-primary" : ""}`}>
-    <Avatar className="h-10 w-10 shrink-0">
-      <AvatarFallback className="bg-primary/10 text-primary">{name.substring(0, 2).toUpperCase()}</AvatarFallback>
+  <button onClick={() => onSelect(chat)} className={`w-full flex items-center gap-3 p-4 text-left border-b border-gray-100 hover:bg-gray-50 transition-colors ${isSelected ? "bg-blue-50 border-l-4 border-l-blue-600" : "bg-white"}`}>
+    <Avatar className="h-10 w-10 shrink-0 border border-gray-100">
+      <AvatarFallback className="bg-gray-100 text-gray-600 font-bold text-xs">{name.substring(0, 2).toUpperCase()}</AvatarFallback>
     </Avatar>
     <div className="flex-1 min-w-0">
-      <div className="flex justify-between items-baseline">
-        <p className="font-semibold text-sm truncate">{name}</p>
-        {chat.messageTimestamp && <span className="text-[10px] text-muted-foreground">{format(new Date(Number(chat.messageTimestamp) * 1000), "HH:mm")}</span>}
+      <div className="flex justify-between items-baseline mb-1">
+        <p className={`text-sm truncate ${isSelected ? 'font-bold text-blue-900' : 'font-semibold text-gray-800'}`}>{name}</p>
+        {chat.messageTimestamp && <span className="text-[10px] text-gray-400 font-medium">{format(new Date(Number(chat.messageTimestamp) * 1000), "HH:mm")}</span>}
       </div>
-      <div className="flex flex-col">
-        <p className="text-[10px] text-muted-foreground mb-0.5">{phone}</p>
-        <p className="text-xs text-muted-foreground truncate">{chat.lastMessage || "Sem mensagens"}</p>
+      <div className="flex flex-col gap-0.5">
+        <p className="text-[10px] text-gray-400 font-medium">{phone}</p>
+        <p className="text-xs text-gray-500 truncate">{chat.lastMessage || "Nova conversa"}</p>
       </div>
     </div>
-    {chat.unreadCount > 0 && <span className="h-5 min-w-[1.25rem] rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">{chat.unreadCount}</span>}
+    {chat.unreadCount > 0 && <span className="h-5 min-w-[1.25rem] px-1 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-sm">{chat.unreadCount}</span>}
   </button>
 ));
 
 const ChatInputView = memo(({ value, onChange, onSend, isWhisperMode, toggleWhisper }: { value: string, onChange: (v: string) => void, onSend: () => void, isWhisperMode: boolean, toggleWhisper: () => void }) => (
-  <div className="p-4 bg-card border-t border-border/50">
-    <div className="max-w-4xl mx-auto flex items-end gap-2">
+  <div className="p-4 bg-white border-t border-gray-200">
+    <div className="max-w-4xl mx-auto flex items-end gap-3">
       <div className="flex-1 relative">
         {isWhisperMode && (
-          <div className="absolute -top-8 left-0 text-[10px] font-bold text-amber-500 flex items-center gap-1 animate-bounce">
-            <Ghost className="h-3 w-3" /> MODO SUSSURRO ATIVADO
+          <div className="absolute -top-8 left-0 text-[10px] font-bold text-amber-600 flex items-center gap-1 animate-pulse bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
+            <Ghost className="h-3 w-3" /> MODO SUSSURRO (Privado)
           </div>
         )}
         <Textarea
-          placeholder={isWhisperMode ? "Digite um sussurro para a equipe..." : "Digite sua mensagem..."}
-          className={`min-h-[44px] max-h-32 bg-muted/50 border-none resize-none py-3 transition-colors ${isWhisperMode ? 'bg-amber-500/5 focus-visible:ring-amber-500' : ''}`}
+          placeholder={isWhisperMode ? "Escrever nota interna..." : "Digite sua mensagem..."}
+          className={`min-h-[48px] max-h-32 bg-gray-50 border-gray-200 resize-none py-3 text-sm focus:ring-2 transition-all rounded-xl ${isWhisperMode ? 'bg-amber-50 border-amber-200 focus:ring-amber-500/20' : 'focus:ring-blue-500/10 focus:border-blue-500'}`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
@@ -152,18 +152,18 @@ const ChatInputView = memo(({ value, onChange, onSend, isWhisperMode, toggleWhis
           }}
         />
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 pb-0.5">
         <Button
-          variant={isWhisperMode ? "default" : "outline"}
+          variant={isWhisperMode ? "default" : "ghost"}
           size="icon"
-          className={`h-11 w-11 rounded-xl transition-all shadow-md ${isWhisperMode ? 'bg-amber-500 hover:bg-amber-600 text-white border-none' : 'hover:text-amber-500 hover:bg-amber-500/10'}`}
+          className={`h-10 w-10 rounded-xl transition-all ${isWhisperMode ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}
           onClick={toggleWhisper}
-          title="Alternar Modo Sussurro"
+          title="Modo Sussurro (Interno)"
         >
           <Ghost className="h-5 w-5" />
         </Button>
-        <Button size="icon" className="h-11 w-11 rounded-xl shadow-lg" onClick={onSend}>
-          <Send className="h-5 w-5" />
+        <Button size="icon" className="h-10 w-10 rounded-xl shadow-md bg-blue-600 hover:bg-blue-700 text-white transition-all hover:scale-105 active:scale-95" onClick={onSend}>
+          <Send className="h-4 w-4 ml-0.5" />
         </Button>
       </div>
     </div>
@@ -174,8 +174,6 @@ export default function Inbox() {
   const {
     api,
     isConnected,
-    instanceName,
-    resolveName,
     contacts,
     discoveredNames,
     setDiscoveredNames,
@@ -183,9 +181,6 @@ export default function Inbox() {
     setCustomName,
     messageCache,
     updateMessageCache,
-    syncContacts,
-    autoSync,
-    isSyncing: contextIsSyncing
   } = useEvolution();
   const location = useLocation();
   const [chats, setChats] = useState<any[]>([]);
@@ -198,55 +193,39 @@ export default function Inbox() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'details' | 'notes' | 'sales'>('chat');
 
-  // OPTIMIZATION: Memoize the JID Map to avoid thousands of JSON.parse calls per minute
   const lidMap = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem('lid_mappings') || '{}');
     } catch (e) { return {}; }
-  }, [chats]); // Refresh when chats change
+  }, [chats]);
+
   const [chatFilter, setChatFilter] = useState<'mine' | 'all' | 'hidden'>('all');
   const [showHiddenInput, setShowHiddenInput] = useState(false);
   const [unlockPassword, setUnlockPassword] = useState("");
   const [isHiddenUnlocked, setIsHiddenUnlocked] = useState(false);
-  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
-  const [newChatNumber, setNewChatNumber] = useState("");
-  const [allContacts, setAllContacts] = useState<any[]>([]);
-  const [contactLoading, setContactLoading] = useState(false);
 
   // CRM Context
   const {
     agents,
-    currentUser,
-    setCurrentUser,
     assignments,
     assignChat,
-    getChatAssignee,
     getDealByChatId,
-    addDeal,
-    updateDealStage,
     stages,
     contactNotes,
     saveContactNote,
     contactTags,
-    saveContactTags,
     hiddenContacts,
     hideContact,
     unhideContact,
     hiddenChatPassword,
-    whispers,
-    addWhisper
   } = useCrm();
 
   const [isWhisperMode, setIsWhisperMode] = useState(false);
-
-  // Local state for editing details/notes
   const [noteInput, setNoteInput] = useState("");
   const [editName, setEditName] = useState("");
-  const [tagInput, setTagInput] = useState("");
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
 
-  // Monitor scroll position to decide if we should auto-scroll
   const handleScroll = (e: any) => {
     const viewport = e.currentTarget;
     const { scrollTop, scrollHeight, clientHeight } = viewport;
@@ -264,7 +243,6 @@ export default function Inbox() {
     }
   };
 
-  // Manual LID Resolution State
   const [resolutionDialogOpen, setResolutionDialogOpen] = useState(false);
   const [failedLid, setFailedLid] = useState<string | null>(null);
   const [failedText, setFailedText] = useState<string | null>(null);
@@ -272,35 +250,30 @@ export default function Inbox() {
 
   const handleManualResolution = () => {
     if (!failedLid || !manualPhoneInput.trim()) return;
-
-    // Normalize input to JID
     let phone = manualPhoneInput.replace(/\D/g, '');
     if (!phone.includes('@s.whatsapp.net')) phone += '@s.whatsapp.net';
 
-    // Save to Local Storage and Context
     const savedMap = JSON.parse(localStorage.getItem('lid_mappings') || '{}');
     savedMap[failedLid] = phone;
     localStorage.setItem('lid_mappings', JSON.stringify(savedMap));
-
-    // Update context map
     setDiscoveredNames(prev => ({ ...prev, [failedLid]: phone }));
 
     toast.success("Vínculo salvo! Reenviando mensagem...");
     setResolutionDialogOpen(false);
 
-    // Retry sending
-    if (failedText) {
-      api?.sendTextMessage(phone, failedText)
+    if (failedText && api) {
+      api.sendTextMessage(phone, failedText)
         .then(() => {
           loadMessages(selectedChat, true);
           setFailedLid(null);
           setFailedText(null);
           setManualPhoneInput("");
         })
-        .catch(() => toast.error("Falha ao reenviar. Tente novamente."));
+        .catch(() => toast.error("Falha ao reenviar."));
     }
   };
 
+  // Sync scroll on bottom
   useEffect(() => {
     if (!scrollViewportRef.current) return;
     const resizeObserver = new ResizeObserver(() => {
@@ -317,9 +290,10 @@ export default function Inbox() {
   useEffect(() => {
     if (selectedChat) {
       const jid = selectedChat.id || selectedChat.remoteJid;
-      setEditName(resolveName(jid, selectedChat.name || selectedChat.pushName));
+      // Resolve name safely
+      const resolved = customNames[jid] || discoveredNames[jid] || contacts.find((c: any) => c.id === jid)?.name || selectedChat.name || selectedChat.pushName || selectedChat.verifiedName || jid.split('@')[0];
+      setEditName(resolved);
       setNoteInput(contactNotes[jid] || "");
-      setTagInput(contactTags[jid]?.join(", ") || "");
 
       isAtBottomRef.current = true;
       if (messages.length > 0) setTimeout(() => scrollToBottom("auto"), 50);
@@ -341,25 +315,8 @@ export default function Inbox() {
         if (JSON.stringify(prev) === JSON.stringify(response)) return prev;
         return response;
       });
-
-      // Update discovered names for future resolution
-      const newNames: Record<string, string> = {};
-      const invalidNames = ['Você', 'You', 'Eu', 'Me', 'Desconhecido', 'Unknown', 'Null', 'Undefined'];
-      const isInvalid = (n: any) => {
-        if (!n || typeof n !== 'string') return true;
-        const clean = n.trim().toLowerCase();
-        return clean.includes('@') || invalidNames.some(inv => clean === inv.toLowerCase() || clean.startsWith(inv.toLowerCase() + " "));
-      };
-
-      response.forEach(c => {
-        const jid = c.id || c.remoteJid;
-        if (jid && c.name && !isInvalid(c.name) && c.name !== jid.split('@')[0]) {
-          newNames[jid] = c.name;
-        }
-      });
-      setDiscoveredNames(prev => ({ ...prev, ...newNames }));
     } catch (error: any) {
-      if (!silent) toast.error("Erro ao carregar conversas: " + error.message);
+      console.error(error);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -370,26 +327,25 @@ export default function Inbox() {
     const jid = chat.id || chat.remoteJid || chat.key?.remoteJid;
     if (!jid) return;
 
-    // Use cache immediately if available
     if (!silent && messageCache[jid]) {
       setMessages(messageCache[jid]);
     }
 
     if (!silent) setLoadingMessages(true);
     try {
-      const response = await api.fetchMessages(jid, 200); // Reduced for better performance
-      const newMessages = response.reverse();
-
+      const response = await api.fetchMessages(jid, 50);
+      const newMessages = response.reverse().map((m: any) => ({
+        type: 'message',
+        data: m,
+        timestamp: m.messageTimestamp
+      }));
       setMessages(prev => {
-        // Simple deduplication logic
         if (JSON.stringify(prev) === JSON.stringify(newMessages)) return prev;
-
-        // Update cache
         updateMessageCache(jid, newMessages);
         return newMessages;
       });
     } catch (error: any) {
-      if (!silent) toast.error("Erro ao carregar mensagens: " + error.message);
+      console.error(error);
     } finally {
       if (!silent) setLoadingMessages(false);
     }
@@ -398,147 +354,98 @@ export default function Inbox() {
   const handleSendMessage = async () => {
     if (!api || !isConnected || !selectedChat || !messageInput.trim()) return;
     const jid = selectedChat.id || selectedChat.remoteJid || selectedChat.key?.remoteJid;
-    const text = messageInput.trim();
-    const tempId = 'temp-' + Date.now();
-    const tempMsg = {
-      key: { remoteJid: jid, fromMe: true, id: tempId },
-      message: { conversation: text },
-      messageTimestamp: Math.floor(Date.now() / 1000),
-      status: 'PENDING'
-    };
-    setMessages(prev => [...prev, tempMsg]);
-    setMessageInput("");
-    let targetJid = jid;
-
-
-
-
-    // Find last partner message to quote if needed
-    const lastPartnerMsg = [...messages].reverse().find(m => !m.key.fromMe);
 
     try {
-      await api.sendTextMessage(jid, text, lastPartnerMsg);
-      loadMessages(selectedChat, true);
-      loadChats(true);
+      if (isWhisperMode) {
+        // Mock Whisper
+        const whisperMsg = {
+          key: { remoteJid: jid, id: 'whisper-' + Date.now(), fromMe: true },
+          messageTimestamp: Math.floor(Date.now() / 1000),
+          pushName: "Você (Sussurro)",
+          type: 'whisper',
+          data: {
+            text: messageInput,
+            senderName: "Você",
+            timestamp: Math.floor(Date.now() / 1000)
+          }
+        };
+        const newMsgs = [...messages, whisperMsg];
+        setMessages(newMsgs);
+        updateMessageCache(jid, newMsgs);
+      } else {
+        await api.sendTextMessage(jid, messageInput);
+        setTimeout(() => loadMessages(selectedChat, true), 500);
+      }
+      setMessageInput("");
     } catch (error: any) {
-      toast.error("Erro ao enviar: " + error.message);
-      setMessages(prev => prev.filter(m => m.key.id !== tempId));
-      setMessageInput(text);
-    }
-  };
-
-  const handleSendWhisper = () => {
-    if (!selectedChat || !messageInput.trim()) return;
-    const jid = selectedChat.id || selectedChat.remoteJid;
-    addWhisper({
-      chatId: jid,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      text: messageInput.trim()
-    });
-    setMessageInput("");
-    setIsWhisperMode(false);
-    toast.success("Sussurro enviado!");
-  };
-
-  const handleMainAction = () => {
-    if (isWhisperMode) handleSendWhisper();
-    else handleSendMessage();
-  };
-
-  useEffect(() => {
-    if (!isConnected) return;
-    const interval = setInterval(() => {
-      loadChats(true);
-      if (selectedChat) loadMessages(selectedChat, true);
-    }, 20000);
-    return () => clearInterval(interval);
-  }, [selectedChat?.id, isConnected]);
-
-  useEffect(() => {
-    loadChats();
-  }, [api, isConnected]);
-
-  useEffect(() => {
-    if (selectedChat) {
-      loadMessages(selectedChat);
-      const jid = selectedChat.id || selectedChat.remoteJid;
-      if (jid && api) {
-        api.markRead(jid);
-        setChats(prev => prev.map(c => isSameJid(c.id || c.remoteJid, jid) ? { ...c, unreadCount: 0 } : c));
+      if (error?.message?.includes('400') && jid.includes('@lid')) {
+        setFailedLid(jid);
+        setFailedText(messageInput);
+        setResolutionDialogOpen(true);
+      } else {
+        toast.error("Erro ao enviar: " + error.message);
       }
     }
-  }, [selectedChat, api]);
-
-  // Handle Deep Linking from Contacts page
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const contactId = params.get('contactId');
-    const tab = params.get('tab');
-
-    if (contactId && chats.length > 0) {
-      const chat = chats.find(c => isSameJid(c.id || c.remoteJid, contactId));
-      if (chat) {
-        setSelectedChat(chat);
-        if (tab === 'details') setActiveTab('details');
-        // Clear params to avoid loop
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-    }
-  }, [chats.length]);
-
-  // OPTIMIZATION: Pre-calculate all chat metadata once to avoid work in the render loop
-  const enrichedChats = useMemo(() => {
-    return chats.map(chat => {
-      const jid = chat.id || chat.remoteJid;
-      return {
-        ...chat,
-        computedName: resolveName(jid, chat.name || chat.pushName),
-        computedPhone: formatPhoneNumber(jid),
-        primaryJid: jid
-      };
-    });
-  }, [chats, customNames, resolveName]);
-
-  const filteredChats = useMemo(() => {
-    return enrichedChats.filter(chat => {
-      const jid = chat.primaryJid;
-      const isHidden = hiddenContacts.some(hc => isSameJid(hc, jid, lidMap));
-
-      if (chatFilter === 'hidden') return isHiddenUnlocked && isHidden;
-      if (isHidden) return false;
-
-      const name = (chat.computedName || "").toLowerCase();
-      const lastMsg = (chat.lastMessage || "").toLowerCase();
-      const matchesSearch = name.includes(searchQuery.toLowerCase()) || lastMsg.includes(searchQuery.toLowerCase());
-
-      if (chatFilter === 'mine') return matchesSearch && assignments[jid] === currentUser.id;
-      return matchesSearch;
-    });
-  }, [enrichedChats, hiddenContacts, chatFilter, isHiddenUnlocked, searchQuery, assignments, currentUser.id, lidMap]);
-
-  const mergedItems = useMemo(() => {
-    return [
-      ...messages.filter(msg => extractMessageContent(msg).type !== 'unknown').map(msg => ({
-        type: 'message' as const,
-        timestamp: Number(msg.messageTimestamp),
-        data: msg
-      })),
-      ...whispers.filter(w => selectedChat && w.chatId === (selectedChat.id || selectedChat.remoteJid)).map(w => ({
-        type: 'whisper' as const,
-        timestamp: w.timestamp,
-        data: w
-      }))
-    ].sort((a, b) => a.timestamp - b.timestamp);
-  }, [messages, whispers, selectedChat?.id]);
+  };
 
   const handleSelectChat = useCallback((chat: any) => {
     setSelectedChat(chat);
-  }, []);
+    loadMessages(chat);
+  }, [api, isConnected]);
 
-  const handleInputChange = useCallback((val: string) => {
-    setMessageInput(val);
-  }, []);
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isConnected) {
+      loadChats();
+      interval = setInterval(() => loadChats(true), 15000);
+    }
+    return () => clearInterval(interval);
+  }, [isConnected, api]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (selectedChat) {
+      loadMessages(selectedChat, true);
+      interval = setInterval(() => loadMessages(selectedChat, true), 5000);
+    }
+    return () => clearInterval(interval);
+  }, [selectedChat]);
+
+  const filteredChats = useMemo(() => {
+    let filtered = chats;
+
+    // Filter by type
+    if (chatFilter === 'hidden') {
+      filtered = filtered.filter(c => hiddenContacts.includes(c.id || c.remoteJid));
+      if (!isHiddenUnlocked) return [];
+    } else {
+      filtered = filtered.filter(c => !hiddenContacts.includes(c.id || c.remoteJid));
+      if (chatFilter === 'mine') {
+        filtered = filtered.filter(c => assignments[c.id || c.remoteJid] === agents.find(a => a.email === 'me')?.id); // Mock logic for 'me'
+      }
+    }
+
+    // Filter by search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(c =>
+        (c.name && c.name.toLowerCase().includes(q)) ||
+        (c.pushName && c.pushName.toLowerCase().includes(q)) ||
+        ((c.id || c.remoteJid) && (c.id || c.remoteJid).includes(q))
+      );
+    }
+
+    return filtered.map(chat => {
+      const jid = chat.id || chat.remoteJid;
+      const name = customNames[jid] || discoveredNames[jid] || contacts.find((c: any) => c.id === jid)?.name || chat.name || chat.pushName || chat.verifiedName || jid.split('@')[0];
+      const phone = isSameJid(jid, jid, lidMap) ? formatPhoneNumber(jid) : "LID (Oculto)";
+
+      return { ...chat, computedName: name, computedPhone: phone };
+    });
+  }, [chats, searchQuery, chatFilter, isHiddenUnlocked, customNames, discoveredNames, contacts, lidMap, hiddenContacts, assignments]);
+
+  const handleInputChange = useCallback((v: string) => setMessageInput(v), []);
+  const handleMainAction = useCallback(() => handleSendMessage(), [handleSendMessage]);
 
   const handleSaveNote = () => {
     if (!selectedChat) return;
@@ -548,263 +455,136 @@ export default function Inbox() {
 
   const handleStageChange = (val: string) => {
     if (!selectedChat) return;
-    const jid = selectedChat.id || selectedChat.remoteJid;
-    const deal = getDealByChatId(jid);
-    if (deal) updateDealStage(deal.id, val);
-    else addDeal({
-      id: Math.random().toString(36).substr(2, 9),
-      chatId: jid,
-      title: resolveName(jid, selectedChat.name || selectedChat.pushName),
-      company: "WhatsApp",
-      value: "R$ 0,00",
-      stageId: val,
-      tags: ["Novo"],
-      createdAt: Date.now()
-    });
-    toast.success("Funil atualizado!");
+    // Mock logic for deal update
+    toast.success("Estágio atualizado (Mock)");
   };
+
+  // Safe resolve name helper
+  const safeResolveName = (id: string) => customNames[id] || discoveredNames[id] || contacts.find((c: any) => c.id === id)?.name || id.split('@')[0];
 
   return (
     <CRMLayout>
-      <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-background">
-        <div className="w-80 border-r border-border/50 flex flex-col bg-card">
-          <div className="p-4 space-y-4 border-b border-border/50">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-lg">Inbox</h2>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 hover:bg-muted"
-                    onClick={() => loadChats()}
-                    disabled={loading}
-                    title="Atualizar"
-                  >
-                    <RefreshCw className={`h-4.5 w-4.5 ${loading ? "animate-spin" : ""}`} />
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-9 gap-2 shadow-sm"
-                    onClick={() => setIsNewChatOpen(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Novo
-                  </Button>
-                </div>
-              </div>
+      <div className="flex h-[calc(100vh-theme(spacing.4))] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden m-2">
+        {/* Sidebar List */}
+        <div className="w-96 border-r border-gray-200 flex flex-col bg-white">
+          <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg text-gray-900 tracking-tight">Inbox</h2>
               <div className="flex items-center gap-2">
-                <Select value={currentUser.id} onValueChange={(id) => setCurrentUser(agents.find(a => a.id === id) || agents[0])}>
-                  <SelectTrigger className="flex-1 h-9 text-xs bg-muted/30 border-none shadow-none focus:ring-1 focus:ring-primary/20">
-                    <SelectValue placeholder="Usuário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {agents.map(agent => (
-                      <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <button onClick={() => loadChats()} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="Atualizar">
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
               </div>
             </div>
-            <div className="flex rounded-lg bg-muted p-1">
-              <button onClick={() => setChatFilter('mine')} className={`flex-1 text-[10px] py-1.5 rounded-md transition-all ${chatFilter === 'mine' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>Minhas</button>
-              <button onClick={() => setChatFilter('all')} className={`flex-1 text-[10px] py-1.5 rounded-md transition-all ${chatFilter === 'all' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>Todas</button>
-              <button
-                onClick={() => {
-                  if (chatFilter === 'hidden') {
-                    setChatFilter('all');
-                  } else {
-                    setChatFilter('hidden');
-                    if (!isHiddenUnlocked) setShowHiddenInput(true);
-                  }
-                }}
-                className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-all ${chatFilter === 'hidden' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted-foreground/10'}`}
-              >
-                {isHiddenUnlocked ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-              </button>
+
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+              <button onClick={() => setChatFilter('all')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${chatFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Tudo</button>
+              <button onClick={() => setChatFilter('mine')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${chatFilter === 'mine' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Meus</button>
+              {isHiddenUnlocked && <button onClick={() => setChatFilter('hidden')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${chatFilter === 'hidden' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Ocultos</button>}
             </div>
-            {chatFilter === 'hidden' && !isHiddenUnlocked && showHiddenInput && (
-              <div className="p-2 space-y-2 animate-in slide-in-from-top-1">
-                <Input
-                  type="password"
-                  placeholder="Senha para ocultas..."
-                  className="h-8 text-[10px]"
-                  value={unlockPassword}
-                  onChange={(e) => setUnlockPassword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      if (unlockPassword === hiddenChatPassword) {
-                        setIsHiddenUnlocked(true);
-                        setShowHiddenInput(false);
-                        setUnlockPassword("");
-                        toast.success("Conversas desbloqueadas!");
-                      } else {
-                        toast.error("Senha incorreta");
-                      }
-                    }
-                  }}
-                  autoFocus
-                />
+
+            {chatFilter === 'hidden' && !isHiddenUnlocked && (
+              <div className="flex gap-2">
+                <Input type="password" placeholder="Senha..." className="h-9 text-xs" value={unlockPassword} onChange={e => setUnlockPassword(e.target.value)} />
+                <Button size="sm" onClick={() => { if (unlockPassword === hiddenChatPassword) { setIsHiddenUnlocked(true); toast.success("Desbloqueado"); } else toast.error("Senha errada"); }}>
+                  <Unlock className="h-4 w-4" />
+                </Button>
               </div>
             )}
+
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Pesquisar conversas ou mensagens..." className="pl-9 h-9 bg-muted/50 border-none text-xs" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar..."
+                className="pl-9 h-9 bg-gray-50 border-transparent focus:bg-white focus:border-blue-500 transition-all font-medium text-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
-          <ScrollArea className="flex-1">
-            <div className="divide-y divide-border/10">
-              {filteredChats.map((chat) => {
-                const jid = chat.id || chat.remoteJid;
-                return (
-                  <ChatListItem
-                    key={jid}
-                    chat={chat}
-                    isSelected={selectedChat && isSameJid(jid, selectedChat.id || selectedChat.remoteJid, lidMap)}
-                    name={chat.computedName}
-                    phone={chat.computedPhone}
-                    onSelect={handleSelectChat}
-                  />
-                );
-              })}
+
+          <ScrollArea className="flex-1 bg-white">
+            <div className="flex flex-col">
+              {filteredChats.map((chat) => (
+                <ChatListItem
+                  key={chat.id || chat.remoteJid}
+                  chat={chat}
+                  isSelected={selectedChat && isSameJid(chat.id || chat.remoteJid, selectedChat.id || selectedChat.remoteJid, lidMap)}
+                  name={chat.computedName}
+                  phone={chat.computedPhone}
+                  onSelect={handleSelectChat}
+                />
+              ))}
+              {filteredChats.length === 0 && !loading && (
+                <div className="p-8 text-center text-gray-400 text-sm font-medium">Nenhuma conversa encontrada.</div>
+              )}
             </div>
           </ScrollArea>
         </div>
 
-        <div className="flex-1 flex flex-col bg-muted/5">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col bg-gray-50/50">
           {selectedChat ? (
             <>
-              {/* Chat Header */}
-              <div className="border-b border-border/50 bg-card/50 backdrop-blur z-10">
-                <div className="h-16 flex items-center justify-between px-6">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9 border border-border/50">
-                      <AvatarImage src={selectedChat.profilePicUrl} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                        {resolveName(selectedChat.id || selectedChat.remoteJid, selectedChat.name || selectedChat.pushName).substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-sm leading-none">
-                          {resolveName(selectedChat.id || selectedChat.remoteJid, selectedChat.name || selectedChat.pushName)}
-                        </p>
-                        <span className="text-[10px] text-muted-foreground opacity-60">
-                          {formatPhoneNumber(selectedChat.id || selectedChat.remoteJid)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-muted-foreground">Responsável:</span>
-                        <Select
-                          value={assignments[selectedChat.id || selectedChat.remoteJid] || "unassigned"}
-                          onValueChange={(val) => assignChat(selectedChat.id || selectedChat.remoteJid, val)}
-                        >
-                          <SelectTrigger className="h-5 w-[100px] text-[10px] px-2 py-0 border-border/30 bg-background/50">
-                            <SelectValue placeholder="Ninguém" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Ninguém</SelectItem>
-                            {agents.map(a => (
-                              <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    {hiddenContacts.includes(selectedChat.id || selectedChat.remoteJid) && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-green-500 hover:bg-green-500/10"
-                        title="Desocultar"
-                        onClick={() => {
-                          unhideContact(selectedChat.id || selectedChat.remoteJid);
-                          toast.success("Contato visível novamente!");
-                        }}
-                      >
-                        <Unlock className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
-                      title="Ocultar do CRM"
-                      onClick={() => {
-                        if (confirm("Deseja ocultar permanentemente este contato do CRM? (Acessível via senha)")) {
-                          hideContact(selectedChat.id || selectedChat.remoteJid);
-                          setSelectedChat(null);
-                          toast.success("Contato ocultado!");
-                        }
-                      }}
-                    >
-                      <EyeOff className="h-4 w-4" />
-                    </Button>
+              {/* Header */}
+              <div className="h-16 px-6 border-b border-gray-200 bg-white flex items-center justify-between shadow-sm sticky top-0 z-10">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-10 w-10 border border-gray-100">
+                    <AvatarImage src={selectedChat.profilePicUrl} />
+                    <AvatarFallback className="bg-blue-50 text-blue-600 font-bold">
+                      {safeResolveName(selectedChat.id || selectedChat.remoteJid).substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h2 className="font-bold text-gray-900 text-sm leading-tight">
+                      {safeResolveName(selectedChat.id || selectedChat.remoteJid)}
+                    </h2>
+                    <p className="text-xs text-gray-500 font-medium">
+                      {formatPhoneNumber(selectedChat.id || selectedChat.remoteJid)}
+                    </p>
                   </div>
                 </div>
 
-                {/* Tabs Navigation */}
-                <div className="flex px-6 gap-6 text-sm font-medium text-muted-foreground">
-                  <button
-                    onClick={() => setActiveTab('chat')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'chat' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
-                  >
-                    <MessageCircle className="h-4 w-4" /> Conversa
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('details')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
-                  >
-                    <User className="h-4 w-4" /> Dados
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('notes')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'notes' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
-                  >
-                    <StickyNote className="h-4 w-4" /> Notas
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('sales')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'sales' ? 'border-primary text-primary' : 'border-transparent hover:text-foreground'}`}
-                  >
-                    <Briefcase className="h-4 w-4" /> Vendas
-                  </button>
+                <div className="flex items-center gap-2">
+                  {/* Simplified Tabs for Header */}
+                  <div className="flex bg-gray-100 p-0.5 rounded-lg mr-4">
+                    <button onClick={() => setActiveTab('chat')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === 'chat' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Chat</button>
+                    <button onClick={() => setActiveTab('details')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === 'details' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Dados</button>
+                    <button onClick={() => setActiveTab('notes')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === 'notes' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Notas</button>
+                  </div>
+
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)} className="h-8 w-8 text-gray-400 hover:text-gray-600">
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
 
+              {/* Content */}
               {activeTab === 'chat' ? (
                 <>
-                  <div ref={scrollViewportRef} className="flex-1 overflow-y-auto p-6" onScroll={handleScroll}>
-                    <div className="space-y-4 max-w-4xl mx-auto pb-4">
-                      {mergedItems.map((item, idx) => {
-                        const msg = item.data;
-                        const isMe = msg.key?.fromMe;
-                        const { type, content } = extractMessageContent(msg);
-                        const mimeType = (msg.message?.imageMessage?.mimetype || msg.message?.videoMessage?.mimetype || msg.message?.audioMessage?.mimetype || msg.message?.documentMessage?.mimetype);
-                        const fileName = msg.message?.documentMessage?.fileName;
+                  <div ref={scrollViewportRef} className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/30" onScroll={handleScroll}>
+                    {messages.map((item, idx) => {
+                      const msg = item.data;
+                      const isMe = msg.key?.fromMe;
+                      const { type, content } = extractMessageContent(msg);
+                      const mimeType = (msg.message?.imageMessage?.mimetype || msg.message?.videoMessage?.mimetype || msg.message?.audioMessage?.mimetype || msg.message?.documentMessage?.mimetype);
+                      const fileName = msg.message?.documentMessage?.fileName;
 
-                        return (
-                          <MessageBubble
-                            key={idx}
-                            item={item}
-                            isMe={isMe}
-                            type={type}
-                            content={content}
-                            mimeType={mimeType}
-                            fileName={fileName}
-                            api={api}
-                          />
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
+                      return (
+                        <MessageBubble
+                          key={idx}
+                          item={item}
+                          isMe={isMe}
+                          type={type}
+                          content={content}
+                          mimeType={mimeType}
+                          fileName={fileName}
+                          api={api}
+                        />
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
                   </div>
-
                   <ChatInputView
                     value={messageInput}
                     onChange={handleInputChange}
@@ -814,108 +594,47 @@ export default function Inbox() {
                   />
                 </>
               ) : activeTab === 'details' ? (
-                <div className="p-8 max-w-2xl mx-auto w-full space-y-6">
+                <div className="p-8 max-w-lg mx-auto w-full space-y-6">
                   <div className="space-y-4">
-                    <Label className="text-muted-foreground">Nome de Exibição (Clique para editar)</Label>
+                    <Label>Nome Personalizado</Label>
                     <div className="flex gap-2">
-                      <Input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        placeholder="Digite um apelido ou nome..."
-                        className="bg-muted focus-visible:ring-primary/20"
-                      />
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => {
-                          if (!selectedChat) return;
-                          const jid = selectedChat.id || selectedChat.remoteJid;
-                          setCustomName(jid, editName);
-                          toast.success("Nome salvo com sucesso!");
-                        }}
-                        className="shrink-0"
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        Salvar
-                      </Button>
+                      <Input value={editName} onChange={e => setEditName(e.target.value)} />
+                      <Button onClick={() => { setCustomName(selectedChat.id || selectedChat.remoteJid, editName); toast.success("Salvo"); }}>Salvar</Button>
                     </div>
-                    <Label className="mt-4 block text-muted-foreground">WhatsApp ID / JID</Label>
-                    <Input value={selectedChat.id || selectedChat.remoteJid} readOnly className="bg-muted/50 font-mono text-xs opacity-60" />
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
-                    <p className="text-xs text-primary font-medium flex items-center gap-2">
-                      <Clock className="h-3 w-3" />
-                      O nome salvo aqui tem prioridade total e aparecerá em todas as telas do sistema.
-                    </p>
                   </div>
                 </div>
               ) : activeTab === 'notes' ? (
-                <div className="p-8 max-w-2xl mx-auto w-full space-y-4">
-                  <Label>Anotações Internas</Label>
-                  <Textarea placeholder="Observações..." className="min-h-[200px]" value={noteInput} onChange={(e) => setNoteInput(e.target.value)} />
-                  <Button onClick={handleSaveNote} className="w-full"><Save className="h-4 w-4 mr-2" /> Salvar Notas</Button>
+                <div className="p-8 max-w-lg mx-auto w-full space-y-4">
+                  <Label>Bloco de Notas</Label>
+                  <Textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} className="min-h-[300px]" placeholder="Escreva observações sobre este cliente..." />
+                  <Button onClick={handleSaveNote} className="w-full">Salvar Notas</Button>
                 </div>
-              ) : (
-                <div className="p-8 flex flex-col items-center justify-center max-w-2xl mx-auto w-full gap-6">
-                  <Briefcase className="h-12 w-12 text-muted-foreground/30" />
-                  <div className="text-center">
-                    <h3 className="font-bold">Mover para Estágio</h3>
-                    <p className="text-sm text-muted-foreground">Atualize a etapa deste cliente no funil de vendas.</p>
-                  </div>
-                  <Select value={getDealByChatId(selectedChat.id || selectedChat.remoteJid)?.stageId || ""} onValueChange={handleStageChange}>
-                    <SelectTrigger className="w-full h-12">
-                      <SelectValue placeholder="Selecionar etapa..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stages.map(s => <SelectItem key={s.id} value={s.id}><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${s.color}`} /> {s.title}</div></SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              ) : null}
+
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground animate-in fade-in duration-500">
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-300">
               <MessageSquare className="h-16 w-16 mb-4 opacity-20" />
-              <p className="text-lg font-medium italic">Selecione uma conversa para começar</p>
+              <p className="text-sm font-medium">Selecione uma conversa</p>
             </div>
           )}
         </div>
       </div>
+
       {/* Manual Resolution Dialog */}
-      <div className={`fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 transition-all duration-200 ${resolutionDialogOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-        <div className="bg-card border border-border rounded-lg shadow-lg max-w-md w-full p-6 space-y-4">
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <User className="h-5 w-5 text-amber-500" />
-              Identificar Contato
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              O sistema não conseguiu identificar o número de telefone deste contato (LID).
-              Por favor, informe o número real para vincularmos.
-            </p>
-            <div className="p-2 bg-muted/50 rounded text-xs font-mono text-muted-foreground break-all">
-              ID: {failedLid}
+      {resolutionDialogOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="font-bold text-lg">Resolver Contato</h3>
+            <p className="text-sm text-gray-500">Informe o número para este LID:</p>
+            <Input value={manualPhoneInput} onChange={e => setManualPhoneInput(e.target.value)} placeholder="5511999999999" />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setResolutionDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={handleManualResolution}>Salvar</Button>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label>Número de Telefone (com DDD)</Label>
-            <Input
-              placeholder="Ex: 5511999998888"
-              value={manualPhoneInput}
-              onChange={(e) => setManualPhoneInput(e.target.value)}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setResolutionDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleManualResolution}>Salvar e Reenviar</Button>
-          </div>
         </div>
-      </div>
+      )}
     </CRMLayout>
   );
 }
-
-

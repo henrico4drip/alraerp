@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import CRMLayout from "@/components/CRMLayout";
 import { useEvolution } from "@/contexts/EvolutionContext";
 import { useCrm } from "@/contexts/CrmContext";
-import { Plus, MoreHorizontal, GripVertical, Loader2, X, Save, Pencil, Trash2, MessageCircle } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Plus, Loader2, X, Save, Pencil, Trash2, MessageCircle } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { isSameJid } from "@/lib/evolution";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,7 +20,7 @@ type Task = {
   tags: string[];
 };
 
-// Simple Modal Component (No Radix dependency to avoid install issues)
+// Simple Modal Component
 const EditTaskModal = ({
   isOpen,
   onClose,
@@ -48,9 +48,9 @@ const EditTaskModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-background border border-border w-full max-w-md p-6 rounded-xl shadow-lg space-y-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white border border-gray-200 w-full max-w-md p-6 rounded-xl shadow-lg space-y-4 animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Editar Negócio</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Editar Negócio</h3>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -160,18 +160,14 @@ export default function Funnel() {
   useEffect(() => {
     const fetchLeads = async () => {
       if (!api || !isConnected) return;
-      // Only fetch if we don't have deals yet
       if (deals.length > 0) return;
 
       setLoading(true);
       try {
         const chats = await api.fetchChats();
-
-        // Map chats to Deals and place them in "Novos Leads"
-        // Taking first 50 to avoid performance issues for now
         const leadStageId = stages.find(s => s.id === "leads")?.id || stages[0]?.id;
-
         const newDiscovered: Record<string, string> = {};
+
         chats
           .filter(chat => !hiddenContacts.some(hc => isSameJid(hc, chat.id || chat.remoteJid)))
           .slice(0, 50)
@@ -186,8 +182,8 @@ export default function Funnel() {
             addDeal({
               id: chatId,
               chatId: chatId,
-              title: name || "Novo Negócio", // Use WhatsApp name as initial title
-              company: "WhatsApp", // Source
+              title: name || "Novo Negócio",
+              company: "WhatsApp",
               value: "R$ 0,00",
               stageId: leadStageId,
               tags: ["Novo"],
@@ -214,22 +210,20 @@ export default function Funnel() {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
+  // Drag to Scroll Logic
   const onMouseDown = (e: React.MouseEvent) => {
-    // Only start board drag if clicking on the container itself, not on cards
     const target = e.target as HTMLElement;
-    if (target.closest('[draggable="true"]') || target.closest('button')) {
-      return;
-    }
+    // Don't drag board if clicking on a task card (which has .group class) or button/input
+    if (target.closest('[draggable="true"]') || target.closest('button') || target.closest('input') || target.closest('.group')) return;
 
     if (!scrollContainerRef.current) return;
     setIsDraggingBoard(true);
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    setStartX(e.pageX);
     setScrollLeft(scrollContainerRef.current.scrollLeft);
-    e.preventDefault();
   };
 
   const onMouseLeave = () => {
-    setIsDraggingBoard(false);
+    if (isDraggingBoard) setIsDraggingBoard(false);
   };
 
   const onMouseUp = () => {
@@ -239,8 +233,8 @@ export default function Funnel() {
   const onMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingBoard || !scrollContainerRef.current) return;
     e.preventDefault();
-    const x = e.pageX - scrollContainerRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5; // Scroll speed multiplier
+    const x = e.pageX;
+    const walk = (x - startX) * 2;
     scrollContainerRef.current.scrollLeft = scrollLeft - walk;
   };
 
@@ -259,7 +253,6 @@ export default function Funnel() {
 
     const { taskId, sourceColId } = draggedTask;
 
-    // Reorder logic
     setDeals(prevDeals => {
       const newDeals = [...prevDeals];
       const draggedIndex = newDeals.findIndex(d => d.id === taskId);
@@ -278,56 +271,80 @@ export default function Funnel() {
       } else {
         newDeals.push(movedDeal);
       }
-
       return newDeals;
     });
 
     if (sourceColId !== targetColId) {
       toast.success("Negócio movido!");
     }
-
     setDraggedTask(null);
   };
 
   return (
     <CRMLayout>
-      <div className="flex flex-col h-[calc(100vh-2rem)] m-4 bg-background">
+      <div className="flex flex-col h-[calc(100vh-2rem)] m-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden select-none">
         <EditTaskModal
           isOpen={isEditOpen}
           onClose={() => setIsEditOpen(false)}
           task={editingTask}
           onSave={handleSaveTask}
         />
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Funil de Vendas</h1>
-            <p className="text-muted-foreground">Gerencie seus negócios e oportunidades.</p>
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Funil de Vendas</h1>
+            <p className="text-sm text-gray-500">Acompanhe seus leads e oportunidades.</p>
           </div>
-          <Button>
+          <Button onClick={() => {
+            const id = prompt("Nome do Cliente:");
+            if (id) addDeal({
+              id: "manual-" + Date.now(),
+              chatId: "manual-" + Date.now(),
+              title: id,
+              company: "Manual",
+              value: "R$ 0,00",
+              stageId: stages[0].id,
+              tags: [],
+              createdAt: Date.now()
+            })
+          }}>
             <Plus className="mr-2 h-4 w-4" /> Novo Negócio
           </Button>
         </div>
 
+        <style>{`
+          .custom-scrollbar-h::-webkit-scrollbar {
+            height: 14px !important;
+            display: block !important;
+          }
+          .custom-scrollbar-h::-webkit-scrollbar-track {
+            background: #f8fafc !important;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+          }
+          .custom-scrollbar-h::-webkit-scrollbar-thumb {
+            background: #94a3b8 !important;
+            border-radius: 10px;
+            border: 3px solid #f8fafc;
+          }
+          .custom-scrollbar-h::-webkit-scrollbar-thumb:hover {
+            background: #64748b !important;
+          }
+        `}</style>
         <div
           ref={scrollContainerRef}
-          className={`flex-1 overflow-x-auto overflow-y-hidden pb-4 scrollbar-thin scrollbar-thumb-primary/10 scrollbar-track-transparent ${isDraggingBoard ? 'cursor-grabbing select-none' : 'cursor-grab'
-            }`}
-          style={{
-            userSelect: isDraggingBoard ? 'none' : 'auto',
-            WebkitUserSelect: isDraggingBoard ? 'none' : 'auto'
-          }}
+          className={`flex-1 w-full overflow-x-scroll p-6 bg-gray-50/50 custom-scrollbar-h ${isDraggingBoard ? 'cursor-grabbing' : 'cursor-grab'}`}
           onMouseDown={onMouseDown}
           onMouseLeave={onMouseLeave}
           onMouseUp={onMouseUp}
           onMouseMove={onMouseMove}
         >
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p>Carregando funil...</p>
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-400">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <p className="text-sm font-medium">Sincronizando Leads...</p>
             </div>
           ) : (
-            <div className="flex gap-4 h-full min-w-max pr-96">
+            <div className="inline-flex flex-nowrap gap-6 h-full min-w-full pr-40">
               {stages.map((stage) => {
                 const stageDeals = deals.filter(d =>
                   d.stageId === stage.id &&
@@ -336,32 +353,25 @@ export default function Funnel() {
                 return (
                   <div
                     key={stage.id}
-                    className="w-80 min-w-[20rem] max-w-[20rem] shrink-0 flex flex-col bg-muted/40 rounded-xl border border-border/50 h-full overflow-hidden"
+                    className="w-80 shrink-0 flex flex-col bg-gray-100/50 rounded-xl border border-gray-200 h-full overflow-hidden"
                     onDragOver={onDragOver}
                     onDrop={(e) => onDrop(e, stage.id)}
                   >
-                    {/* Column Header */}
-                    <div className="p-3 border-b border-border/50 flex items-center justify-between bg-card/50 rounded-t-xl backdrop-blur">
+                    <div className="p-3 border-b border-gray-200/60 flex items-center justify-between bg-white rounded-t-xl">
                       <div className="flex items-center gap-2">
-                        <div className={`h-2 w-2 rounded-full ${stage.color}`} />
-                        <span className="font-semibold text-sm">{stage.title}</span>
-                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                        <div className={`h-2.5 w-2.5 rounded-full ${stage.color}`} />
+                        <span className="font-semibold text-sm text-gray-700">{stage.title}</span>
+                        <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">
                           {stageDeals.length}
                         </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                        onClick={() => handleRemoveStage(stage.id, stage.title)}
-                      >
-                        <Trash2 className="h-3 w-3" />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-red-500 hover:bg-red-50" onClick={() => handleRemoveStage(stage.id, stage.title)}>
+                        <X className="h-3 w-3" />
                       </Button>
                     </div>
 
-                    {/* Tasks Area */}
                     <ScrollArea className="flex-1 p-2">
-                      <div className="space-y-2">
+                      <div className="space-y-2.5">
                         {stageDeals.map((deal) => {
                           const contactName = resolveName(deal.chatId, deal.title);
                           return (
@@ -370,87 +380,45 @@ export default function Funnel() {
                               draggable
                               onDragStart={(e) => onDragStart(e, deal.id, stage.id)}
                               onDragOver={(e) => e.preventDefault()}
-                              onDrop={(e) => {
-                                e.stopPropagation();
-                                onDrop(e, stage.id, deal.id);
-                              }}
-                              className="group bg-card p-3 rounded-lg border border-border/50 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing hover:border-primary/20 overflow-hidden"
+                              onDrop={(e) => { e.stopPropagation(); onDrop(e, stage.id, deal.id); }}
+                              className="group bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-grab active:cursor-grabbing relative"
                             >
-                              <div className="w-full flex flex-col gap-3">
-                                {/* Header: Info vs Actions */}
-                                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-start w-full">
-                                  {/* Info Column */}
-                                  <div className="flex flex-col gap-1.5 min-w-0 overflow-hidden">
-                                    {/* Line 1: Source */}
-                                    <div className="flex shrink-0">
-                                      <span className="text-[10px] uppercase tracking-wider font-extrabold text-primary bg-primary/10 px-1.5 py-0.5 rounded truncate max-w-full">
-                                        {deal.company || "WhatsApp"}
-                                      </span>
-                                    </div>
-
-                                    {/* Line 2: Tags */}
-                                    <div className="flex flex-wrap gap-1 max-w-full overflow-hidden">
-                                      {(contactTags[deal.chatId] || []).length > 0 ? (
-                                        (contactTags[deal.chatId] || []).map((tag, idx) => (
-                                          <span key={idx} className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded border border-border/50 truncate max-w-[80px]">
-                                            {tag}
-                                          </span>
-                                        ))
-                                      ) : (
-                                        <span className="text-[9px] text-muted-foreground/30 italic">Sem etiquetas</span>
-                                      )}
-                                    </div>
-
-                                    {/* Line 3: Customer Name */}
-                                    <h4 className="font-bold text-sm text-foreground truncate w-full mt-0.5" title={contactName}>
-                                      {contactName}
-                                    </h4>
-                                  </div>
-
-                                  {/* Actions Column */}
-                                  <div className="flex flex-col gap-1 shrink-0">
-                                    <button
-                                      onClick={() => navigate(`/crm/inbox?contactId=${deal.chatId}`)}
-                                      className="p-1.5 hover:bg-primary/10 rounded text-primary transition-colors border border-border/10 bg-primary/5 hover:border-primary/20"
-                                      title="Abrir Conversa"
-                                    >
-                                      <MessageCircle className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleEditClick(deal as any)}
-                                      className="p-1.5 hover:bg-muted rounded text-muted-foreground transition-colors border border-border/10 bg-muted/5 hover:border-border"
-                                      title="Editar"
-                                    >
-                                      <Pencil className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleRemoveDeal(deal.id, deal.title)}
-                                      className="p-1.5 hover:bg-red-500/10 rounded text-red-500/60 hover:text-red-500 transition-colors border border-border/10 bg-muted/5 hover:border-red-500/20"
-                                      title="Excluir"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  </div>
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{deal.company}</span>
+                                  <h4 className="text-sm font-semibold text-gray-900 leading-tight">{contactName}</h4>
                                 </div>
+                              </div>
 
-                                {/* Footer: Value and Avatar */}
-                                <div className="flex items-center justify-between pt-3 border-t border-border/30 w-full overflow-hidden">
-                                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 truncate flex-1 min-w-0">
-                                    {deal.value}
-                                  </p>
-                                  <Avatar className="h-7 w-7 border-2 border-background shadow-sm shrink-0 ml-2">
-                                    <AvatarFallback className="text-[10px] bg-indigo-100 text-indigo-600 font-bold">
-                                      {(contactName || "?").substring(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {(contactTags[deal.chatId] || []).length > 0 ? (
+                                  (contactTags[deal.chatId] || []).map((tag, idx) => (
+                                    <span key={idx} className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 font-medium">#{tag}</span>
+                                  ))
+                                ) : <span className="text-[9px] text-gray-300 italic">Sem tags</span>}
+                              </div>
+
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
+                                <span className="text-xs font-bold text-emerald-600">{deal.value}</span>
+
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => navigate(`/crm/inbox?contactId=${deal.chatId}`)} className="p-1 hover:bg-blue-50 rounded text-blue-500 transition-colors" title="Chat">
+                                    <MessageCircle className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button onClick={() => handleEditClick(deal as any)} className="p-1 hover:bg-gray-100 rounded text-gray-500 transition-colors" title="Editar">
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button onClick={() => handleRemoveDeal(deal.id, deal.title)} className="p-1 hover:bg-red-50 rounded text-gray-400 hover:text-red-500 transition-colors" title="Excluir">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
                                 </div>
                               </div>
                             </div>
                           );
                         })}
                         {stageDeals.length === 0 && (
-                          <div className="h-24 border-2 border-dashed border-border/50 rounded-lg flex items-center justify-center text-muted-foreground text-xs bg-muted/20">
-                            Arraste itens aqui
+                          <div className="h-24 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center text-gray-300 text-xs font-medium">
+                            Vazio
                           </div>
                         )}
                       </div>
@@ -459,36 +427,23 @@ export default function Funnel() {
                 )
               })}
 
-              {/* Add Column Button */}
               {isAddingStage ? (
-                <div className="w-80 flex flex-col gap-2 p-3 bg-card rounded-xl border border-border/50">
-                  <Input
-                    placeholder="Nome do estágio..."
-                    value={newStageName}
-                    onChange={(e) => setNewStageName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddStage()}
-                    autoFocus
-                  />
+                <div className="w-80 p-3 bg-white rounded-xl border border-gray-200 shadow-sm space-y-2 h-fit">
+                  <Input placeholder="Nome da etapa..." value={newStageName} onChange={e => setNewStageName(e.target.value)} className="h-9 text-sm" autoFocus onKeyDown={e => e.key === 'Enter' && handleAddStage()} />
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={handleAddStage} className="flex-1">
-                      <Plus className="h-3 w-3 mr-1" /> Adicionar
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setIsAddingStage(false);
-                      setNewStageName("");
-                    }}>
-                      <X className="h-3 w-3" />
-                    </Button>
+                    <Button size="sm" className="flex-1 h-8" onClick={handleAddStage}>Adicionar</Button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setIsAddingStage(false)}><X className="h-4 w-4" /></Button>
                   </div>
                 </div>
               ) : (
                 <button
                   onClick={() => setIsAddingStage(true)}
-                  className="w-80 h-12 flex items-center justify-center gap-2 border-2 border-dashed border-border/50 rounded-xl text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:border-border transition-colors"
+                  className="w-80 h-12 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:border-gray-300 hover:text-gray-600 hover:bg-gray-50 transition-all text-sm font-medium shrink-0"
                 >
-                  <Plus className="h-4 w-4" /> Adicionar Estágio
+                  <Plus className="h-4 w-4 mr-2" /> Nova Etapa
                 </button>
               )}
+              <div className="w-80 shrink-0" /> {/* Extra space at the end */}
             </div>
           )}
         </div>

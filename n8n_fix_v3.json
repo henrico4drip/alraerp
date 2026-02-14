@@ -1,0 +1,428 @@
+{
+    "name": "Integração Evolution -> Chatwoot v3 (Correção Unique SourceID)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "evolution",
+                "options": {}
+            },
+            "name": "Webhook Evolution",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                380,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// --- CONFIGURAÇÕES ---\nconst CHATWOOT_URL = 'http://rails:3000';\nconst CHATWOOT_TOKEN = 'aBuB5HbFrpn9nUvHLE5Thbk5'; // <--- SEU TOKEN JÁ ESTÁ AQUI\nconst INBOX_ID = 1;\n\n// --- LÓGICA ---\nconst data = items[0].json;\nconst key = data.key || {};\nconst message = data.message || {};\n\nlet rawId = key.remoteJidOut || key.participant || key.remoteJid;\nlet onlyNumbers = rawId ? rawId.replace(/\\D/g, '') : '';\n\nconst phoneForChatwoot = `+${onlyNumbers}`;\nconst wid = `${onlyNumbers}@s.whatsapp.net`;\n\nlet content = message.conversation || message.extendedTextMessage?.text || \n              (message.imageMessage ? '📷 [Imagem]' : \n              (message.audioMessage ? '🎤 [Áudio]' : 'Arquivo/Outros'));\n\nconst contactName = data.pushName || phoneForChatwoot;\nconst fromMe = key.fromMe;\n\nreturn {\n  json: {\n    url: CHATWOOT_URL,\n    token: CHATWOOT_TOKEN,\n    inbox_id: INBOX_ID,\n    contact_name: contactName,\n    phone_number: phoneForChatwoot,\n    identifier: wid,\n    message_content: content,\n    message_type: fromMe ? 'outgoing' : 'incoming',\n    source_id: wid\n  }\n};"
+            },
+            "name": "Config & Limpeza",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                580,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "={{ $json.url }}/api/v1/accounts/2/contacts/search",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "value": "={{ $json.phone_number }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "api_access_token",
+                            "value": "={{ $json.token }}"
+                        }
+                    ]
+                }
+            },
+            "name": "Buscar Contato API",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                780,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.payload.length > 0 }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Contato Existe?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                980,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.payload[0].contact_inboxes.some(ci => ci.inbox_id == $('Config & Limpeza').item.json.inbox_id) }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Já tem Inbox?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1180,
+                160
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.payload[0].conversations && $json.payload[0].conversations.length > 0 }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Tem Conversa?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1380,
+                60
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Config & Limpeza').item.json.url }}/api/v1/accounts/2/conversations/{{ $json.payload[0].conversations[0].id }}/messages",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "content",
+                            "value": "={{ $('Config & Limpeza').item.json.message_content }}"
+                        },
+                        {
+                            "name": "message_type",
+                            "value": "={{ $('Config & Limpeza').item.json.message_type }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "api_access_token",
+                            "value": "={{ $('Config & Limpeza').item.json.token }}"
+                        }
+                    ]
+                }
+            },
+            "name": "Enviar (Msg Existente)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1680,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Config & Limpeza').item.json.url }}/api/v1/accounts/2/conversations",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "inbox_id",
+                            "value": "={{ $('Config & Limpeza').item.json.inbox_id }}"
+                        },
+                        {
+                            "name": "contact_id",
+                            "value": "={{ $json.payload ? ($json.payload[0] ? $json.payload[0].id : $json.id) : $json.id }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "api_access_token",
+                            "value": "={{ $('Config & Limpeza').item.json.token }}"
+                        }
+                    ]
+                }
+            },
+            "name": "Criar Conv (Sem SourceID)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1680,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Config & Limpeza').item.json.url }}/api/v1/accounts/2/contacts",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "inbox_id",
+                            "value": "={{ $('Config & Limpeza').item.json.inbox_id }}"
+                        },
+                        {
+                            "name": "name",
+                            "value": "={{ $('Config & Limpeza').item.json.contact_name }}"
+                        },
+                        {
+                            "name": "phone_number",
+                            "value": "={{ $('Config & Limpeza').item.json.phone_number }}"
+                        },
+                        {
+                            "name": "source_id",
+                            "value": "={{ $('Config & Limpeza').item.json.identifier }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "api_access_token",
+                            "value": "={{ $('Config & Limpeza').item.json.token }}"
+                        }
+                    ]
+                }
+            },
+            "name": "Criar Contato",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1180,
+                440
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Config & Limpeza').item.json.url }}/api/v1/accounts/2/conversations",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "source_id",
+                            "value": "={{ $('Config & Limpeza').item.json.identifier }}"
+                        },
+                        {
+                            "name": "inbox_id",
+                            "value": "={{ $('Config & Limpeza').item.json.inbox_id }}"
+                        },
+                        {
+                            "name": "contact_id",
+                            "value": "={{ $json.payload ? ($json.payload.contact ? $json.payload.contact.id : $json.payload[0].id) : $json.payload[0].id }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "api_access_token",
+                            "value": "={{ $('Config & Limpeza').item.json.token }}"
+                        }
+                    ]
+                }
+            },
+            "name": "Criar Conv (Novo)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1460,
+                440
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Config & Limpeza').item.json.url }}/api/v1/accounts/2/conversations/{{ $json.id }}/messages",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "content",
+                            "value": "={{ $('Config & Limpeza').item.json.message_content }}"
+                        },
+                        {
+                            "name": "message_type",
+                            "value": "={{ $('Config & Limpeza').item.json.message_type }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "api_access_token",
+                            "value": "={{ $('Config & Limpeza').item.json.token }}"
+                        }
+                    ]
+                }
+            },
+            "name": "Enviar Msg (Nova)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1880,
+                320
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook Evolution": {
+            "main": [
+                [
+                    {
+                        "node": "Config & Limpeza",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Config & Limpeza": {
+            "main": [
+                [
+                    {
+                        "node": "Buscar Contato API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Buscar Contato API": {
+            "main": [
+                [
+                    {
+                        "node": "Contato Existe?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Contato Existe?": {
+            "main": [
+                [
+                    {
+                        "node": "Já tem Inbox?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Criar Contato",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Já tem Inbox?": {
+            "main": [
+                [
+                    {
+                        "node": "Tem Conversa?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Criar Conv (Novo)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tem Conversa?": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar (Msg Existente)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Criar Conv (Sem SourceID)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Criar Conv (Sem SourceID)": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar Msg (Nova)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Criar Contato": {
+            "main": [
+                [
+                    {
+                        "node": "Criar Conv (Novo)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Criar Conv (Novo)": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar Msg (Nova)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
