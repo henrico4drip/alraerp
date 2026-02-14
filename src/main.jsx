@@ -238,12 +238,24 @@ function App() {
                     element={<RequireAuth><RequireSubscription><RequireProfile><Dashboard2 /></RequireProfile></RequireSubscription></RequireAuth>}
                   />
                   <Route
-                    path="/cashier"
-                    element={<RequireAuth><Navigate to="/cashier/products" replace /></RequireAuth>}
-                  />
-                  <Route
                     path="/cashier/*"
-                    element={<RequireAuth><RequireSubscription><Layout currentPageName="Cashier"><CashierProvider><CashierProducts /></CashierProvider></Layout></RequireSubscription></RequireAuth>}
+                    element={
+                      <RequireAuth>
+                        <RequireSubscription>
+                          <RequireProfile>
+                            <CashierProvider>
+                              <Layout currentPageName="Cashier">
+                                <Routes>
+                                  <Route index element={<Navigate to="products" replace />} />
+                                  <Route path="products" element={<CashierProducts />} />
+                                  <Route path="payment" element={<CashierPayment />} />
+                                </Routes>
+                              </Layout>
+                            </CashierProvider>
+                          </RequireProfile>
+                        </RequireSubscription>
+                      </RequireAuth>
+                    }
                   />
                   <Route
                     path="/sales/*"

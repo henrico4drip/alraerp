@@ -361,11 +361,6 @@ export default function CashierProducts() {
                   R$ {effectiveTotal.toFixed(2)}
                 </h3>
               </div>
-              {/* <div className="text-right">
-                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-bold">
-                       {cart.reduce((acc, i) => acc + i.quantity, 0)} itens
-                    </span>
-                 </div> */}
             </div>
           </div>
         </div>
