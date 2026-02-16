@@ -468,12 +468,43 @@ export class EvolutionAPI {
 
     async fetchMessages(remoteJid: string, count: number = 50): Promise<EvolutionMessage[]> {
         if (this.supabase) {
-            const data = await this.proxyInvoke('sync_chat', { jid: remoteJid, phone: remoteJid.split('@')[0] });
-            // The sync_chat in proxy saves to DB, but as a fallback for the CRM UI, 
-            // we might still want to hit the API for instant view.
-            // However, user wants unification, so we'll trust the proxy or the DB.
-            // Since proxy 'sync_chat' doesn't return the messages array currently, 
-            // we'll keep doing the API hit for now but with the Unified URL/Key if it's available.
+            try {
+                console.log('[EvolutionAPI] fetchMessages: Buscando do Supabase...');
+                const phone = remoteJid.split('@')[0];
+                
+                // Buscar mensagens do Supabase
+                const { data: messages, error } = await this.supabase
+                    .from('whatsapp_messages')
+                    .select('*')
+                    .eq('contact_phone', phone)
+                    .order('created_at', { ascending: false })
+                    .limit(count);
+                
+                if (error) {
+                    console.error('[EvolutionAPI] Supabase error:', error);
+                    return [];
+                }
+                
+                // Converter formato do Supabase para formato Evolution
+                const converted = messages?.map((msg: any) => ({
+                    key: {
+                        remoteJid: remoteJid,
+                        fromMe: msg.direction === 'outbound',
+                        id: msg.wa_message_id || msg.id
+                    },
+                    message: {
+                        conversation: msg.content
+                    },
+                    messageTimestamp: new Date(msg.created_at).getTime() / 1000,
+                    pushName: msg.contact_name || phone
+                })) || [];
+                
+                console.log(`[EvolutionAPI] fetchMessages: Retornando ${converted.length} mensagens do Supabase`);
+                return converted.reverse(); // Mais antigas primeiro (ordem cronológica)
+            } catch (e: any) {
+                console.error("fetchMessages Supabase error:", e.message);
+                return [];
+            }
         }
 
         const fetchLimit = Math.min(Math.max(count + 20, 100), 5000);
@@ -575,23 +606,33 @@ export class EvolutionAPI {
         }
     }
 
-    // Contacts
+    // Contacts - Busca do Supabase diretamente
     async fetchContacts(): Promise<EvolutionContact[]> {
-        // Use proxy if available (avoids CORS issues on HTTPS)
         if (this.supabase) {
             try {
-                const data = await this.proxyInvoke('fetch_contacts');
-                const contacts = data?.contacts || [];
-                const processed = contacts.map((c: any) => ({
-                    id: c.remoteJid || c.id || c.jid,
-                    name: c.pushName || c.name || c.verifiedName,
-                    pushName: c.pushName,
-                    profilePictureUrl: c.profilePicUrl
-                })).filter((c: any) => c.id);
-                console.log(`[EvolutionAPI] Processed ${processed.length} contacts via proxy.`);
+                console.log('[EvolutionAPI] fetchContacts: Buscando do Supabase...');
+                
+                // Buscar clientes do Supabase
+                const { data: customers, error } = await this.supabase
+                    .from('customers')
+                    .select('*');
+                
+                if (error) {
+                    console.error('[EvolutionAPI] Supabase error:', error);
+                    return [];
+                }
+                
+                const processed = customers?.map((c: any) => ({
+                    id: c.phone ? `${c.phone}@s.whatsapp.net` : c.id,
+                    name: c.name || c.phone || 'Desconhecido',
+                    pushName: c.name,
+                    profilePictureUrl: null
+                })).filter((c: any) => c.id) || [];
+                
+                console.log(`[EvolutionAPI] Processed ${processed.length} contacts from Supabase.`);
                 return processed;
             } catch (e: any) {
-                console.error("fetchContacts proxy error:", e.message);
+                console.error("fetchContacts Supabase error:", e.message);
                 return [];
             }
         }
@@ -681,18 +722,46 @@ export class EvolutionAPI {
         }
     }
 
-    // Chats
+    // Chats - Busca do Supabase diretamente (Evolution webhook já salva lá)
     async fetchChats(deepScan: boolean = false): Promise<any[]> {
-        // Use proxy if available (avoids CORS issues on HTTPS)
         if (this.supabase) {
             try {
-                console.log('[EvolutionAPI] fetchChats: Using proxy for instance:', this.instanceName);
-                const data = await this.proxyInvoke('fetch_inbox');
-                const chats = data?.chats || [];
-                console.log(`[EvolutionAPI] fetchChats: Received ${chats.length} chats via proxy`);
+                console.log('[EvolutionAPI] fetchChats: Buscando do Supabase diretamente...');
+                
+                // Buscar mensagens únicas por contato do Supabase
+                const { data: messages, error } = await this.supabase
+                    .from('whatsapp_messages')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    console.error('[EvolutionAPI] Supabase error:', error);
+                    return [];
+                }
+                
+                // Agrupar por contato (última mensagem de cada contato)
+                const chatsMap = new Map();
+                messages?.forEach((msg: any) => {
+                    const phone = msg.contact_phone;
+                    if (!chatsMap.has(phone)) {
+                        chatsMap.set(phone, {
+                            id: `${phone}@s.whatsapp.net`,
+                            remoteJid: `${phone}@s.whatsapp.net`,
+                            name: msg.contact_name || phone,
+                            pushName: msg.contact_name || phone,
+                            lastMessage: msg.content,
+                            messageTimestamp: new Date(msg.created_at).getTime() / 1000,
+                            unreadCount: msg.status === 'received' ? 1 : 0,
+                            phone: phone
+                        });
+                    }
+                });
+                
+                const chats = Array.from(chatsMap.values());
+                console.log(`[EvolutionAPI] fetchChats: Retornando ${chats.length} chats do Supabase`);
                 return chats;
             } catch (e: any) {
-                console.error("fetchChats proxy error:", e.message);
+                console.error("fetchChats Supabase error:", e.message);
                 return [];
             }
         }
