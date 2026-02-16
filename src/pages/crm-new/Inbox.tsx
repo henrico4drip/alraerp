@@ -420,11 +420,6 @@ export default function Inbox() {
     return () => clearInterval(interval);
   }, [selectedChat]);
 
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('[Inbox] State update - chats:', chats.length, 'filteredChats:', filteredChats.length, 'isConnected:', isConnected, 'loading:', loading);
-  }, [chats, filteredChats, isConnected, loading]);
-
   const filteredChats = useMemo(() => {
     console.log('[Inbox] filteredChats useMemo - chats:', chats.length, 'chatFilter:', chatFilter);
     let filtered = chats;
