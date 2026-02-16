@@ -554,6 +554,25 @@ export class EvolutionAPI {
 
     // Contacts
     async fetchContacts(): Promise<EvolutionContact[]> {
+        // Use proxy if available (avoids CORS issues on HTTPS)
+        if (this.supabase) {
+            try {
+                const data = await this.proxyInvoke('fetch_contacts');
+                const contacts = data?.contacts || [];
+                const processed = contacts.map((c: any) => ({
+                    id: c.remoteJid || c.id || c.jid,
+                    name: c.pushName || c.name || c.verifiedName,
+                    pushName: c.pushName,
+                    profilePictureUrl: c.profilePicUrl
+                })).filter((c: any) => c.id);
+                console.log(`[EvolutionAPI] Processed ${processed.length} contacts via proxy.`);
+                return processed;
+            } catch (e: any) {
+                console.error("fetchContacts proxy error:", e.message);
+                return [];
+            }
+        }
+
         try {
             const response = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
             // v2.3.0 can return an object or an array
@@ -641,14 +660,32 @@ export class EvolutionAPI {
 
     // Chats
     async fetchChats(deepScan: boolean = false): Promise<any[]> {
+        // Use proxy if available (avoids CORS issues on HTTPS)
+        if (this.supabase) {
+            try {
+                console.log('[EvolutionAPI] fetchChats: Using proxy for instance:', this.instanceName);
+                const data = await this.proxyInvoke('fetch_inbox');
+                const chats = data?.chats || [];
+                console.log(`[EvolutionAPI] fetchChats: Received ${chats.length} chats via proxy`);
+                return chats;
+            } catch (e: any) {
+                console.error("fetchChats proxy error:", e.message);
+                return [];
+            }
+        }
+
         try {
+            console.log('[EvolutionAPI] fetchChats: Starting fetch for instance:', this.instanceName);
+            
             if (!localStorage.getItem('evolution_reset_2.4.6')) {
                 localStorage.removeItem('lid_mappings');
                 localStorage.setItem('evolution_reset_2.4.6', 'true');
             }
 
             // 1. Fetch Agenda First (The absolute source of truth for names in v2.3.0)
+            console.log('[EvolutionAPI] fetchChats: Fetching contacts...');
             const contactRes = await this.client.post(`/chat/findContacts/${this.instanceName}`, { where: {}, limit: 2000 });
+            console.log('[EvolutionAPI] fetchChats: Contacts response:', contactRes.status, contactRes.data);
             const rawContacts = Array.isArray(contactRes.data) ? contactRes.data : Object.values(contactRes.data || {});
 
             const identityMap = new Map<string, string>();
@@ -664,9 +701,15 @@ export class EvolutionAPI {
             });
 
             // 2. Fetch raw chats
+            console.log('[EvolutionAPI] fetchChats: Fetching chats from /chat/findChats/' + this.instanceName);
             const chatResponse = await this.client.post(`/chat/findChats/${this.instanceName}`, { where: {}, limit: 1000 });
+            console.log('[EvolutionAPI] fetchChats: Chats response status:', chatResponse.status);
+            console.log('[EvolutionAPI] fetchChats: Chats response data type:', typeof chatResponse.data);
+            console.log('[EvolutionAPI] fetchChats: Chats response data keys:', chatResponse.data ? Object.keys(chatResponse.data) : 'null');
+            
             const rawChatsData = chatResponse.data;
             const rawChats = Array.isArray(rawChatsData) ? rawChatsData : (rawChatsData?.records || rawChatsData?.data || Object.values(rawChatsData || {}));
+            console.log('[EvolutionAPI] fetchChats: Processed rawChats count:', rawChats.length);
 
             // 3. Fetch recent messages for deep bridge discovery
             let recentMessages: any[] = [];
@@ -762,6 +805,7 @@ export class EvolutionAPI {
                 .sort((a, b) => Number(b.messageTimestamp) - Number(a.messageTimestamp));
 
             console.log(`[EvolutionAPI] Final processed inbox: ${finalInbox.length} conversations.`);
+            console.log('[EvolutionAPI] fetchChats: First 3 conversations:', finalInbox.slice(0, 3).map((c: any) => ({ id: c.id, name: c.name })));
             return finalInbox;
         } catch (e: any) {
             console.error("fetchChats error:", e.message);

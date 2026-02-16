@@ -307,16 +307,23 @@ export default function Inbox() {
   }, [messages.length]);
 
   const loadChats = async (silent: boolean = false) => {
-    if (!api || !isConnected) return;
+    console.log('[Inbox] loadChats called. api:', !!api, 'isConnected:', isConnected);
+    if (!api || !isConnected) {
+      console.warn('[Inbox] Cannot load chats - api or isConnected is false');
+      return;
+    }
     if (!silent) setLoading(true);
     try {
+      console.log('[Inbox] Calling api.fetchChats()...');
       const response = await api.fetchChats();
+      console.log('[Inbox] fetchChats returned:', response?.length || 0, 'chats');
       setChats(prev => {
         if (JSON.stringify(prev) === JSON.stringify(response)) return prev;
+        console.log('[Inbox] Updating chats state from', prev.length, 'to', response?.length || 0);
         return response;
       });
     } catch (error: any) {
-      console.error(error);
+      console.error('[Inbox] Error loading chats:', error);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -394,8 +401,10 @@ export default function Inbox() {
   }, [api, isConnected]);
 
   useEffect(() => {
+    console.log('[Inbox] isConnected effect triggered. isConnected:', isConnected);
     let interval: NodeJS.Timeout;
     if (isConnected) {
+      console.log('[Inbox] isConnected is true, calling loadChats()...');
       loadChats();
       interval = setInterval(() => loadChats(true), 15000);
     }
@@ -411,7 +420,13 @@ export default function Inbox() {
     return () => clearInterval(interval);
   }, [selectedChat]);
 
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('[Inbox] State update - chats:', chats.length, 'filteredChats:', filteredChats.length, 'isConnected:', isConnected, 'loading:', loading);
+  }, [chats, filteredChats, isConnected, loading]);
+
   const filteredChats = useMemo(() => {
+    console.log('[Inbox] filteredChats useMemo - chats:', chats.length, 'chatFilter:', chatFilter);
     let filtered = chats;
 
     // Filter by type
