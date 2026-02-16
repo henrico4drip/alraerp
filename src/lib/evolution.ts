@@ -84,10 +84,33 @@ export class EvolutionAPI {
 
     private async proxyInvoke(action: string, payload?: any) {
         if (!this.supabase) throw new Error("Supabase client not provided for proxy mode");
-        const { data, error } = await this.supabase.functions.invoke('whatsapp-proxy', {
-            body: { action, payload }
+        
+        // Chamar Edge Function diretamente via HTTP
+        const supabaseUrl = (this.supabase as any).supabaseUrl || 'https://greotjobqprtmrprptdb.supabase.co';
+        const functionUrl = `${supabaseUrl}/functions/v1/whatsapp-proxy`;
+        
+        console.log(`[EvolutionAPI] Calling Edge Function: ${functionUrl}, action: ${action}`);
+        
+        const { data: { session } } = await this.supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : '',
+            },
+            body: JSON.stringify({ action, payload })
         });
-        if (error) throw error;
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[EvolutionAPI] Edge Function error: ${response.status}`, errorText);
+            throw new Error(`Edge Function error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log(`[EvolutionAPI] Edge Function response:`, data);
         return data;
     }
 
