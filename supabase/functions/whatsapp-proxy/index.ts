@@ -124,6 +124,9 @@ class AIService {
 
 // -- MAIN HANDLER --
 
+// Webhook secret for bypassing auth (configured in Evolution API webhook headers)
+const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET') || 'alraerp-webhook-secret-2026'
+
 serve(async (req) => {
     // 1. Handle CORS Preflight
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -134,28 +137,74 @@ serve(async (req) => {
         try { body = JSON.parse(bodyText) } catch { }
 
         const { action, payload } = body
-        const supabaseAdmin = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        
+        // Log para debug
+        console.log(`[DEBUG] SUPABASE_URL: ${supabaseUrl ? 'definido' : 'nao definido'}`)
+        console.log(`[DEBUG] SERVICE_ROLE_KEY: ${supabaseServiceKey ? 'definido (length: ' + supabaseServiceKey.length + ')' : 'nao definido'}`)
+        
+        // Admin client with service role key (bypasses RLS)
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            },
+            global: {
+                headers: {
+                    'Authorization': `Bearer ${supabaseServiceKey}`
+                }
+            }
+        })
 
         // =========================================================================================
         // WEBHOOK HANDLER (No Authentication Required for Speed/Callback)
         // =========================================================================================
         // We check 'event' property to identify webhook calls vs internal actions
         // Supported Events: "messages.upsert", "contacts.upsert", "contacts.update"
+        // NOTE: This MUST be checked BEFORE any auth logic to allow unauthenticated webhook calls
 
-        if (body.event === 'messages.upsert' || body.event === 'contacts.upsert' || body.event === 'contacts.update') {
+        // Support both Evolution API v1 (lowercase) and v2 (uppercase) event formats
+        const eventName = (body.event || '').toLowerCase()
+        if (eventName === 'messages.upsert' || eventName === 'messages.update' || eventName === 'contacts.upsert' || eventName === 'contacts.update' || eventName === 'connection.update' || eventName === 'send.message' || eventName === 'messages_upsert' || eventName === 'messages_update' || eventName === 'contacts_upsert' || eventName === 'contacts_update' || eventName === 'connection_update' || eventName === 'send_message') {
+            console.log(`[WEBHOOK] Received ${body.event} for instance ${body.instance}`)
+            
             const data = body.data || body.data?.data || {}
             // Evolution API structure varies: sometimes body.data is the payload, sometimes body.data.data
 
-            const instanceName = body.instance || ''
-            // Instance convention: "erp_USERID" -> extract header id
-            const prefix = instanceName.replace('erp_', '')
-
-            // Find user owner of this instance
-            const { data: users } = await supabaseAdmin.from('profiles').select('id').ilike('id', `${prefix}%`)
-            const userId = users?.[0]?.id
+            const instanceName = body.instance || 'alraerp'
+            
+            // For alraerp instance, use a fixed user ID or look up by instance name
+            let userId = null
+            
+            if (instanceName === 'alraerp') {
+                // Find the admin user or first user
+                const { data: adminUsers } = await supabaseAdmin.from('profiles')
+                    .select('id')
+                    .order('created_at', { ascending: true })
+                    .limit(1)
+                userId = adminUsers?.[0]?.id
+                
+                // Fallback: try 'users' table if profiles is empty
+                if (!userId) {
+                    const { data: usersData } = await supabaseAdmin.from('users')
+                        .select('id')
+                        .order('created_date', { ascending: true })
+                        .limit(1)
+                    userId = usersData?.[0]?.id
+                }
+                
+                // Final fallback: use a default system user ID
+                if (!userId) {
+                    console.log('[WEBHOOK] No user found in profiles or users table, using system default')
+                    userId = '00000000-0000-0000-0000-000000000000'
+                }
+            } else {
+                // Instance convention: "erp_USERID" -> extract header id
+                const prefix = instanceName.replace('erp_', '')
+                const { data: users } = await supabaseAdmin.from('profiles').select('id').ilike('id', `${prefix}%`)
+                userId = users?.[0]?.id
+            }
 
             if (!userId) {
                 console.warn(`[WEBHOOK] User not found for instance ${instanceName}`)
@@ -163,7 +212,7 @@ serve(async (req) => {
             }
 
             // --- CONTACTS HANDLING ---
-            if (body.event === 'contacts.upsert' || body.event === 'contacts.update') {
+            if (eventName === 'contacts.upsert' || eventName === 'contacts.update' || eventName === 'contacts_upsert' || eventName === 'contacts_update') {
                 const contacts = Array.isArray(data) ? data : [data]
                 for (const c of contacts) {
                     if (!c.id) continue
@@ -217,7 +266,8 @@ serve(async (req) => {
             }
 
             if (content) {
-                await supabaseAdmin.from('whatsapp_messages').insert({
+                console.log(`[WEBHOOK] Inserting message from ${phone}, userId: ${userId}`)
+                const { data: insertData, error: insertError } = await supabaseAdmin.from('whatsapp_messages').insert({
                     user_id: userId,
                     contact_phone: phone,
                     content,
@@ -225,25 +275,55 @@ serve(async (req) => {
                     wa_message_id: data.key.id,
                     status: data.key.fromMe ? 'sent' : 'received'
                 })
+                if (insertError) {
+                    console.error(`[WEBHOOK] Insert error:`, insertError)
+                } else {
+                    console.log(`[WEBHOOK] Insert successful:`, insertData)
+                }
             }
             return new Response('ok', { headers: corsHeaders })
         }
 
 
         // =========================================================================================
-        // INTERNAL ACTIONS (Authenticated via Supabase Auth)
+        // INTERNAL ACTIONS (Authenticated via Supabase Auth OR Webhook Secret)
         // =========================================================================================
 
+        // =========================================================================================
+        // AUTHENTICATION
+        // =========================================================================================
+        // For webhooks: check URL search param ?secret=xxx
+        // For internal actions: use Authorization header
+        
+        const url = new URL(req.url)
+        const urlSecret = url.searchParams.get('secret') ?? ''
         const authHeader = req.headers.get('Authorization') ?? ''
-        const supabaseUser = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: authHeader } } }
-        )
-        const { data: { user } } = await supabaseUser.auth.getUser()
+        
+        let user = null
+        
+        // First check URL secret (for Evolution API webhooks)
+        if (urlSecret === WEBHOOK_SECRET) {
+            console.log('[AUTH] Authenticated via URL secret')
+            // For webhook secret auth, use the admin/first user
+            const { data: adminUsers } = await supabaseAdmin.from('profiles')
+                .select('id, email')
+                .order('created_at', { ascending: true })
+                .limit(1)
+            user = adminUsers?.[0] || { id: 'webhook-user', email: 'webhook@system.local' }
+        } else if (authHeader) {
+            // Try Supabase Auth
+            const supabaseUser = createClient(
+                Deno.env.get('SUPABASE_URL') ?? '',
+                Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+                { global: { headers: { Authorization: authHeader } } }
+            )
+            const { data: { user: authUser } } = await supabaseUser.auth.getUser()
+            user = authUser
+        }
 
         if (!user) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            console.log('[AUTH] Failed - no valid authentication')
+            return new Response(JSON.stringify({ error: 'Unauthorized', hint: 'Use ?secret=xxx for webhooks or Authorization header for API calls' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         const instanceName = EVO_CONFIG.instanceName

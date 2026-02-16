@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import {
@@ -24,7 +24,8 @@ import {
     Zap,
     ChevronRight,
     Sparkles,
-    Filter
+    Filter,
+    RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,19 +34,35 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function InventoryInsights() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    // 1. Fetch Data
-    const { data: products = [], isLoading: isLoadingProducts } = useQuery({
+    // 1. Fetch Data - Configurado para sempre buscar dados atualizados
+    const { data: products = [], isLoading: isLoadingProducts, isFetching: isFetchingProducts } = useQuery({
         queryKey: ['products'],
         queryFn: () => base44.entities.Product.list(),
+        staleTime: 0, // Sempre considera os dados como 'stale' para revalidar
+        refetchOnMount: 'always', // Sempre busca novos dados ao montar o componente
+        refetchOnWindowFocus: true, // Atualiza quando a janela volta ao foco
+        refetchInterval: 30000, // Atualiza automaticamente a cada 30 segundos
     });
 
-    const { data: sales = [], isLoading: isLoadingSales } = useQuery({
+    const { data: sales = [], isLoading: isLoadingSales, isFetching: isFetchingSales } = useQuery({
         queryKey: ['sales'],
         queryFn: () => base44.entities.Sale.list('-created_date'),
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
+        refetchInterval: 30000,
     });
 
+    // Função para forçar atualização manual
+    const handleRefresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        queryClient.invalidateQueries({ queryKey: ['sales'] });
+    };
+
     const isLoading = isLoadingProducts || isLoadingSales;
+    const isFetching = isFetchingProducts || isFetchingSales;
 
     // 2. Calculations
     const stats = useMemo(() => {
@@ -171,6 +188,16 @@ export default function InventoryInsights() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefresh}
+                            disabled={isFetching}
+                            className="rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        >
+                            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                            {isFetching ? 'Atualizando...' : 'Atualizar'}
+                        </Button>
                         <div className="bg-indigo-600 text-white px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-indigo-100 hover:scale-105 transition-transform cursor-default">
                             <Sparkles className="w-4 h-4" />
                             <span className="text-sm font-semibold">IA Analyzed</span>
