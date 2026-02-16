@@ -5,13 +5,20 @@ import { useAuth } from '@/auth/AuthContext';
 const ProfileContext = createContext();
 
 export function ProfileProvider({ children }) {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [currentProfile, setCurrentProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // Initial load from storage
     useEffect(() => {
-        console.log('ProfileContext Effect:', { user })
+        console.log('ProfileContext Effect:', { user, authLoading })
+        
+        // Aguardar o auth carregar antes de agir
+        if (authLoading) {
+            setLoading(true);
+            return;
+        }
+        
         if (!user) {
             setCurrentProfile(null);
             setLoading(false);
@@ -61,7 +68,7 @@ export function ProfileProvider({ children }) {
             console.error('Profile Load Error:', err)
             setLoading(false)
         });
-    }, [user]);
+    }, [user, authLoading]);
 
     const loginProfile = async (profileId, pin) => {
         const profiles = await base44.entities.Staff.list();
