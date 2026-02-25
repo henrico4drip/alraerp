@@ -5,7 +5,7 @@ import { useCrm } from "@/contexts/CrmContext";
 import { useEvolution } from "@/contexts/EvolutionContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { Search, Loader2, Send, Check, RefreshCw, GitMerge, Info, MessageSquare, Trash2, CheckCircle2, Briefcase, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
