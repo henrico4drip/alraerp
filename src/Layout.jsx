@@ -318,7 +318,7 @@ export default function Layout({ children, currentPageName }) {
                 return item.name === "CRM" ? (
                   <a
                     key={item.name}
-                    href="https://chat.alraerp.com.br/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkhlbnJpY28iLCJlbWFpbCI6ImFkbWluQGFkbWluLmNvbSIsImNvbXBhbnlJZCI6MSwicHJvZmlsZSI6ImFkbWluIiwiaWF0IjoxNzcxOTc4NTQxLCJleHAiOjE3NzQ1NzA1NDF9.cKyqA7a19okTOMtElfNqDN72XHVTvNTPdq8HOuNXI4Y"
+                    href="https://chat.alraerp.com.br/?autologin=1"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
