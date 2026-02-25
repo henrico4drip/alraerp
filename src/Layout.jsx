@@ -35,6 +35,7 @@ import { supabase } from '@/api/supabaseClient'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import Tutorial from '@/components/Tutorial'
 import { useProfile } from "@/context/ProfileContext";
+import { useCrm } from "@/contexts/CrmContext";
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
@@ -46,7 +47,7 @@ export default function Layout({ children, currentPageName }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [showAgendaDialog, setShowAgendaDialog] = useState(false);
   const [agendaItems, setAgendaItems] = useState([]);
-  const [crmNotificationCount, setCrmNotificationCount] = useState(0);
+  const { totalUnread: crmNotificationCount } = useCrm();
   useEffect(() => {
     (async () => {
       try {
@@ -147,7 +148,7 @@ export default function Layout({ children, currentPageName }) {
     }
   }, [location.pathname]);
   const [isFinalizing, setIsFinalizing] = useState(false);
-  const [isCrmViewBroken, setIsCrmViewBroken] = useState(false);
+
 
   useEffect(() => {
     const handler = (e) => setIsFinalizing(e.detail);
@@ -252,112 +253,7 @@ export default function Layout({ children, currentPageName }) {
     syncSignupProfile()
   }, [user])
 
-  const crmDebounceTimer = React.useRef(null);
-  const lastCrmFetchTime = React.useRef(0);
-
-  // CRM Notification Logic
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchCrmCount = async () => {
-      if (isCrmViewBroken) return;
-
-      // Botão de emergência caso precise rodar manutenção no banco
-      if (localStorage.getItem('db_maintenance_mode') === 'true') {
-        console.log('[Layout] DB Maintenance Mode: CRM Fetch silenced.');
-        return;
-      }
-
-      try {
-        const { count, error, status } = await supabase
-          .from('distinct_chats')
-          .select('*', { count: 'exact', head: true })
-          .eq('direction', 'inbound');
-
-        if (error) {
-          if (status === 500 || status === 404 || status === 503 || status === 504) {
-            console.error(`[Layout] CRM View is struggling (${status}). Silencing CRM count for 5 minutes.`);
-            setIsCrmViewBroken(true);
-            setTimeout(() => setIsCrmViewBroken(false), 5 * 60 * 1000);
-            return;
-          }
-          console.error('[Layout] CRM Fetch Error:', { error, status });
-          return;
-        }
-        setCrmNotificationCount(count || 0);
-        lastCrmFetchTime.current = Date.now();
-      } catch (err) {
-        console.warn('[Layout] Exception fetching CRM notification count:', err);
-      }
-    };
-
-    const debouncedFetch = () => {
-      if (isCrmViewBroken) return;
-
-      const now = Date.now();
-      const timeSinceLastFetch = now - lastCrmFetchTime.current;
-
-      // Se já passou mais de 30 segundos desde a última atualização, força uma agora
-      // mesmo que a "tempestade" de mensagens continue
-      if (timeSinceLastFetch > 30000) {
-        fetchCrmCount();
-        return;
-      }
-
-      if (crmDebounceTimer.current) clearTimeout(crmDebounceTimer.current);
-      crmDebounceTimer.current = setTimeout(fetchCrmCount, 10000); // 10s de silêncio
-    };
-
-    if (!isCrmViewBroken) {
-      fetchCrmCount();
-    }
-
-    // Background Sync Loop (runs every 5m to pull new messages from API as fallback)
-    const syncInterval = setInterval(async () => {
-      if (isCrmViewBroken) return;
-      try {
-        await supabase.functions.invoke('whatsapp-proxy', {
-          body: { action: 'sync_recent' }
-        });
-      } catch (err) {
-        console.warn('Background sync failed:', err);
-      }
-    }, 5 * 60 * 1000); // 5 min sync fallback
-
-    // Subscribe to new messages (instantly update UI when DB changes)
-    // Use a unique channel name to avoid conflicts with previous sessions
-    const channelName = `crm-notifications-${user?.id?.substring(0, 8) || 'anon'}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'whatsapp_messages' },
-        () => {
-          if (!isCrmViewBroken) {
-            // console.log('CRM: Mensagem recebida, agendando atualização badge...');
-            debouncedFetch();
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('CRM: Realtime conectado com sucesso.');
-        }
-        if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.warn('Realtime connection closed/error. Badge auto-sync might be delayed.');
-          // Re-subscribe attempt could be added here if really needed, 
-          // but usually Supabase client retries under the hood. 
-          // The Warning in logs is helpful for user to know status.
-        }
-      });
-
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-      clearInterval(syncInterval);
-    };
-  }, [user]);
+  // CRM notification count now comes from useCrm().totalUnread (centralized)
 
   const allNavItems = [
     { name: "Dashboard", path: createPageUrl("Dashboard"), icon: LayoutDashboard, tutorialId: "dashboard-link" },
@@ -391,7 +287,7 @@ export default function Layout({ children, currentPageName }) {
   const itemPercent = 100 / bottomNavItems.length;
 
   return (
-    <div className="min-h-screen bg-white flex overflow-x-hidden">
+    <div className={`bg-white flex overflow-x-hidden ${isCrmRoute ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-50 bg-white shadow-lg transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } w-64`}>
@@ -420,27 +316,44 @@ export default function Layout({ children, currentPageName }) {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 return (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
-                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                      : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    data-tutorial={item.tutorialId}
-                  >
-                    <div className="relative">
-                      <Icon className="w-5 h-5" />
-                      {item.name === "CRM" && crmNotificationCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                        </span>
-                      )}
-                    </div>
-                    {item.name}
-                  </Link>
+                  {
+                    item.name === "CRM" ? (
+                      <a
+                        key={item.name}
+                        href="https://chat.alraerp.com.br/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkhlbnJpY28iLCJlbWFpbCI6ImFkbWluQGFkbWluLmNvbSIsImNvbXBhbnlJZCI6MSwicHJvZmlsZSI6ImFkbWluIiwiaWF0IjoxNzcxOTc4NTQxLCJleHAiOjE3NzQ1NzA1NDF9.cKyqA7a19okTOMtElfNqDN72XHVTvNTPdq8HOuNXI4Y"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="relative">
+                          <MessageSquare className="w-5 h-5" />
+                          {crmNotificationCount > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                            </span>
+                          )}
+                        </div>
+                        {item.name}
+                      </a>
+                    ) : (
+                      <Link
+                        key={item.name}
+                        to={item.path}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                          ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                          : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        data-tutorial={item.tutorialId}
+                      >
+                        <div className="relative">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        {item.name}
+                      </Link>
+                    )
+                  }
                 );
               })}
             </div>
@@ -492,8 +405,10 @@ export default function Layout({ children, currentPageName }) {
                     <LayoutGrid className="w-4 h-4" />
                   </Link>
 
-                  <Link
-                    to={createPageUrl("CRM")}
+                  <a
+                    href="https://chat.alraerp.com.br/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkhlbnJpY28iLCJlbWFpbCI6ImFkbWluQGFkbWluLmNvbSIsImNvbXBhbnlJZCI6MSwicHJvZmlsZSI6ImFkbWluIiwiaWF0IjoxNzcxOTc4NTQxLCJleHAiOjE3NzQ1NzA1NDF9.cKyqA7a19okTOMtElfNqDN72XHVTvNTPdq8HOuNXI4Y"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="relative inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
                     title="CRM"
                   >
@@ -504,7 +419,7 @@ export default function Layout({ children, currentPageName }) {
                         <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-[#3490c7]"></span>
                       </span>
                     )}
-                  </Link>
+                  </a>
 
                 </div>
 
@@ -583,8 +498,10 @@ export default function Layout({ children, currentPageName }) {
                             logoutProfile();
                             try {
                               await logout();
-                            } catch { }
-                            navigate('/login', { replace: true });
+                              window.location.href = `https://chat.alraerp.com.br/sso-logout?redirect=${encodeURIComponent(window.location.origin + "/login")}`;
+                            } catch {
+                              navigate('/login', { replace: true });
+                            }
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
                         >
@@ -622,7 +539,11 @@ export default function Layout({ children, currentPageName }) {
         )}
 
         {/* Main Content */}
-        <main className={isDashboard ? 'flex-1 flex items-center justify-center min-h-[calc(100vh-112px-64px)] pb-20' : 'flex-1 pb-20'}>
+        <main className={
+          isCrmRoute ? 'flex-1 h-full overflow-hidden' :
+            isDashboard ? 'flex-1 flex items-center justify-center min-h-[calc(100vh-112px-64px)] pb-20' :
+              'flex-1 pb-20'
+        }>
           {isDashboard ? <div className="ios-home-reveal w-full mt-8">{children}</div> : children}
         </main>
 
