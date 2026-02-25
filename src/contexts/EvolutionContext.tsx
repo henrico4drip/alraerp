@@ -72,11 +72,7 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         }
     });
 
-    const lidMapMemo = useMemo(() => {
-        try {
-            return JSON.parse(localStorage.getItem('lid_mappings') || '{}');
-        } catch (e) { return {}; }
-    }, [isSyncing, contacts]);
+
 
     const [customNames, setCustomNames] = useState<Record<string, string>>(() => {
         const saved = localStorage.getItem('evolution_custom_names');
@@ -109,20 +105,30 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
-    // Initialize API when user is available
+    // Initialize API when user is available and session is valid
     useEffect(() => {
         if (!user?.id) {
             setApi(null);
             return;
         }
 
-        console.log(`[EvolutionContext] Initializing API for instance ${instanceName}`);
-        setApi(new EvolutionAPI(
-            import.meta.env.VITE_EVOLUTION_API_URL || 'http://84.247.143.180:8080',
-            import.meta.env.VITE_EVOLUTION_API_KEY || 'mypassy',
-            instanceName,
-            supabase
-        ));
+        // Verificar sessão antes de inicializar a API
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!session?.access_token) {
+                console.error('[EvolutionContext] No active session found');
+                setError('Sessão expirada. Faça login novamente.');
+                setApi(null);
+                return;
+            }
+
+            console.log(`[EvolutionContext] Initializing API for instance ${instanceName} (session valid)`);
+            setApi(new EvolutionAPI(
+                import.meta.env.VITE_EVOLUTION_API_URL || 'http://84.247.143.180:8080',
+                import.meta.env.VITE_EVOLUTION_API_KEY || 'mypassy',
+                instanceName,
+                supabase
+            ));
+        });
     }, [user?.id, instanceName]);
 
     const checkStatus = async () => {
@@ -202,6 +208,7 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         try {
             const contactsRes = await api.fetchContacts();
             setContacts(Array.isArray(contactsRes) ? contactsRes : []);
+            await fetchCustomersFromDb();
         } catch (err) {
             console.error("Auto sync error:", err);
         } finally {
@@ -250,23 +257,47 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
         }
     }, [isConnected, loading, api, hasAutoSynced]);
 
+    const [customers, setCustomers] = useState<any[]>([]);
+
+    const fetchCustomersFromDb = useCallback(async () => {
+        try {
+            const { data, error } = await supabase.from('customers').select('*');
+            if (error) throw error;
+            if (data) setCustomers(data);
+            return data;
+        } catch (e) {
+            console.error('[EvolutionContext] Error fetching DB customers:', e);
+            return [];
+        }
+    }, []);
+
+    useEffect(() => {
+        if (user?.id) {
+            fetchCustomersFromDb();
+        }
+    }, [user?.id, fetchCustomersFromDb]);
+
     const resolveName = useCallback((jid: string, fallback?: string) => {
         if (!jid) return fallback || "Desconhecido";
-        let targetJid = jid;
-        if (lidMapMemo[jid]) targetJid = lidMapMemo[jid];
+
+        // 1. Tenta encontrar no banco de dados do ERP (Prioridade Máxima)
+        const dbCustomer = customers.find(c => {
+            if (!c.phone) return false;
+            const phoneJid = c.phone.includes('@') ? c.phone : `${c.phone}@s.whatsapp.net`;
+            return isSameJid(phoneJid, jid);
+        });
 
         const contact = contacts.find(c => {
             const cid = c.id || c.remoteJid || "";
-            return isSameJid(cid, targetJid) || (jid !== targetJid && isSameJid(cid, jid));
+            return isSameJid(cid, jid);
         });
 
-        const phoneNumber = targetJid.split('@')[0];
+        const phoneNumber = jid.split('@')[0];
         const candidates = [
             customNames[jid],
-            customNames[targetJid],
+            dbCustomer?.name, // PRIORIDADE: Nome salvo no banco de dados
             contact?.name,
             discoveredNames[jid],
-            discoveredNames[targetJid],
             fallback,
             contact?.pushName,
             contact?.pushname
@@ -280,8 +311,8 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
             }
         }
 
-        return formatPhoneNumber(targetJid) || "Desconhecido";
-    }, [lidMapMemo, contacts, customNames, discoveredNames]);
+        return formatPhoneNumber(jid) || "Desconhecido";
+    }, [contacts, customNames, discoveredNames, customers]);
 
     return (
         <EvolutionContext.Provider

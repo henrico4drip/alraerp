@@ -1,5 +1,19 @@
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
+import {
+  MessageCircle, Users, Briefcase, BarChart3, Settings as SettingsIcon,
+  ChevronLeft, ChevronRight, UserPlus, LogOut, Shield, Bell, Sun, Moon,
+  PanelLeftClose, PanelLeft, Home, Search, MoreHorizontal, Building,
+  Menu, X, DollarSign, MessageSquare, Headphones, Phone, Megaphone
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/auth/AuthContext";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useProfile } from "@/context/ProfileContext";
+import { useCrm } from "@/contexts/CrmContext";
+import { useEvolution } from "@/contexts/EvolutionContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,303 +21,251 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { getLoginUrl } from "@/const";
-import { useIsMobile } from "@/hooks/useMobile";
-import {
-  LayoutDashboard,
-  LogOut,
-  MessageSquare,
-  Users,
-  Filter,
-  Settings,
-  Loader2,
-  MessageCircle
-} from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Button } from "./ui/button";
 
-const menuItems = [
-  { icon: MessageSquare, label: "Inbox", path: "/crm/inbox" },
-  { icon: Users, label: "Contatos", path: "/crm/contacts" },
-  { icon: Filter, label: "Funil de Vendas", path: "/crm/funnel" },
+const navItems = [
+  { label: "Inbox", path: "/crm/inbox", icon: MessageCircle, gradient: "from-blue-500 to-indigo-600", activeBg: "bg-blue-50", activeText: "text-blue-700", activeBorder: "border-blue-200" },
+  { label: "Contatos", path: "/crm/contacts", icon: Users, gradient: "from-violet-500 to-purple-600", activeBg: "bg-violet-50", activeText: "text-violet-700", activeBorder: "border-violet-200" },
+  { label: "Funil", path: "/crm/funnel", icon: Briefcase, gradient: "from-amber-500 to-orange-600", activeBg: "bg-amber-50", activeText: "text-amber-700", activeBorder: "border-amber-200" },
+  { label: "Campanhas", path: "/crm/campaigns", icon: Megaphone, gradient: "from-emerald-500 to-teal-600", activeBg: "bg-emerald-50", activeText: "text-emerald-700", activeBorder: "border-emerald-200" },
 ];
 
-const SIDEBAR_WIDTH_KEY = "crm-sidebar-width";
-const DEFAULT_WIDTH = 260;
-const MIN_WIDTH = 200;
-const MAX_WIDTH = 400;
-
-function CRMLayoutSkeleton() {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <div className="flex flex-col items-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Carregando...</p>
-      </div>
-    </div>
-  );
+interface CRMLayoutProps {
+  children?: React.ReactNode;
 }
 
-export default function CRMLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-    return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
-  });
-  const { loading, user } = useAuth();
-
-  useEffect(() => {
-    localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
-  }, [sidebarWidth]);
-
-  if (loading) {
-    return <CRMLayoutSkeleton />;
-  }
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <MessageCircle className="h-8 w-8 text-primary" />
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-center">
-              CRM WhatsApp
-            </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Faça login para acessar o painel de gerenciamento de conversas e contatos.
-            </p>
-          </div>
-          <Button
-            onClick={() => {
-              window.location.href = getLoginUrl();
-            }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all bg-primary hover:bg-primary/90"
-          >
-            Entrar
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": `${sidebarWidth}px`,
-        } as CSSProperties
-      }
-    >
-      <CRMLayoutContent setSidebarWidth={setSidebarWidth}>
-        {children}
-      </CRMLayoutContent>
-    </SidebarProvider>
-  );
-}
-
-type CRMLayoutContentProps = {
-  children: React.ReactNode;
-  setSidebarWidth: (width: number) => void;
-};
-
-function CRMLayoutContent({
-  children,
-  setSidebarWidth,
-}: CRMLayoutContentProps) {
-  const { user, logout } = useAuth();
+export default function CRMLayout({ children }: CRMLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, toggleSidebar } = useSidebar();
-  const isCollapsed = state === "collapsed";
-  const [isResizing, setIsResizing] = useState(false);
-  const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => location.pathname.startsWith(item.path));
-  const isMobile = useIsMobile();
+  const { user, logout } = useAuth();
+  const { currentProfile, logoutProfile } = useProfile();
+  const { totalUnread, unreadCounts } = useCrm();
+  const { isConnected } = useEvolution();
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('crm_sidebar_collapsed') === 'true'; }
+    catch { return false; }
+  });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (isCollapsed) {
-      setIsResizing(false);
-    }
-  }, [isCollapsed]);
+    localStorage.setItem('crm_sidebar_collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
+  // Close mobile sidebar on route change
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
 
-      const sidebarLeft = sidebarRef.current?.getBoundingClientRect().left ?? 0;
-      const newWidth = e.clientX - sidebarLeft;
-      if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
-        setSidebarWidth(newWidth);
-      }
-    };
+  const isActive = (path: string) => location.pathname === path || (path === '/crm/inbox' && location.pathname === '/crm');
 
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-    }
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-  }, [isResizing, setSidebarWidth]);
+  const sidebarWidth = sidebarCollapsed ? '60px' : '220px';
 
   return (
-    <>
-      <div className="relative" ref={sidebarRef}>
-        <Sidebar
-          collapsible="icon"
-          className="border-r border-border/50"
-          disableTransition={isResizing}
-        >
-          <SidebarHeader className="gap-0 border-b border-border/50">
-            <div className="p-2 border-b border-border/10">
-              <SidebarMenuButton
-                onClick={() => navigate("/dashboard")}
-                className="h-10 text-primary hover:bg-primary/5 font-bold"
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                <span>Voltar ao Painel ERP</span>
-              </SidebarMenuButton>
-            </div>
-            <div className="flex items-center gap-3 px-3 h-16 transition-all w-full">
-              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <MessageCircle className="h-5 w-5 text-primary" />
-              </div>
-              {!isCollapsed && (
-                <div className="flex flex-col min-w-0">
-                  <span className="font-semibold tracking-tight truncate text-sm">
-                    CRM WhatsApp
-                  </span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    Evolution API
-                  </span>
-                </div>
-              )}
-            </div>
-          </SidebarHeader>
-
-          <SidebarContent className="gap-0 py-4">
-            <SidebarMenu className="px-2 space-y-1">
-              {menuItems.map(item => {
-                const isActive = location.pathname.startsWith(item.path);
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => navigate(item.path)}
-                      tooltip={item.label}
-                      className={`h-10 transition-all font-normal rounded-lg ${isActive
-                        ? "bg-primary/10 text-primary hover:bg-primary/15"
-                        : "hover:bg-accent"
-                        }`}
-                    >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`}
-                      />
-                      <span className={isActive ? "font-medium" : ""}>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarContent>
-
-          <SidebarFooter className="p-3 border-t border-border/50">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border border-border/50 shrink-0">
-                    <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
-                      {user?.name?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
-                      {user?.name || "Usuário"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1">
-                      {user?.email || "-"}
-                    </p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="px-2 py-1.5">
-                  <p className="text-sm font-medium">{user?.name}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => navigate("/settings")}
-                  className="cursor-pointer"
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Configurações ERP</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sair</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarFooter>
-        </Sidebar>
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* Mobile Overlay */}
+      {mobileSidebarOpen && (
         <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors ${isCollapsed ? "hidden" : ""}`}
-          onMouseDown={() => {
-            if (isCollapsed) return;
-            setIsResizing(true);
-          }}
-          style={{ zIndex: 50 }}
+          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
         />
-      </div>
+      )}
 
-      <SidebarInset className="bg-background">
-        {isMobile && (
-          <div className="flex border-b border-border/50 h-14 items-center justify-between bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-9 w-9 rounded-lg" />
-              <span className="font-medium text-foreground">
-                {activeMenuItem?.label ?? "Menu"}
-              </span>
-            </div>
+      {/* Sidebar */}
+      <aside
+        className={`fixed md:relative z-50 h-full flex flex-col bg-white border-r border-gray-200/60 transition-all duration-200 ease-out ${mobileSidebarOpen ? 'translate-x-0 w-[220px]' : 'md:translate-x-0 -translate-x-full'
+          }`}
+        style={{ width: mobileSidebarOpen ? '220px' : sidebarWidth }}
+      >
+        {/* Sidebar Header */}
+        <div className={`h-14 flex items-center border-b border-gray-100 bg-white shrink-0 ${sidebarCollapsed ? 'justify-center' : 'justify-between px-3'}`}>
+          {!sidebarCollapsed ? (
+            <>
+              <Link to="/crm/inbox" className="flex items-center gap-2 min-w-0">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 via-blue-600 to-cyan-500 flex items-center justify-center shrink-0 shadow-md shadow-indigo-200/50">
+                  <Headphones className="h-4 w-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-sm font-bold text-gray-900 truncate leading-tight">CRM</h1>
+                  <div className="flex items-center gap-1">
+                    <div className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-green-400' : 'bg-gray-300'}`} />
+                    <span className="text-[9px] text-gray-400 font-medium">{isConnected ? 'Conectado' : 'Offline'}</span>
+                  </div>
+                </div>
+              </Link>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl text-gray-400 hover:text-gray-600 hidden md:flex shrink-0 transition-all hover:bg-gray-50"
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl text-gray-400 md:hidden transition-all hover:bg-gray-50"
+                  onClick={() => setMobileSidebarOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 flex shrink-0 transition-all"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            >
+              <PanelLeft className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 py-2 px-2">
+          <div className="space-y-0.5">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              const isInbox = item.label === "Inbox";
+
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={sidebarCollapsed ? item.label : undefined}
+                  className={`flex items-center gap-2.5 py-2.5 rounded-xl transition-all relative ${sidebarCollapsed ? 'px-0 justify-center' : 'px-3'
+                    } ${active
+                      ? `${item.activeBg} ${item.activeText} font-semibold shadow-sm border ${item.activeBorder}`
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                >
+                  <div className="relative shrink-0">
+                    {active ? (
+                      <div className={`h-[22px] w-[22px] rounded-md bg-gradient-to-br ${item.gradient} flex items-center justify-center`}>
+                        <Icon className="h-3 w-3 text-white" />
+                      </div>
+                    ) : (
+                      <Icon className="h-[18px] w-[18px]" />
+                    )}
+                    {isInbox && totalUnread > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 h-4 min-w-[1rem] px-[3px] rounded-full bg-gradient-to-r from-emerald-400 to-green-500 text-[8px] font-bold text-white flex items-center justify-center shadow-sm">
+                        {totalUnread > 99 ? '99+' : totalUnread}
+                      </span>
+                    )}
+                  </div>
+                  {!sidebarCollapsed && (
+                    <span className="text-[13px] truncate">{item.label}</span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
-        )}
-        <main className="flex-1 overflow-auto">{children}</main>
-      </SidebarInset>
-    </>
+
+          {/* Quick Links */}
+          {!sidebarCollapsed && (
+            <div className="mt-4 pt-4 border-t border-gray-100 space-y-0.5">
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-2.5 px-3 py-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700 rounded-xl transition-all text-[12px]"
+              >
+                <Home className="h-4 w-4" />
+                <span>Dashboard</span>
+              </Link>
+              <Link
+                to="/settings"
+                className="flex items-center gap-2.5 px-3 py-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700 rounded-xl transition-all text-[12px]"
+              >
+                <SettingsIcon className="h-4 w-4" />
+                <span>Configurações</span>
+              </Link>
+            </div>
+          )}
+          {sidebarCollapsed && (
+            <div className="mt-4 pt-4 border-t border-gray-100 space-y-0.5 flex flex-col items-center">
+              <Link
+                to="/dashboard"
+                title="Dashboard"
+                className="p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 rounded-xl transition-all"
+              >
+                <Home className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/settings"
+                title="Configurações"
+                className="p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 rounded-xl transition-all"
+              >
+                <SettingsIcon className="h-4 w-4" />
+              </Link>
+            </div>
+          )}
+        </nav>
+
+        {/* User Section */}
+        <div className="border-t border-gray-100 p-2 shrink-0 bg-gray-50/50">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={`w-full flex items-center gap-2.5 p-2 hover:bg-gray-100 rounded-xl transition-all ${sidebarCollapsed ? 'justify-center' : ''}`}>
+                <Avatar className="h-8 w-8 shrink-0 ring-2 ring-white shadow-sm">
+                  <AvatarFallback className={`text-[10px] font-bold ${currentProfile?.role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600'}`}>
+                    {currentProfile?.name?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                {!sidebarCollapsed && (
+                  <div className="min-w-0 text-left">
+                    <p className="text-xs font-semibold text-gray-800 truncate">{currentProfile?.name || "Usuário"}</p>
+                    <p className="text-[9px] text-gray-400 uppercase">{currentProfile?.role || "user"}</p>
+                  </div>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-lg border-gray-200/60">
+              <div className="px-2 py-1.5 text-sm font-semibold text-gray-500 uppercase">Conta</div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => { logoutProfile(); navigate('/select-profile'); }} className="text-xs gap-2 rounded-lg">
+                <Users className="h-3.5 w-3.5" /> Trocar Perfil
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/settings')} className="text-xs gap-2 rounded-lg">
+                <SettingsIcon className="h-3.5 w-3.5" /> Configurações
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-xs gap-2 rounded-lg text-red-600"
+                onClick={async () => {
+                  logoutProfile();
+                  try { await logout(); } catch { }
+                  navigate('/login', { replace: true });
+                }}
+              >
+                <LogOut className="h-3.5 w-3.5" /> Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-hidden relative">
+        {/* Mobile Header */}
+        <div className="md:hidden h-14 flex items-center justify-between px-4 border-b border-gray-200/60 bg-white">
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setMobileSidebarOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+              <Headphones className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="font-bold text-sm text-gray-900">CRM</span>
+            {totalUnread > 0 && (
+              <span className="px-1.5 py-0.5 bg-green-500 text-white text-[9px] font-bold rounded-full">{totalUnread}</span>
+            )}
+          </div>
+          <div className="w-8" />
+        </div>
+        {children}
+      </main>
+    </div>
   );
 }

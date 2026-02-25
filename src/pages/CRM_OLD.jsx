@@ -513,12 +513,14 @@ export default function CRM() {
                     </div>
 
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                            <Search className="w-4 h-4 text-gray-400" />
+                        </div>
                         <Input
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             placeholder="Buscar nome ou número..."
-                            className="pl-9 bg-white border-transparent focus:border-emerald-500 rounded-lg h-9 text-sm"
+                            className="pl-10 bg-white border-transparent focus:border-emerald-500 rounded-lg h-9 text-sm"
                         />
                     </div>
 

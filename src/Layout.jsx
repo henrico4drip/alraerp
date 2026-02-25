@@ -315,45 +315,41 @@ export default function Layout({ children, currentPageName }) {
               {allNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
-                return (
-                  {
-                    item.name === "CRM" ? (
-                      <a
-                        key={item.name}
-                        href="https://chat.alraerp.com.br/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkhlbnJpY28iLCJlbWFpbCI6ImFkbWluQGFkbWluLmNvbSIsImNvbXBhbnlJZCI6MSwicHJvZmlsZSI6ImFkbWluIiwiaWF0IjoxNzcxOTc4NTQxLCJleHAiOjE3NzQ1NzA1NDF9.cKyqA7a19okTOMtElfNqDN72XHVTvNTPdq8HOuNXI4Y"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="relative">
-                          <MessageSquare className="w-5 h-5" />
-                          {crmNotificationCount > 0 && (
-                            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                            </span>
-                          )}
-                        </div>
-                        {item.name}
-                      </a>
-                    ) : (
-                      <Link
-                        key={item.name}
-                        to={item.path}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
-                          ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                          : 'text-gray-700 hover:bg-gray-50'
-                          }`}
-                        data-tutorial={item.tutorialId}
-                      >
-                        <div className="relative">
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        {item.name}
-                      </Link>
-                    )
-                  }
+                return item.name === "CRM" ? (
+                  <a
+                    key={item.name}
+                    href="https://chat.alraerp.com.br/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkhlbnJpY28iLCJlbWFpbCI6ImFkbWluQGFkbWluLmNvbSIsImNvbXBhbnlJZCI6MSwicHJvZmlsZSI6ImFkbWluIiwiaWF0IjoxNzcxOTc4NTQxLCJleHAiOjE3NzQ1NzA1NDF9.cKyqA7a19okTOMtElfNqDN72XHVTvNTPdq8HOuNXI4Y"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="relative">
+                      <MessageSquare className="w-5 h-5" />
+                      {crmNotificationCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                        </span>
+                      )}
+                    </div>
+                    {item.name}
+                  </a>
+                ) : (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    data-tutorial={item.tutorialId}
+                  >
+                    <div className="relative">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    {item.name}
+                  </Link>
                 );
               })}
             </div>

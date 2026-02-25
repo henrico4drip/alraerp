@@ -82,33 +82,63 @@ export class EvolutionAPI {
         );
     }
 
-    private async proxyInvoke(action: string, payload?: any) {
+    private async proxyInvoke(action: string, payload?: any, retryCount = 0): Promise<any> {
         if (!this.supabase) throw new Error("Supabase client not provided for proxy mode");
-        
+
         // Chamar Edge Function diretamente via HTTP
         const supabaseUrl = (this.supabase as any).supabaseUrl || 'https://greotjobqprtmrprptdb.supabase.co';
         const functionUrl = `${supabaseUrl}/functions/v1/whatsapp-proxy`;
-        
+
         console.log(`[EvolutionAPI] Calling Edge Function: ${functionUrl}, action: ${action}`);
-        
+
+        // Obter sessão atual
         const { data: { session } } = await this.supabase.auth.getSession();
         const token = session?.access_token;
-        
+
+        if (!token) {
+            console.error('[EvolutionAPI] No active session token available');
+            throw new Error('Sessão expirada. Por favor, faça login novamente.');
+        }
+
         const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : '',
+                'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({ action, payload })
         });
-        
+
+        // Handle 401/403 - tentar refresh token uma vez
+        if ((response.status === 401 || response.status === 403) && retryCount < 1) {
+            console.log('[EvolutionAPI] Token expired, attempting refresh...');
+            const { data: refreshData, error: refreshError } = await this.supabase.auth.refreshSession();
+
+            if (refreshError || !refreshData.session) {
+                console.error('[EvolutionAPI] Failed to refresh session:', refreshError);
+                throw new Error('Sessão expirada. Por favor, faça login novamente.');
+            }
+
+            // Retry com novo token
+            console.log('[EvolutionAPI] Session refreshed, retrying request...');
+            return this.proxyInvoke(action, payload, retryCount + 1);
+        }
+
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`[EvolutionAPI] Edge Function error: ${response.status}`, errorText);
+
+            // Try to parse error message
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.error) {
+                    throw new Error(errorJson.error);
+                }
+            } catch { /* not JSON */ }
+
             throw new Error(`Edge Function error: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log(`[EvolutionAPI] Edge Function response:`, data);
         return data;
@@ -466,27 +496,126 @@ export class EvolutionAPI {
         }
     }
 
+    // Sync messages from Evolution API directly into Supabase
+    // This catches messages sent from the phone that webhooks may have missed
+    async syncChatFromEvolution(phone: string, jid: string): Promise<void> {
+        if (!this.supabase) return;
+        try {
+            console.log(`[EvolutionAPI] syncChatFromEvolution: Syncing ${phone} from Evolution API...`);
+            const result = await this.proxyInvoke('sync_chat', { phone, jid });
+            if (result?.saved > 0) {
+                console.log(`[EvolutionAPI] syncChatFromEvolution: ✅ ${result.saved} novas mensagens salvas para ${phone}`);
+            } else {
+                console.log(`[EvolutionAPI] syncChatFromEvolution: Nenhuma mensagem nova para ${phone}`);
+            }
+        } catch (err: any) {
+            console.warn(`[EvolutionAPI] syncChatFromEvolution error for ${phone}:`, err.message);
+        }
+    }
+
+    // Background sync tracker to avoid duplicate sync calls
+    private _syncingChats = new Set<string>();
+    private _lastSyncTime: Record<string, number> = {};
+
     async fetchMessages(remoteJid: string, count: number = 50): Promise<EvolutionMessage[]> {
         if (this.supabase) {
             try {
-                console.log('[EvolutionAPI] fetchMessages: Buscando do Supabase...');
+                console.log(`[EvolutionAPI] fetchMessages: Buscando do Supabase para JID: ${remoteJid}...`);
                 const phone = remoteJid.split('@')[0];
-                
-                // Buscar mensagens do Supabase
+
+                // NORMALIZAÇÃO DO 9º DÍGITO (Brasil) e LIDs
+                const variants: string[] = [];
+                const addVariants = (p: string) => {
+                    const cleanP = p.replace(/\D/g, '');
+                    if (!variants.includes(cleanP)) variants.push(cleanP);
+                    if (cleanP.startsWith('55') && cleanP.length === 13 && cleanP[4] === '9') {
+                        const without9 = cleanP.substring(0, 4) + cleanP.substring(5);
+                        if (!variants.includes(without9)) variants.push(without9);
+                    } else if (cleanP.startsWith('55') && cleanP.length === 12) {
+                        const with9 = cleanP.substring(0, 4) + '9' + cleanP.substring(4);
+                        if (!variants.includes(with9)) variants.push(with9);
+                    }
+                };
+
+                addVariants(phone);
+
+                // Add LID mappings to variants so we fetch both LID and real phone messages
+                try {
+                    const map = JSON.parse(localStorage.getItem('lid_mappings') || '{}');
+                    // Check if current phone is a LID mapped to a real number
+                    if (map[`${phone}@lid`]) addVariants(map[`${phone}@lid`].split('@')[0]);
+                    if (map[phone]) addVariants(map[phone].split('@')[0]);
+                    // Check if current phone is a real number mapped from LIDs
+                    Object.entries(map).forEach(([lid, mapped]) => {
+                        const mappedPhone = String(mapped).split('@')[0].replace(/\D/g, '');
+                        if (variants.includes(mappedPhone)) {
+                            addVariants(lid.split('@')[0]);
+                        }
+                    });
+                } catch (e) { }
+
+                console.log(`[EvolutionAPI] Buscando variantes consolidadas (LID+Phone):`, variants);
+
+                // SYNC HÍBRIDO: Buscar mensagens da Evolution API e salvar no Supabase
+                // para pegar mensagens enviadas diretamente pelo celular que o webhook perdeu
+                const now = Date.now();
+                const lastSync = this._lastSyncTime[phone] || 0;
+                const SYNC_INTERVAL = 30000; // Sincronizar no máximo a cada 30 segundos
+                const isFirstSync = lastSync === 0; // Never synced this chat before
+
+                if (!this._syncingChats.has(phone) && (now - lastSync) > SYNC_INTERVAL) {
+                    this._syncingChats.add(phone);
+                    this._lastSyncTime[phone] = now;
+
+                    if (isFirstSync) {
+                        // AWAIT on first sync so messages are available before we query
+                        try {
+                            await this.syncChatFromEvolution(phone, remoteJid);
+                        } catch (err: any) {
+                            console.warn('[EvolutionAPI] First sync error:', err.message);
+                        } finally {
+                            this._syncingChats.delete(phone);
+                        }
+                    } else {
+                        // Fire-and-forget for subsequent syncs (UI already has data)
+                        this.syncChatFromEvolution(phone, remoteJid).catch(err => {
+                            console.warn('[EvolutionAPI] Background sync error:', err.message);
+                        }).finally(() => {
+                            this._syncingChats.delete(phone);
+                        });
+                    }
+                }
+
+                // Buscar mensagens do Supabase usando 'in' para pegar todas as variantes
                 const { data: messages, error } = await this.supabase
                     .from('whatsapp_messages')
                     .select('*')
-                    .eq('contact_phone', phone)
+                    .in('contact_phone', variants)
                     .order('created_at', { ascending: false })
                     .limit(count);
-                
+
                 if (error) {
                     console.error('[EvolutionAPI] Supabase error:', error);
                     return [];
                 }
-                
+
+                // DEDUPLICATION: Remover duplicatas por wa_message_id
+                const uniqueMessages = new Map();
+                messages?.forEach((msg: any) => {
+                    const msgId = msg.wa_message_id || msg.id;
+                    if (msgId && !uniqueMessages.has(msgId)) {
+                        uniqueMessages.set(msgId, msg);
+                    }
+                });
+                const dedupedMessages = Array.from(uniqueMessages.values());
+
+                // Ordenar explicitamente: Mais antigas primeiro (ordem cronológica para o chat)
+                const sortedMessages = dedupedMessages.sort((a: any, b: any) =>
+                    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+
                 // Converter formato do Supabase para formato Evolution
-                const converted = messages?.map((msg: any) => ({
+                const converted = sortedMessages.map((msg: any) => ({
                     key: {
                         remoteJid: remoteJid,
                         fromMe: msg.direction === 'outbound',
@@ -497,17 +626,17 @@ export class EvolutionAPI {
                     },
                     messageTimestamp: new Date(msg.created_at).getTime() / 1000,
                     pushName: msg.contact_name || phone
-                })) || [];
-                
-                console.log(`[EvolutionAPI] fetchMessages: Retornando ${converted.length} mensagens do Supabase`);
-                return converted.reverse(); // Mais antigas primeiro (ordem cronológica)
+                }));
+
+                console.log(`[EvolutionAPI] fetchMessages: ${converted.length} mensagens ordenadas cronologicamente`);
+                return converted;
             } catch (e: any) {
                 console.error("fetchMessages Supabase error:", e.message);
                 return [];
             }
         }
 
-        const fetchLimit = Math.min(Math.max(count + 20, 100), 5000);
+        const fetchLimit = Math.min(Math.max(count * 3, 500), 5000);
 
         try {
             // v2.3.0 uses findMessages endpoint
@@ -537,13 +666,10 @@ export class EvolutionAPI {
                     messages = data.messages;
                     console.log('[EvolutionAPI] ✓ fetchMessages using data.messages, count:', messages.length);
                 } else if (data.messages && typeof data.messages === 'object') {
-                    // The messages property is an object, not an array - inspect its structure
                     console.log('[EvolutionAPI] fetchMessages: messages is an object. Keys:', Object.keys(data.messages));
 
-                    // Try common nested paths where the actual array might be
                     const messagesObj = data.messages;
                     if (Array.isArray(messagesObj.records)) {
-                        // Evolution API v2.3.0 paginated format: { total, pages, currentPage, records: [...] }
                         messages = messagesObj.records;
                         console.log('[EvolutionAPI] ✓ fetchMessages using data.messages.records (paginated), count:', messages.length);
                     } else if (Array.isArray(messagesObj.data)) {
@@ -556,7 +682,6 @@ export class EvolutionAPI {
                         messages = messagesObj.rows;
                         console.log('[EvolutionAPI] ✓ fetchMessages using data.messages.rows, count:', messages.length);
                     } else {
-                        // Convert object values to array as last resort
                         const values = Object.values(messagesObj);
                         if (values.length > 0 && values.every((v: any) => v && typeof v === 'object' && ('key' in v || 'message' in v))) {
                             messages = values;
@@ -582,15 +707,15 @@ export class EvolutionAPI {
             });
 
             // DE-DUPLICATION: Remove duplicates by message ID (key.id)
-            const uniqueMessages = new Map();
+            const uniqueMessages2 = new Map();
             filtered.forEach((m: any) => {
                 const msgId = m.key?.id || m.id;
-                if (msgId && !uniqueMessages.has(msgId)) {
-                    uniqueMessages.set(msgId, m);
+                if (msgId && !uniqueMessages2.has(msgId)) {
+                    uniqueMessages2.set(msgId, m);
                 }
             });
 
-            const finalMessages = Array.from(uniqueMessages.values());
+            const finalMessages = Array.from(uniqueMessages2.values());
 
             // Sort by timestamp descending (newest first)
             return finalMessages.sort((a: any, b: any) => {
@@ -601,7 +726,6 @@ export class EvolutionAPI {
 
         } catch (error: any) {
             console.error("Evolution API findMessages error:", error.response?.data || error.message);
-            // If the specific search fails, we can't do much without a local DB
             return [];
         }
     }
@@ -611,24 +735,24 @@ export class EvolutionAPI {
         if (this.supabase) {
             try {
                 console.log('[EvolutionAPI] fetchContacts: Buscando do Supabase...');
-                
+
                 // Buscar clientes do Supabase
                 const { data: customers, error } = await this.supabase
                     .from('customers')
                     .select('*');
-                
+
                 if (error) {
                     console.error('[EvolutionAPI] Supabase error:', error);
                     return [];
                 }
-                
+
                 const processed = customers?.map((c: any) => ({
                     id: c.phone ? `${c.phone}@s.whatsapp.net` : c.id,
                     name: c.name || c.phone || 'Desconhecido',
                     pushName: c.name,
                     profilePictureUrl: null
                 })).filter((c: any) => c.id) || [];
-                
+
                 console.log(`[EvolutionAPI] Processed ${processed.length} contacts from Supabase.`);
                 return processed;
             } catch (e: any) {
@@ -726,39 +850,67 @@ export class EvolutionAPI {
     async fetchChats(deepScan: boolean = false): Promise<any[]> {
         if (this.supabase) {
             try {
-                console.log('[EvolutionAPI] fetchChats: Buscando do Supabase diretamente...');
-                
-                // Buscar mensagens únicas por contato do Supabase
-                const { data: messages, error } = await this.supabase
-                    .from('whatsapp_messages')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                
-                if (error) {
-                    console.error('[EvolutionAPI] Supabase error:', error);
-                    return [];
-                }
-                
-                // Agrupar por contato (última mensagem de cada contato)
+                console.log('[EvolutionAPI] fetchChats: Buscando dados unificados (Mensagens + Clientes)...');
+
+                // 1. Buscar mensagens e clientes em paralelo
+                const [msgRes, custRes] = await Promise.all([
+                    this.supabase.from('whatsapp_messages').select('*').order('created_at', { ascending: false }),
+                    this.supabase.from('customers').select('phone, name')
+                ]);
+
+                if (msgRes.error) throw msgRes.error;
+
+                const messages = msgRes.data || [];
+                const customers = custRes.data || [];
+
+                // Mapa para busca rápida de nomes de clientes (Prioridade A)
+                const customerMap = new Map();
+                customers.forEach((c: any) => {
+                    const isPlaceHolder = !c.name || c.name === c.phone || /^\d+$/.test(c.name);
+                    if (c.phone && !isPlaceHolder) {
+                        customerMap.set(c.phone, c.name);
+                    }
+                });
+
                 const chatsMap = new Map();
-                messages?.forEach((msg: any) => {
+                messages.forEach((msg: any) => {
                     const phone = msg.contact_phone;
-                    if (!chatsMap.has(phone)) {
-                        chatsMap.set(phone, {
+                    const normalizedKey = phone.startsWith('55') && phone.length === 13 && phone[4] === '9'
+                        ? phone.substring(0, 4) + phone.substring(5)
+                        : phone;
+
+                    const msgName = msg.contact_name;
+                    const custName = customerMap.get(phone) || customerMap.get(normalizedKey);
+
+                    const isGeneric = (n: string) => !n || n === 'Você' || n === 'You' || n === phone || n === normalizedKey || n.includes('@') || /^\d+$/.test(n);
+
+                    // Decisão do melhor nome: 1. Nome do cliente (banco) -> 2. Nome da mensagem -> 3. Telefone
+                    const bestName = !isGeneric(custName) ? custName : (!isGeneric(msgName) ? msgName : phone);
+
+                    if (!chatsMap.has(normalizedKey)) {
+                        chatsMap.set(normalizedKey, {
                             id: `${phone}@s.whatsapp.net`,
                             remoteJid: `${phone}@s.whatsapp.net`,
-                            name: msg.contact_name || phone,
-                            pushName: msg.contact_name || phone,
+                            name: bestName,
+                            pushName: bestName,
                             lastMessage: msg.content,
                             messageTimestamp: new Date(msg.created_at).getTime() / 1000,
                             unreadCount: msg.status === 'received' ? 1 : 0,
-                            phone: phone
+                            phone: phone,
+                            normalized_phone: normalizedKey
                         });
+                    } else {
+                        // Se já temos o chat mas o nome gravado é genérico, e esta mensagem (mesmo mais antiga) tem um nome útil, atualizamos
+                        const existing = chatsMap.get(normalizedKey);
+                        if (isGeneric(existing.name) && !isGeneric(msgName)) {
+                            existing.name = msgName;
+                            existing.pushName = msgName;
+                        }
                     }
                 });
-                
+
                 const chats = Array.from(chatsMap.values());
-                console.log(`[EvolutionAPI] fetchChats: Retornando ${chats.length} chats do Supabase`);
+                console.log(`[EvolutionAPI] fetchChats: Retornando ${chats.length} chats com nomes resolvidos.`);
                 return chats;
             } catch (e: any) {
                 console.error("fetchChats Supabase error:", e.message);
@@ -768,7 +920,7 @@ export class EvolutionAPI {
 
         try {
             console.log('[EvolutionAPI] fetchChats: Starting fetch for instance:', this.instanceName);
-            
+
             if (!localStorage.getItem('evolution_reset_2.4.6')) {
                 localStorage.removeItem('lid_mappings');
                 localStorage.setItem('evolution_reset_2.4.6', 'true');
@@ -798,7 +950,7 @@ export class EvolutionAPI {
             console.log('[EvolutionAPI] fetchChats: Chats response status:', chatResponse.status);
             console.log('[EvolutionAPI] fetchChats: Chats response data type:', typeof chatResponse.data);
             console.log('[EvolutionAPI] fetchChats: Chats response data keys:', chatResponse.data ? Object.keys(chatResponse.data) : 'null');
-            
+
             const rawChatsData = chatResponse.data;
             const rawChats = Array.isArray(rawChatsData) ? rawChatsData : (rawChatsData?.records || rawChatsData?.data || Object.values(rawChatsData || {}));
             console.log('[EvolutionAPI] fetchChats: Processed rawChats count:', rawChats.length);
@@ -835,11 +987,17 @@ export class EvolutionAPI {
                 registerJid(jid);
 
                 // Identity Learning Loop (@lid -> Phone)
-                if (jid?.includes('@lid') && !m.key?.fromMe) {
-                    const deepJid = m.senderPn || m.remoteJidAlt || m.participant || m.user || m.key?.participant;
-                    if (deepJid && deepJid.includes('@s.whatsapp.net')) {
-                        savedMappings[jid] = deepJid;
-                        savedMappings[deepJid] = jid;
+                const isGroup = jid?.includes('@g.us') || jid?.includes('status@broadcast');
+                if (!isGroup && !m.key?.fromMe) {
+                    const deepJid = m.senderPn || m.remoteJidAlt || m.participant || m.user || m.key?.participant || m.message?.senderPn || m.message?.user;
+                    if (deepJid && typeof deepJid === 'string' && deepJid.includes('@s.whatsapp.net')) {
+                        const cleanDeep = deepJid.split('@')[0].replace(/\D/g, '');
+                        const cleanJid = String(jid).split('@')[0].replace(/\D/g, '');
+                        if (cleanDeep && cleanJid && cleanDeep !== cleanJid) {
+                            savedMappings[jid] = deepJid;
+                            savedMappings[deepJid] = jid;
+                            console.log(`[EvolutionAPI] Mapping Learned: ${jid} <-> ${deepJid}`);
+                        }
                     }
                 }
 
@@ -937,29 +1095,59 @@ export function extractMessageContent(message: any): { type: string; content: st
     return { type: "unknown", content: "" };
 }
 
-export function isSameJid(jid1: string, jid2: string, savedMap?: Record<string, string>): boolean {
+export function isSameJid(jid1: string, jid2: string): boolean {
     if (!jid1 || !jid2) return false;
+
     const clean = (j: string) => {
-        const n = String(j).split("@")[0].split(":")[0];
-        if (n.startsWith("55") && n.length === 13 && n[4] === "9") return n.substring(0, 4) + n.substring(5);
+        // Extrair apenas os dígitos do número (antes do @)
+        let n = String(j).split("@")[0].split(":")[0].replace(/\D/g, "");
+
+        // Se começar com 55 (Brasil)
+        if (n.startsWith("55")) {
+            // Normalizar 9º dígito: se tiver 13 dígitos e o 5º for 9, remove o 9
+            if (n.length === 13 && n[4] === "9") {
+                n = n.substring(0, 4) + n.substring(5);
+            }
+        } else if (n.length === 11 && n[2] === "9") {
+            // Se tiver 11 dígitos sem o 55 e o 3º for 9 (DDD + 9 + número)
+            n = n.substring(0, 2) + n.substring(3);
+        }
+
         return n;
     };
-    if (clean(jid1) === clean(jid2)) return true;
-    try {
-        const map = savedMap || JSON.parse(localStorage.getItem('lid_mappings') || '{}');
-        return clean(map[jid1] || jid1) === clean(map[jid2] || jid2);
-    } catch (e) { }
+
+    const c1 = clean(jid1);
+    const c2 = clean(jid2);
+
+    if (c1 && c2 && (c1 === c2 || c1 === "55" + c2 || "55" + c1 === c2)) return true;
+
     return false;
 }
 
 export function formatPhoneNumber(jid: string): string {
     if (!jid) return "";
-    const number = jid.split("@")[0].split(":")[0];
+    let number = String(jid).split("@")[0].split(":")[0].replace(/\D/g, "");
+
+    // Se não tem 55 mas tem 10/11 dígitos, assume que é Brasil
+    if (!number.startsWith("55") && (number.length === 10 || number.length === 11)) {
+        number = "55" + number;
+    }
+
     if (number.startsWith("55") && number.length >= 10) {
         const area = number.substring(2, 4);
         const rest = number.substring(4);
-        return `(${area}) ${rest.length === 9 ? rest.substring(0, 5) : rest.substring(0, 4)}-${rest.length === 9 ? rest.substring(5) : rest.substring(4)}`;
+        if (rest.length === 9) {
+            return `(${area}) ${rest.substring(0, 5)}-${rest.substring(5)}`;
+        } else if (rest.length === 8) {
+            return `(${area}) ${rest.substring(0, 4)}-${rest.substring(4)}`;
+        }
     }
+
+    // Fallback para outros formatos ou números incompletos
+    if (number.length > 10) {
+        return `+${number}`;
+    }
+
     return number;
 }
 

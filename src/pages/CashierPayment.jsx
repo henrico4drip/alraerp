@@ -97,6 +97,7 @@ export default function CashierPayment() {
   const [showCustomerCreateDialog, setShowCustomerCreateDialog] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "" });
   const [lastSale, setLastSale] = useState(null);
+  const isLocked = useRef(false);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDiscountDialog, setShowDiscountDialog] = useState(false);
@@ -405,7 +406,8 @@ export default function CashierPayment() {
   };
 
   const handleFinalizeSale = async () => {
-    if (isFinalizing) return;
+    if (isFinalizing || isLocked.current) return;
+    isLocked.current = true;
     setIsFinalizing(true);
     window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: true }));
     const minCount = Number(settings?.wholesale_min_count || 0)
@@ -616,6 +618,7 @@ export default function CashierPayment() {
       const shouldAutoSend = Boolean(settings?.whatsapp_auto_send_cashback);
       console.log('FinalizeSale: AutoSend?', shouldAutoSend, 'Customer?', !!selectedCustomer);
 
+      /* AUTO-SEND DISABLED BY EMERGENCY BLOCK
       if (shouldAutoSend && selectedCustomer) {
         try {
           const { msg, phone } = generateCashbackMessage(
@@ -658,6 +661,7 @@ export default function CashierPayment() {
           console.error('Erro no envio automático do WhatsApp:', waError);
         }
       }
+      */
 
       setShowReceiptDialog(true);
 
@@ -678,11 +682,11 @@ export default function CashierPayment() {
       setTimeout(() => setShowSuccess(false), 5000);
       setIsFinalizing(false);
       window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: false }));
-    } catch (err) {
+      alert("Falha ao finalizar venda.");
+    } finally {
+      isLocked.current = false;
       setIsFinalizing(false);
       window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: false }));
-      console.error("Erro ao finalizar venda:", err);
-      alert("Falha ao finalizar venda.");
     }
   };
 
@@ -754,23 +758,24 @@ export default function CashierPayment() {
     }
   };
 
-  useEffect(() => {
-    const handleEvent = () => {
-      // Check validation again just in case, though button disabled state handles UI
-      const total = calculateTotal();
-      const finalTotalLocal = Math.max(0, total - discountAmount() - (cashbackToUse || 0));
-      const sum = Number(sumPayments().toFixed(2));
-      const finalDue = Number(finalTotalLocal.toFixed(2));
+  const handleSaleFinishEvent = useCallback(() => {
+    // Check validation again just in case, though button disabled state handles UI
+    const total = calculateTotal();
+    const finalTotalLocal = Math.max(0, total - discountAmount() - (cashbackToUse || 0));
+    const sum = Number(sumPayments().toFixed(2));
+    const finalDue = Number(finalTotalLocal.toFixed(2));
 
-      if (cart.length === 0) return;
-      if (payments.length === 0) { alert("Adicione pelo menos um pagamento."); return; }
-      if (sum < finalDue) { alert(`Pagamentos insuficientes. Faltam R$ ${(finalDue - sum).toFixed(2)}.`); return; }
+    if (cart.length === 0) return;
+    if (payments.length === 0) { alert("Adicione pelo menos um pagamento."); return; }
+    if (sum < finalDue) { alert(`Pagamentos insuficientes. Faltam R$ ${(finalDue - sum).toFixed(2)}.`); return; }
 
-      handleFinalizeSale();
-    };
-    window.addEventListener('cashier-finish-sale', handleEvent);
-    return () => window.removeEventListener('cashier-finish-sale', handleEvent);
+    handleFinalizeSale();
   }, [cart, payments, cashbackToUse, discountAmount, calculateTotal, sumPayments, handleFinalizeSale]);
+
+  useEffect(() => {
+    window.addEventListener('cashier-finish-sale', handleSaleFinishEvent);
+    return () => window.removeEventListener('cashier-finish-sale', handleSaleFinishEvent);
+  }, [handleSaleFinishEvent]);
 
   return (
     <div className="fixed inset-0 top-[60px] pb-[100px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">

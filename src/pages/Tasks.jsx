@@ -537,10 +537,12 @@ export default function Tasks() {
                                     <div className="space-y-1.5">
                                         <Label className="text-xs font-medium text-gray-500">Cliente (Opcional)</Label>
                                         <div className="relative group">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                                                <Search className="w-4 h-4 text-gray-400" />
+                                            </div>
                                             <Input
                                                 placeholder="Buscar cliente..."
-                                                className="h-10 pl-9 text-sm"
+                                                className="h-10 pl-11 text-sm"
                                                 value={customerSearch}
                                                 onChange={e => setCustomerSearch(e.target.value)}
                                             />

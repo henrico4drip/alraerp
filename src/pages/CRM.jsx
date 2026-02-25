@@ -9,6 +9,7 @@ import Home from './crm-new/Home';
 import Inbox from './crm-new/Inbox';
 import Contacts from './crm-new/Contacts';
 import Funnel from './crm-new/Funnel';
+import Campaigns from './crm-new/Campaigns';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 export default function CRM() {
@@ -16,7 +17,7 @@ export default function CRM() {
         <div className="crm-root">
             <ThemeProvider defaultTheme="light">
                 <TooltipProvider>
-                    <div className="min-h-screen bg-background text-foreground">
+                    <div className="h-full bg-background text-foreground">
                         <Toaster richColors position="top-right" />
                         <Suspense fallback={<div className="flex items-center justify-center p-8">Carregando CRM...</div>}>
                             <Routes>
@@ -24,6 +25,7 @@ export default function CRM() {
                                 <Route path="/inbox" element={<Inbox />} />
                                 <Route path="/contacts" element={<Contacts />} />
                                 <Route path="/funnel" element={<Funnel />} />
+                                <Route path="/campaigns" element={<Campaigns />} />
                                 <Route path="*" element={<Navigate to="/crm/inbox" replace />} />
                             </Routes>
                         </Suspense>

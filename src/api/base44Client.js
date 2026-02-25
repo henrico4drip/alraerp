@@ -100,6 +100,10 @@ function makeRepo(table) {
       const q = supabase.from(table).select('*').eq('user_id', userId)
       if (order === '-created_date') {
         q.order('created_date', { ascending: false })
+      } else if (order === '-due_date') {
+        q.order('due_date', { ascending: false })
+      } else if (order === 'due_date') {
+        q.order('due_date', { ascending: true })
       }
       const { data, error } = await q
       if (error) throw error
@@ -210,9 +214,9 @@ export const base44 = {
       const { data: { session } } = await supabase.auth.getSession()
       const userId = session?.user?.id
       if (!userId) return
-      const flagKey = `migrated_${userId}`
-      if (localStorage.getItem(flagKey) === 'true') return
-      const tables = ['settings', 'customers', 'products', 'sales']
+      // const flagKey = `migrated_${userId}`
+      // if (localStorage.getItem(flagKey) === 'true') return
+      const tables = ['settings', 'customers', 'products', 'sales', 'expenses', 'staff_profiles']
       for (const table of tables) {
         const local = JSON.parse(localStorage.getItem(table) || '[]')
         if (!local || local.length === 0) continue

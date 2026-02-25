@@ -1,650 +1,592 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, memo, useMemo } from "react";
 import CRMLayout from "@/components/CRMLayout";
+import { useChatwoot } from "@/contexts/ChatwootContext";
+import { useCrm } from "@/contexts/CrmContext";
 import { useEvolution } from "@/contexts/EvolutionContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, MessageSquare, Clock, Send, Loader2, RefreshCw, FileText, Download, User, StickyNote, Briefcase, MessageCircle, Save, Plus, Phone, Check, EyeOff, X, Eye, Ghost, Lock, Unlock } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/Button";
+import { Search, Loader2, Send, Check, RefreshCw, GitMerge, Info, MessageSquare, Trash2, CheckCircle2, Briefcase, Plus } from "lucide-react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { formatPhoneNumber, isSameJid, extractMessageContent } from "@/lib/evolution";
-import { memo } from "react";
-import { useCrm } from "@/contexts/CrmContext";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { useLocation } from "react-router-dom";
 
-const MediaMessage = memo(({ message, type, mimeType, fileName, api }: { message: any, type: string, mimeType?: string, fileName?: string, api: any }) => {
-  const [base64, setBase64] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+// --- Helpers ---
+function safeFormatDate(timestamp: any) {
+  if (!timestamp) return "";
+  try {
+    const date = typeof timestamp === 'number'
+      ? new Date(timestamp > 1000000000000 ? timestamp : timestamp * 1000)
+      : new Date(timestamp);
+    if (isNaN(date.getTime())) return "";
+    return format(date, "HH:mm");
+  } catch {
+    return "";
+  }
+}
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchMedia = async () => {
-      if (!message || !api) return;
-      setLoading(true);
-      try {
-        const data = await api.getBase64Media(message);
-        if (isMounted && data?.base64) {
-          setBase64(data.base64);
-        } else if (isMounted) {
-          setError(true);
-        }
-      } catch (e) {
-        if (isMounted) setError(true);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    fetchMedia();
-    return () => { isMounted = false; };
-  }, [message.key?.id, api]);
+function safeSub(str: any, len: number = 2) {
+  const s = String(str || "");
+  return s.substring(0, len).toUpperCase();
+}
 
-  if (loading) return <div className="flex items-center justify-center gap-2 text-xs text-gray-500 p-2 bg-gray-50 rounded min-h-[150px] w-[250px] border border-gray-200 animate-pulse"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>;
-  if (error || !base64) return <div className="text-xs text-red-500 p-2 bg-red-50 rounded border border-red-100 w-[250px]">Erro ao carregar mídia</div>;
+// --- Message Bubble ---
+const MessageBubble = memo(({ item, isMe }: { item: any, isMe: boolean }) => {
+  if (item.message_type === 2) {
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-amber-50/80 backdrop-blur border border-amber-200/50 text-amber-800 px-4 py-2.5 rounded-xl max-w-lg w-full flex gap-3 shadow-sm">
+          <p className="text-xs italic font-medium">"{item.content}"</p>
+        </div>
+      </div>
+    );
+  }
 
-  const src = `data:${mimeType || 'application/octet-stream'};base64,${base64}`;
-
-  if (type === 'image') return <div className="min-h-[150px] bg-gray-50 rounded-lg overflow-hidden border border-gray-100"><img src={src} className="max-w-[250px] max-h-[350px] w-auto h-auto object-cover" alt="Imagem" /></div>;
-  if (type === 'video') return <div className="min-h-[150px] bg-gray-50 rounded-lg overflow-hidden border border-gray-100"><video src={src} controls className="max-w-[250px] max-h-[350px] w-auto h-auto" /></div>;
-  if (type === 'audio') return (
-    <div className="w-[260px] flex items-center justify-center p-2 rounded-md bg-gray-100">
-      <audio src={src} controls className="w-full h-8" />
+  return (
+    <div className={`flex flex-col mb-1.5 px-6 ${isMe ? 'items-end' : 'items-start'}`}>
+      <div className={`group relative max-w-[75%] md:max-w-[65%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+        <div className={`relative px-4 py-2 text-[15px] shadow-sm leading-[1.4] transition-all hover:shadow-md ${isMe
+          ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-2xl rounded-tr-sm border border-indigo-400/20'
+          : 'bg-white text-gray-800 rounded-2xl rounded-tl-sm border border-gray-100'
+          }`}>
+          {item.content && (
+            <div className="whitespace-pre-wrap break-words">{item.content}</div>
+          )}
+          <div className={`flex items-center justify-end gap-1 mt-1 -mb-1 ${isMe ? 'text-indigo-200' : 'text-gray-400'}`}>
+            <span className="text-[10px] leading-none mb-0.5 opacity-90">
+              {safeFormatDate(item.created_at)}
+            </span>
+            {isMe && <Check className={`h-3 w-3 text-indigo-200`} />}
+          </div>
+        </div>
+      </div>
     </div>
   );
-  if (type === 'sticker') return <img src={src} className="h-24 w-24 object-contain" alt="Sticker" />;
-  if (type === 'document') {
-    return (
-      <a href={src} download={fileName || 'document'} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors w-full max-w-[280px] text-left group">
-        <div className="bg-blue-50 p-2 rounded-md text-blue-600 group-hover:bg-blue-100 transition-colors">
-          <FileText className="h-5 w-5" />
+});
+
+// --- Chat List Item ---
+const ChatListItem = memo(({ chat, isSelected, onSelect, onResolve, onDelete }: {
+  chat: any, isSelected: boolean, onSelect: (chat: any) => void, onResolve: (chat: any) => void, onDelete: (chat: any) => void
+}) => {
+  const meta = chat.meta || {};
+  const sender = meta.sender || {};
+  const name = (chat as any).resolvedName || "Desconhecido";
+  const lastMsg = chat.messages?.[chat.messages.length - 1];
+  const lastMsgContent = lastMsg?.content || "";
+  const unread = (chat as any)._mergedUnread || chat.unread_count || 0;
+
+  return (
+    <div className="relative group">
+      <button
+        onClick={() => onSelect(chat)}
+        className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all border-l-[3px] ${isSelected
+          ? "bg-gradient-to-r from-indigo-50 to-blue-50/50 border-l-indigo-500"
+          : "bg-white hover:bg-gray-50/80 border-l-transparent"
+          }`}
+      >
+        <div className="relative">
+          <Avatar className="h-11 w-11 shrink-0 ring-2 ring-white shadow-sm">
+            <AvatarImage src={sender.thumbnail} />
+            <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-blue-100 text-indigo-700 font-semibold text-sm">
+              {safeSub(name)}
+            </AvatarFallback>
+          </Avatar>
+          {unread > 0 && (
+            <span className="absolute -top-1 -right-1 h-5 min-w-[20px] rounded-full bg-red-500 ring-2 ring-white text-white text-[10px] font-bold flex items-center justify-center px-1 shadow-sm transition-transform group-hover:scale-110">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate text-gray-700">{fileName || 'Documento'}</p>
-          <p className="text-[10px] text-gray-400 uppercase">{mimeType?.split('/')[1] || 'FILE'}</p>
-        </div>
-        <Download className="h-4 w-4 text-gray-400 opacity-50 group-hover:opacity-100" />
-      </a>
-    );
-  }
-  return null;
-});
-
-const MessageBubble = memo(({ item, isMe, type, content, mimeType, fileName, api }: { item: any, isMe: boolean, type: string, content: string, mimeType?: string, fileName?: string, api: any }) => {
-  if (item.type === 'message') {
-    return (
-      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-sm border ${isMe ? 'bg-blue-600 text-white border-blue-600 rounded-tr-none' : 'bg-white border-gray-200 text-gray-800 rounded-tl-none'}`}>
-          {!isMe && item.data.pushName && <p className="text-[10px] font-bold mb-1 text-blue-600">{item.data.pushName}</p>}
-          {type === 'text' ? (
-            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{content}</p>
-          ) : (
-            <MediaMessage message={item.data} type={type} mimeType={mimeType} fileName={fileName} api={api} />
-          )}
-          <p className={`text-[9px] mt-1.5 text-right font-medium ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>{format(new Date(item.timestamp * 1000), "HH:mm")}</p>
-        </div>
-      </div>
-    );
-  } else {
-    const w = item.data;
-    return (
-      <div className="flex justify-center my-4">
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl max-w-lg w-full flex gap-3 shadow-sm">
-          <Ghost className="h-5 w-5 shrink-0 mt-0.5 opacity-50" />
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Sussurro de {w.senderName}</span>
-              <span className="text-[10px] opacity-60">{format(new Date(w.timestamp * 1000), "HH:mm")}</span>
-            </div>
-            <p className="text-sm italic font-medium">"{w.text}"</p>
+          <div className="flex justify-between items-center mb-0.5">
+            <span className="font-semibold text-gray-900 text-[15px] truncate pr-2">{name}</span>
+            <span className={`text-[11px] whitespace-nowrap ${unread > 0 ? "text-indigo-600 font-bold" : "text-gray-400"}`}>
+              {safeFormatDate(lastMsg?.created_at)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center gap-2">
+            <p className={`text-sm truncate ${unread > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+              {lastMsgContent}
+            </p>
           </div>
         </div>
-      </div>
-    );
-  }
-});
+      </button>
 
-// --- Memoized Sub-Components for Performance ---
-
-const ChatListItem = memo(({ chat, isSelected, name, phone, onSelect }: { chat: any, isSelected: any, name: string, phone: string, onSelect: (chat: any) => void }) => (
-  <button onClick={() => onSelect(chat)} className={`w-full flex items-center gap-3 p-4 text-left border-b border-gray-100 hover:bg-gray-50 transition-colors ${isSelected ? "bg-blue-50 border-l-4 border-l-blue-600" : "bg-white"}`}>
-    <Avatar className="h-10 w-10 shrink-0 border border-gray-100">
-      <AvatarFallback className="bg-gray-100 text-gray-600 font-bold text-xs">{name.substring(0, 2).toUpperCase()}</AvatarFallback>
-    </Avatar>
-    <div className="flex-1 min-w-0">
-      <div className="flex justify-between items-baseline mb-1">
-        <p className={`text-sm truncate ${isSelected ? 'font-bold text-blue-900' : 'font-semibold text-gray-800'}`}>{name}</p>
-        {chat.messageTimestamp && <span className="text-[10px] text-gray-400 font-medium">{format(new Date(Number(chat.messageTimestamp) * 1000), "HH:mm")}</span>}
-      </div>
-      <div className="flex flex-col gap-0.5">
-        <p className="text-[10px] text-gray-400 font-medium">{phone}</p>
-        <p className="text-xs text-gray-500 truncate">{chat.lastMessage || "Nova conversa"}</p>
-      </div>
-    </div>
-    {chat.unreadCount > 0 && <span className="h-5 min-w-[1.25rem] px-1 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-sm">{chat.unreadCount}</span>}
-  </button>
-));
-
-const ChatInputView = memo(({ value, onChange, onSend, isWhisperMode, toggleWhisper }: { value: string, onChange: (v: string) => void, onSend: () => void, isWhisperMode: boolean, toggleWhisper: () => void }) => (
-  <div className="p-4 bg-white border-t border-gray-200">
-    <div className="max-w-4xl mx-auto flex items-end gap-3">
-      <div className="flex-1 relative">
-        {isWhisperMode && (
-          <div className="absolute -top-8 left-0 text-[10px] font-bold text-amber-600 flex items-center gap-1 animate-pulse bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
-            <Ghost className="h-3 w-3" /> MODO SUSSURRO (Privado)
-          </div>
-        )}
-        <Textarea
-          placeholder={isWhisperMode ? "Escrever nota interna..." : "Digite sua mensagem..."}
-          className={`min-h-[48px] max-h-32 bg-gray-50 border-gray-200 resize-none py-3 text-sm focus:ring-2 transition-all rounded-xl ${isWhisperMode ? 'bg-amber-50 border-amber-200 focus:ring-amber-500/20' : 'focus:ring-blue-500/10 focus:border-blue-500'}`}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              onSend();
-            }
-          }}
-        />
-      </div>
-      <div className="flex flex-col gap-2 pb-0.5">
-        <Button
-          variant={isWhisperMode ? "default" : "ghost"}
-          size="icon"
-          className={`h-10 w-10 rounded-xl transition-all ${isWhisperMode ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}
-          onClick={toggleWhisper}
-          title="Modo Sussurro (Interno)"
+      {/* Hover Actions */}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100">
+        <button
+          onClick={(e) => { e.stopPropagation(); onResolve(chat); }}
+          className="h-8 w-8 rounded-lg bg-white border border-gray-200 shadow-sm flex items-center justify-center text-emerald-600 hover:bg-emerald-50 transition-colors"
+          title="Arquivar/Resolver"
         >
-          <Ghost className="h-5 w-5" />
-        </Button>
-        <Button size="icon" className="h-10 w-10 rounded-xl shadow-md bg-blue-600 hover:bg-blue-700 text-white transition-all hover:scale-105 active:scale-95" onClick={onSend}>
-          <Send className="h-4 w-4 ml-0.5" />
-        </Button>
+          <Check className="h-4 w-4" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(chat); }}
+          className="h-8 w-8 rounded-lg bg-white border border-gray-200 shadow-sm flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors"
+          title="Deletar permanentemente"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
     </div>
-  </div>
-));
+  );
+});
 
+// --- Main Inbox Component ---
 export default function Inbox() {
+  const { conversations, messages, isLoading, activeConversationId, setActiveConversationId, sendMessage,
+    syncEvolutionHistory, isSyncingHistory,
+    loadMoreMessages, isFetchingHistory, hasMoreMessages,
+    loadMoreConversations, isFetchingMoreConvos, hasMoreConversations,
+    resolveConversation, deleteConversation } = useChatwoot();
+  const { resolveName } = useEvolution();
   const {
-    api,
-    isConnected,
-    contacts,
-    discoveredNames,
-    setDiscoveredNames,
-    customNames,
-    setCustomName,
-    messageCache,
-    updateMessageCache,
-  } = useEvolution();
-  const location = useLocation();
-  const [chats, setChats] = useState<any[]>([]);
-  const [selectedChat, setSelectedChat] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [messageInput, setMessageInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'details' | 'notes' | 'sales'>('chat');
-
-  const lidMap = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('lid_mappings') || '{}');
-    } catch (e) { return {}; }
-  }, [chats]);
-
-  const [chatFilter, setChatFilter] = useState<'mine' | 'all' | 'hidden'>('all');
-  const [showHiddenInput, setShowHiddenInput] = useState(false);
-  const [unlockPassword, setUnlockPassword] = useState("");
-  const [isHiddenUnlocked, setIsHiddenUnlocked] = useState(false);
-
-  // CRM Context
-  const {
-    agents,
-    assignments,
-    assignChat,
-    getDealByChatId,
-    stages,
-    contactNotes,
-    saveContactNote,
-    contactTags,
-    hiddenContacts,
-    hideContact,
-    unhideContact,
-    hiddenChatPassword,
+    agents, getChatAssignee, assignChat, stages, updateDealStage, addDeal,
+    getDealByChatId, contactNotes, saveContactNote, contactTags, saveContactTags
   } = useCrm();
 
-  const [isWhisperMode, setIsWhisperMode] = useState(false);
-  const [noteInput, setNoteInput] = useState("");
-  const [editName, setEditName] = useState("");
-  const scrollViewportRef = useRef<HTMLDivElement>(null);
-  const isAtBottomRef = useRef(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [messageInput, setMessageInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [showContactPanel, setShowContactPanel] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleScroll = (e: any) => {
-    const viewport = e.currentTarget;
-    const { scrollTop, scrollHeight, clientHeight } = viewport;
-    const atBottom = scrollHeight - scrollTop - clientHeight < 100;
-    isAtBottomRef.current = atBottom;
+  const selectedChat = conversations.find(c => c.id === activeConversationId);
+  const currentMessages = (activeConversationId ? messages[activeConversationId] : []) || [];
+
+  const handleSelectChat = (chat: any) => {
+    setActiveConversationId(chat.id);
   };
 
-  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
-    if (scrollViewportRef.current) {
-      const viewport = scrollViewportRef.current;
-      viewport.scrollTo({
-        top: viewport.scrollHeight,
-        behavior
-      });
-    }
-  };
-
-  const [resolutionDialogOpen, setResolutionDialogOpen] = useState(false);
-  const [failedLid, setFailedLid] = useState<string | null>(null);
-  const [failedText, setFailedText] = useState<string | null>(null);
-  const [manualPhoneInput, setManualPhoneInput] = useState("");
-
-  const handleManualResolution = () => {
-    if (!failedLid || !manualPhoneInput.trim()) return;
-    let phone = manualPhoneInput.replace(/\D/g, '');
-    if (!phone.includes('@s.whatsapp.net')) phone += '@s.whatsapp.net';
-
-    const savedMap = JSON.parse(localStorage.getItem('lid_mappings') || '{}');
-    savedMap[failedLid] = phone;
-    localStorage.setItem('lid_mappings', JSON.stringify(savedMap));
-    setDiscoveredNames(prev => ({ ...prev, [failedLid]: phone }));
-
-    toast.success("Vínculo salvo! Reenviando mensagem...");
-    setResolutionDialogOpen(false);
-
-    if (failedText && api) {
-      api.sendTextMessage(phone, failedText)
-        .then(() => {
-          loadMessages(selectedChat, true);
-          setFailedLid(null);
-          setFailedText(null);
-          setManualPhoneInput("");
-        })
-        .catch(() => toast.error("Falha ao reenviar."));
-    }
-  };
-
-  // Sync scroll on bottom
-  useEffect(() => {
-    if (!scrollViewportRef.current) return;
-    const resizeObserver = new ResizeObserver(() => {
-      if (isAtBottomRef.current) {
-        scrollToBottom("auto");
-      }
-    });
-    const currentViewport = scrollViewportRef.current;
-    const innerContainer = currentViewport.firstElementChild;
-    if (innerContainer) resizeObserver.observe(innerContainer);
-    return () => resizeObserver.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (selectedChat) {
-      const jid = selectedChat.id || selectedChat.remoteJid;
-      // Resolve name safely
-      const resolved = customNames[jid] || discoveredNames[jid] || contacts.find((c: any) => c.id === jid)?.name || selectedChat.name || selectedChat.pushName || selectedChat.verifiedName || jid.split('@')[0];
-      setEditName(resolved);
-      setNoteInput(contactNotes[jid] || "");
-
-      isAtBottomRef.current = true;
-      if (messages.length > 0) setTimeout(() => scrollToBottom("auto"), 50);
-    }
-  }, [selectedChat]);
-
-  useEffect(() => {
-    if (!loadingMessages && messages.length > 0) {
-      if (isAtBottomRef.current) setTimeout(() => scrollToBottom("auto"), 50);
-    }
-  }, [messages.length]);
-
-  const loadChats = async (silent: boolean = false) => {
-    console.log('[Inbox] loadChats called. api:', !!api, 'isConnected:', isConnected);
-    if (!api || !isConnected) {
-      console.warn('[Inbox] Cannot load chats - api or isConnected is false');
-      return;
-    }
-    if (!silent) setLoading(true);
+  const handleSend = async () => {
+    if (!messageInput.trim() || !activeConversationId || isSending) return;
     try {
-      console.log('[Inbox] Calling api.fetchChats()...');
-      const response = await api.fetchChats();
-      console.log('[Inbox] fetchChats returned:', response?.length || 0, 'chats');
-      setChats(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(response)) return prev;
-        console.log('[Inbox] Updating chats state from', prev.length, 'to', response?.length || 0);
-        return response;
-      });
-    } catch (error: any) {
-      console.error('[Inbox] Error loading chats:', error);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
-  const loadMessages = async (chat: any, silent: boolean = false) => {
-    if (!api || !isConnected) return;
-    const jid = chat.id || chat.remoteJid || chat.key?.remoteJid;
-    if (!jid) return;
-
-    if (!silent && messageCache[jid]) {
-      setMessages(messageCache[jid]);
-    }
-
-    if (!silent) setLoadingMessages(true);
-    try {
-      const response = await api.fetchMessages(jid, 50);
-      const newMessages = response.reverse().map((m: any) => ({
-        type: 'message',
-        data: m,
-        timestamp: m.messageTimestamp
-      }));
-      setMessages(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(newMessages)) return prev;
-        updateMessageCache(jid, newMessages);
-        return newMessages;
-      });
-    } catch (error: any) {
-      console.error(error);
-    } finally {
-      if (!silent) setLoadingMessages(false);
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!api || !isConnected || !selectedChat || !messageInput.trim()) return;
-    const jid = selectedChat.id || selectedChat.remoteJid || selectedChat.key?.remoteJid;
-
-    try {
-      if (isWhisperMode) {
-        // Mock Whisper
-        const whisperMsg = {
-          key: { remoteJid: jid, id: 'whisper-' + Date.now(), fromMe: true },
-          messageTimestamp: Math.floor(Date.now() / 1000),
-          pushName: "Você (Sussurro)",
-          type: 'whisper',
-          data: {
-            text: messageInput,
-            senderName: "Você",
-            timestamp: Math.floor(Date.now() / 1000)
-          }
-        };
-        const newMsgs = [...messages, whisperMsg];
-        setMessages(newMsgs);
-        updateMessageCache(jid, newMsgs);
-      } else {
-        await api.sendTextMessage(jid, messageInput);
-        setTimeout(() => loadMessages(selectedChat, true), 500);
-      }
+      setIsSending(true);
+      await sendMessage(activeConversationId, messageInput.trim());
       setMessageInput("");
-    } catch (error: any) {
-      if (error?.message?.includes('400') && jid.includes('@lid')) {
-        setFailedLid(jid);
-        setFailedText(messageInput);
-        setResolutionDialogOpen(true);
-      } else {
-        toast.error("Erro ao enviar: " + error.message);
-      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSending(false);
     }
   };
 
-  const handleSelectChat = useCallback((chat: any) => {
-    setSelectedChat(chat);
-    loadMessages(chat);
-  }, [api, isConnected]);
-
   useEffect(() => {
-    console.log('[Inbox] isConnected effect triggered. isConnected:', isConnected);
-    let interval: NodeJS.Timeout;
-    if (isConnected) {
-      console.log('[Inbox] isConnected is true, calling loadChats()...');
-      loadChats();
-      interval = setInterval(() => loadChats(true), 15000);
-    }
-    return () => clearInterval(interval);
-  }, [isConnected, api]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [currentMessages]);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (selectedChat) {
-      loadMessages(selectedChat, true);
-      interval = setInterval(() => loadMessages(selectedChat, true), 5000);
-    }
-    return () => clearInterval(interval);
-  }, [selectedChat]);
+  const resolvedConversations = useMemo(() => {
+    return conversations.map(c => {
+      const sender = c.meta?.sender || {};
+      const jid = sender.identifier || sender.phone_number || "";
+      const fallbackName = sender.name || sender.phone_number || "Desconhecido";
+      const name = resolveName(jid, fallbackName);
+
+      return { ...c, resolvedName: name };
+    });
+  }, [conversations, resolveName]);
 
   const filteredChats = useMemo(() => {
-    console.log('[Inbox] filteredChats useMemo - chats:', chats.length, 'chatFilter:', chatFilter);
-    let filtered = chats;
+    return resolvedConversations.filter(c => {
+      const name = c.resolvedName.toLowerCase();
+      const phone = c.meta?.sender?.phone_number || '';
 
-    // Filter by type
-    if (chatFilter === 'hidden') {
-      filtered = filtered.filter(c => hiddenContacts.includes(c.id || c.remoteJid));
-      if (!isHiddenUnlocked) return [];
-    } else {
-      filtered = filtered.filter(c => !hiddenContacts.includes(c.id || c.remoteJid));
-      if (chatFilter === 'mine') {
-        filtered = filtered.filter(c => assignments[c.id || c.remoteJid] === agents.find(a => a.email === 'me')?.id); // Mock logic for 'me'
-      }
-    }
+      // Filter out system/api conversations that clutter the UI
+      if (name.includes('evolutionapi')) return false;
 
-    // Filter by search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(c =>
-        (c.name && c.name.toLowerCase().includes(q)) ||
-        (c.pushName && c.pushName.toLowerCase().includes(q)) ||
-        ((c.id || c.remoteJid) && (c.id || c.remoteJid).includes(q))
-      );
-    }
-
-    return filtered.map(chat => {
-      const jid = chat.id || chat.remoteJid;
-      const name = customNames[jid] || discoveredNames[jid] || contacts.find((c: any) => c.id === jid)?.name || chat.name || chat.pushName || chat.verifiedName || jid.split('@')[0];
-      const phone = isSameJid(jid, jid, lidMap) ? formatPhoneNumber(jid) : "LID (Oculto)";
-
-      return { ...chat, computedName: name, computedPhone: phone };
+      return name.includes(searchQuery.toLowerCase()) || phone.includes(searchQuery);
     });
-  }, [chats, searchQuery, chatFilter, isHiddenUnlocked, customNames, discoveredNames, contacts, lidMap, hiddenContacts, assignments]);
+  }, [resolvedConversations, searchQuery]);
 
-  const handleInputChange = useCallback((v: string) => setMessageInput(v), []);
-  const handleMainAction = useCallback(() => handleSendMessage(), [handleSendMessage]);
-
-  const handleSaveNote = () => {
-    if (!selectedChat) return;
-    saveContactNote(selectedChat.id || selectedChat.remoteJid, noteInput);
-    toast.success("Nota salva!");
-  };
-
-  const handleStageChange = (val: string) => {
-    if (!selectedChat) return;
-    // Mock logic for deal update
-    toast.success("Estágio atualizado (Mock)");
-  };
-
-  // Safe resolve name helper
-  const safeResolveName = (id: string) => customNames[id] || discoveredNames[id] || contacts.find((c: any) => c.id === id)?.name || id.split('@')[0];
+  // Derived JID for CRM lookups
+  const crmId = useMemo(() => {
+    if (!selectedChat) return null;
+    const sender = selectedChat.meta?.sender || {};
+    return sender.identifier || sender.phone_number || null;
+  }, [selectedChat]);
 
   return (
     <CRMLayout>
-      <div className="flex h-[calc(100vh-theme(spacing.4))] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden m-2">
-        {/* Sidebar List */}
-        <div className="w-96 border-r border-gray-200 flex flex-col bg-white">
-          <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-lg text-gray-900 tracking-tight">Inbox</h2>
-              <div className="flex items-center gap-2">
-                <button onClick={() => loadChats()} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="Atualizar">
-                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+      <div className="h-full bg-white flex flex-col md:flex-row overflow-hidden absolute inset-0">
+        {/* We use absolute inset-0 to force fill the main content area of CRMLayout */}
+        {/* Lado Esquerdo - Lista de Chats */}
+        <div className="w-[380px] shrink-0 border-r border-gray-200 bg-white flex flex-col h-full z-10 shadow-[2px_0_8px_-3px_rgba(0,0,0,0.05)]">
+          <div className="p-4 bg-white border-b border-gray-100 shrink-0 shadow-sm relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                Inbox <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">{filteredChats.length}</span>
+              </h1>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => syncEvolutionHistory()}
+                  disabled={isSyncingHistory}
+                  title="Puxar todo o histórico do WhatsApp para o Chatwoot"
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-indigo-600 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isSyncingHistory ? 'animate-spin' : ''}`} />
                 </button>
+                {conversations.some(c => c.resolvedName?.includes('EvolutionAPI')) && (
+                  <button
+                    onClick={async () => {
+                      if (confirm("Deseja arquivar TODAS as conversas de sistema (EvolutionAPI)?")) {
+                        const targets = conversations.filter(c => c.resolvedName?.includes('EvolutionAPI'));
+                        for (const t of targets) {
+                          await resolveConversation(t.id);
+                        }
+                      }
+                    }}
+                    title="Arquivar conversas de sistema"
+                    className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-red-400 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
-
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-              <button onClick={() => setChatFilter('all')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${chatFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Tudo</button>
-              <button onClick={() => setChatFilter('mine')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${chatFilter === 'mine' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Meus</button>
-              {isHiddenUnlocked && <button onClick={() => setChatFilter('hidden')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${chatFilter === 'hidden' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Ocultos</button>}
-            </div>
-
-            {chatFilter === 'hidden' && !isHiddenUnlocked && (
-              <div className="flex gap-2">
-                <Input type="password" placeholder="Senha..." className="h-9 text-xs" value={unlockPassword} onChange={e => setUnlockPassword(e.target.value)} />
-                <Button size="sm" onClick={() => { if (unlockPassword === hiddenChatPassword) { setIsHiddenUnlocked(true); toast.success("Desbloqueado"); } else toast.error("Senha errada"); }}>
-                  <Unlock className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar..."
-                className="pl-9 h-9 bg-gray-50 border-transparent focus:bg-white focus:border-blue-500 transition-all font-medium text-sm"
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar conversas..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50/50 border border-gray-200 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
               />
             </div>
           </div>
 
           <ScrollArea className="flex-1 bg-white">
-            <div className="flex flex-col">
-              {filteredChats.map((chat) => (
+            {isLoading && conversations.length === 0 ? (
+              <div className="flex items-center justify-center h-full p-8 text-indigo-500">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : filteredChats.length > 0 ? (
+              filteredChats.map((chat) => (
                 <ChatListItem
-                  key={chat.id || chat.remoteJid}
+                  key={chat.id}
                   chat={chat}
-                  isSelected={selectedChat && isSameJid(chat.id || chat.remoteJid, selectedChat.id || selectedChat.remoteJid, lidMap)}
-                  name={chat.computedName}
-                  phone={chat.computedPhone}
+                  isSelected={activeConversationId === chat.id}
                   onSelect={handleSelectChat}
+                  onResolve={(c) => resolveConversation(c.id)}
+                  onDelete={(c) => {
+                    if (confirm(`Deletar permanentemente a conversa com ${c.resolvedName}?`)) {
+                      deleteConversation(c.id);
+                    }
+                  }}
                 />
-              ))}
-              {filteredChats.length === 0 && !loading && (
-                <div className="p-8 text-center text-gray-400 text-sm font-medium">Nenhuma conversa encontrada.</div>
-              )}
-            </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
+                <p className="text-sm text-gray-500">Nenhuma conversa encontrada</p>
+                <p className="text-[10px] text-gray-400 mt-1 italic">Tente mudar o filtro ou buscar</p>
+              </div>
+            )}
+
+            {hasMoreConversations && filteredChats.length > 0 && searchQuery === "" && (
+              <div className="p-3 border-t border-gray-50 bg-white">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!isFetchingMoreConvos) loadMoreConversations();
+                  }}
+                  disabled={isFetchingMoreConvos}
+                  className="w-full py-2.5 px-4 bg-white border border-gray-200 text-gray-600 font-bold text-[10px] tracking-widest rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isFetchingMoreConvos ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5 text-gray-400" />
+                  )}
+                  <span>CARREGAR MAIS CONVERSAS</span>
+                </button>
+              </div>
+            )}
           </ScrollArea>
         </div>
 
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col bg-gray-50/50">
+        {/* Lado Direito - Mensagens */}
+        <div className="flex-1 flex flex-col h-full bg-[#E5DDD5] relative overflow-hidden">
           {selectedChat ? (
-            <>
-              {/* Header */}
-              <div className="h-16 px-6 border-b border-gray-200 bg-white flex items-center justify-between shadow-sm sticky top-0 z-10">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-10 w-10 border border-gray-100">
-                    <AvatarImage src={selectedChat.profilePicUrl} />
-                    <AvatarFallback className="bg-blue-50 text-blue-600 font-bold">
-                      {safeResolveName(selectedChat.id || selectedChat.remoteJid).substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h2 className="font-bold text-gray-900 text-sm leading-tight">
-                      {safeResolveName(selectedChat.id || selectedChat.remoteJid)}
-                    </h2>
-                    <p className="text-xs text-gray-500 font-medium">
-                      {formatPhoneNumber(selectedChat.id || selectedChat.remoteJid)}
-                    </p>
+            <div className="flex h-full w-full">
+              <div className="flex-1 flex flex-col h-full min-w-0">
+                {/* Header do Chat */}
+                <div className="h-[68px] shrink-0 px-6 bg-white/95 backdrop-blur shadow-sm border-b border-gray-200 flex items-center justify-between z-10">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-12 w-12 ring-2 ring-gray-100 shadow-sm pointer-events-none">
+                      <AvatarImage src={selectedChat.meta?.sender?.thumbnail} />
+                      <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-blue-200 text-indigo-700 font-bold">
+                        {safeSub(resolvedConversations.find(c => c.id === selectedChat.id)?.resolvedName || "D")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-800 leading-tight">
+                        {resolvedConversations.find(c => c.id === selectedChat.id)?.resolvedName || "Desconhecido"}
+                      </h2>
+                      <p className="text-sm text-gray-500 font-medium">
+                        {selectedChat.meta?.sender?.phone_number || ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => resolveConversation(selectedChat.id)}
+                      className="h-9 gap-2 rounded-xl text-emerald-600 border-emerald-100 hover:bg-emerald-50"
+                    >
+                      <Check className="h-4 w-4" />
+                      <span className="text-xs font-bold">Resolver</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowContactPanel(!showContactPanel)}
+                      className={`h-10 w-10 rounded-xl transition-all ${showContactPanel ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400'}`}
+                    >
+                      <Info className="h-5 w-5" />
+                    </Button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {/* Simplified Tabs for Header */}
-                  <div className="flex bg-gray-100 p-0.5 rounded-lg mr-4">
-                    <button onClick={() => setActiveTab('chat')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === 'chat' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Chat</button>
-                    <button onClick={() => setActiveTab('details')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === 'details' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Dados</button>
-                    <button onClick={() => setActiveTab('notes')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === 'notes' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Notas</button>
+                {/* Área de Mensagens */}
+                <ScrollArea className="flex-1 p-6 z-0" style={{ backgroundImage: 'url("https://w7.pngwing.com/pngs/1023/241/png-transparent-whatsapp-pattern-abstract-doodle.png")', backgroundSize: '400px', backgroundBlendMode: 'soft-light' }}>
+                  <div className="max-w-4xl mx-auto flex flex-col justify-end min-h-full py-4 px-2">
+                    {currentMessages.length === 0 ? (
+                      <div className="flex items-center justify-center p-8">
+                        <Loader2 className="animate-spin text-gray-400 h-8 w-8" />
+                      </div>
+                    ) : (
+                      <>
+                        {hasMoreMessages[activeConversationId as number] && (
+                          <div className="flex justify-center mb-6">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => loadMoreMessages(activeConversationId as number)}
+                              disabled={isFetchingHistory}
+                              className="rounded-full bg-white/50 backdrop-blur-sm border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200"
+                            >
+                              {isFetchingHistory ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                              ) : (
+                                <RefreshCw className="h-3 w-3 mr-2" />
+                              )}
+                              Carregar mensagens anteriores
+                            </Button>
+                          </div>
+                        )}
+                        {currentMessages.map((msg: any, i: number) => (
+                          <MessageBubble
+                            key={msg.id || i}
+                            item={msg}
+                            isMe={msg.message_type === 1}
+                          />
+                        ))}
+                      </>
+                    )}
+                    <div ref={messagesEndRef} />
                   </div>
+                </ScrollArea>
 
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)} className="h-8 w-8 text-gray-400 hover:text-gray-600">
-                    <X className="h-5 w-5" />
-                  </Button>
+                {/* Input Area - Adjusted for absolute bottom reach */}
+                <div className="p-4 bg-white border-t border-gray-100 mt-auto pb-4 md:pb-6 shadow-[0_-4px_12px_rgba(0,0,0,0.02)]">
+                  <div className="max-w-4xl mx-auto flex items-end gap-2">
+                    <div className="flex-1">
+                      <Textarea
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        placeholder="Digite uma mensagem..."
+                        className="min-h-[44px] max-h-32 resize-none bg-gray-50/50 border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-2xl shadow-sm text-[15px] py-3 px-4 leading-relaxed"
+                        disabled={isSending}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSend();
+                          }
+                        }}
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSend}
+                      disabled={isSending || !messageInput.trim()}
+                      className="h-11 w-11 rounded-full flex items-center justify-center shrink-0 bg-indigo-500 hover:bg-indigo-600 text-white shadow-md transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isSending ? <Loader2 className="animate-spin h-5 w-5" /> : <Send className="h-5 w-5" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              {/* Content */}
-              {activeTab === 'chat' ? (
-                <>
-                  <div ref={scrollViewportRef} className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/30" onScroll={handleScroll}>
-                    {messages.map((item, idx) => {
-                      const msg = item.data;
-                      const isMe = msg.key?.fromMe;
-                      const { type, content } = extractMessageContent(msg);
-                      const mimeType = (msg.message?.imageMessage?.mimetype || msg.message?.videoMessage?.mimetype || msg.message?.audioMessage?.mimetype || msg.message?.documentMessage?.mimetype);
-                      const fileName = msg.message?.documentMessage?.fileName;
-
-                      return (
-                        <MessageBubble
-                          key={idx}
-                          item={item}
-                          isMe={isMe}
-                          type={type}
-                          content={content}
-                          mimeType={mimeType}
-                          fileName={fileName}
-                          api={api}
-                        />
-                      );
-                    })}
-                    <div ref={messagesEndRef} />
-                  </div>
-                  <ChatInputView
-                    value={messageInput}
-                    onChange={handleInputChange}
-                    onSend={handleMainAction}
-                    isWhisperMode={isWhisperMode}
-                    toggleWhisper={() => setIsWhisperMode(!isWhisperMode)}
+              {/* Contact Panel (Lado Direito do Chat) */}
+              {showContactPanel && crmId && (
+                <div className="w-[340px] border-l border-gray-200 bg-white h-full flex flex-col animate-in slide-in-from-right duration-300">
+                  <ContactPanel
+                    chat={selectedChat}
+                    resolveName={(jid) => resolveName(jid)}
+                    phone={(selectedChat as any).meta?.sender?.phone_number}
+                    deal={getDealByChatId(crmId)}
+                    assignee={getChatAssignee(crmId)}
+                    agents={agents}
+                    onAssign={(agentId) => crmId && assignChat(crmId, agentId === 'none' ? '' : agentId)}
+                    onStageChange={(dealId, stageId) => updateDealStage(dealId, stageId)}
+                    onAddDeal={(deal) => addDeal(deal)}
+                    onSaveNote={(n) => crmId && saveContactNote(crmId, n)}
+                    onSaveTags={(t) => crmId && saveContactTags(crmId, t)}
+                    notes={contactNotes[crmId]}
+                    tags={contactTags[crmId] || []}
+                    stages={stages}
                   />
-                </>
-              ) : activeTab === 'details' ? (
-                <div className="p-8 max-w-lg mx-auto w-full space-y-6">
-                  <div className="space-y-4">
-                    <Label>Nome Personalizado</Label>
-                    <div className="flex gap-2">
-                      <Input value={editName} onChange={e => setEditName(e.target.value)} />
-                      <Button onClick={() => { setCustomName(selectedChat.id || selectedChat.remoteJid, editName); toast.success("Salvo"); }}>Salvar</Button>
-                    </div>
-                  </div>
                 </div>
-              ) : activeTab === 'notes' ? (
-                <div className="p-8 max-w-lg mx-auto w-full space-y-4">
-                  <Label>Bloco de Notas</Label>
-                  <Textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} className="min-h-[300px]" placeholder="Escreva observações sobre este cliente..." />
-                  <Button onClick={handleSaveNote} className="w-full">Salvar Notas</Button>
-                </div>
-              ) : null}
-
-            </>
+              )}
+            </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-300">
-              <MessageSquare className="h-16 w-16 mb-4 opacity-20" />
-              <p className="text-sm font-medium">Selecione uma conversa</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+              <div className="h-24 w-24 bg-white/50 backdrop-blur-xl rounded-full flex items-center justify-center mb-6 shadow-xl border border-white/60">
+                <MessageSquare className="h-10 w-10 text-indigo-400 opacity-80" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Selecione uma conversa</h2>
+              <p className="text-gray-500 max-w-sm leading-relaxed">
+                As conversas do Chatwoot aparecem aqui. <br /> Use o botão de sincronização acima para puxar o histórico do WhatsApp.
+              </p>
             </div>
           )}
         </div>
       </div>
+    </CRMLayout >
+  );
+}
 
-      {/* Manual Resolution Dialog */}
-      {resolutionDialogOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="font-bold text-lg">Resolver Contato</h3>
-            <p className="text-sm text-gray-500">Informe o número para este LID:</p>
-            <Input value={manualPhoneInput} onChange={e => setManualPhoneInput(e.target.value)} placeholder="5511999999999" />
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setResolutionDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handleManualResolution}>Salvar</Button>
+// Re-using the same ContactPanel component structure from previous edits
+function ContactPanel({ chat, resolveName, phone, deal, assignee, agents, onAssign, onStageChange, onAddDeal, onSaveNote, onSaveTags, notes, tags, stages }: any) {
+  const [activeTab, setActiveTab] = useState<'info' | 'notes' | 'deal'>('info');
+  const [note, setNote] = useState("");
+
+  const jid = chat.meta?.sender?.identifier || chat.meta?.sender?.phone_number;
+
+  return (
+    <div className="flex flex-col h-full bg-white overflow-hidden">
+      <div className="p-4 border-b border-gray-100 text-center bg-gradient-to-b from-indigo-50/50 to-white">
+        <Avatar className="h-16 w-16 mx-auto mb-3 ring-4 ring-white shadow-md">
+          <AvatarImage src={chat.meta?.sender?.thumbnail} />
+          <AvatarFallback className="text-xl font-bold bg-indigo-500 text-white">
+            {resolveName(jid).substring(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <h3 className="font-bold text-gray-900 truncate px-2">{resolveName(jid)}</h3>
+        <p className="text-xs text-gray-500 font-medium mt-1">{phone || jid}</p>
+      </div>
+
+      <div className="flex p-1 bg-gray-50 m-3 rounded-xl border border-gray-100 shadow-inner">
+        {(['info', 'notes', 'deal'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all ${activeTab === tab ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            {tab === 'info' ? 'Dados' : tab === 'notes' ? 'Notas' : 'Negócio'}
+          </button>
+        ))}
+      </div>
+
+      <ScrollArea className="flex-1 px-4 pb-4">
+        {activeTab === 'info' && (
+          <div className="space-y-5 animate-in fade-in duration-300">
+            <div>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Responsável</label>
+              <select
+                className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                value={assignee?.id || 'none'}
+                onChange={(e) => onAssign(e.target.value)}
+              >
+                <option value="none">Nenhum agente</option>
+                {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Tags</label>
+              <div className="flex flex-wrap gap-1.5 min-h-[40px] p-2 bg-gray-50 rounded-xl border border-gray-100">
+                {tags.map((t: string) => (
+                  <span key={t} className="px-2 py-0.5 bg-white text-[10px] font-bold text-indigo-600 rounded-md border border-indigo-100 shadow-sm">#{t}</span>
+                ))}
+                <button onClick={() => {
+                  const next = prompt("Nova tag:");
+                  if (next) onSaveTags([...tags, next.replace('#', '')]);
+                }} className="h-5 px-1.5 flex items-center justify-center bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-100 transition-colors">
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </CRMLayout>
+        )}
+
+        {activeTab === 'notes' && (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+              <p className="text-[11px] font-medium text-indigo-800 leading-relaxed italic">
+                {notes || 'Sem notas para este contato.'}
+              </p>
+            </div>
+            <Textarea
+              placeholder="Adicionar nota interna..."
+              className="text-xs min-h-[100px] rounded-xl border-gray-100 bg-gray-50/30 font-medium"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+            />
+            <Button size="sm" className="w-full rounded-xl bg-indigo-500 hover:bg-indigo-600 text-[11px] font-bold py-5" onClick={() => { onSaveNote(note); setNote(""); }}>Salvar Nota</Button>
+          </div>
+        )}
+
+        {activeTab === 'deal' && (
+          <div className="animate-in fade-in duration-300">
+            {deal ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
+                  <p className="text-[10px] font-bold uppercase opacity-70 mb-1">Negócio Ativo</p>
+                  <h4 className="font-bold text-lg mb-0.5">{deal.title}</h4>
+                  <p className="text-xl font-black mb-3">R$ {deal.value?.toLocaleString()}</p>
+                  <div className="flex items-center gap-1.5 opacity-90">
+                    <Briefcase className="h-3 w-3" />
+                    <span className="text-[10px] font-bold">ETAPA: {stages.find((s: any) => s.id === deal.stageId)?.name.toUpperCase()}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Mover Estágio</label>
+                  <div className="grid grid-cols-1 gap-1">
+                    {stages.map((s: any) => (
+                      <button
+                        key={s.id}
+                        onClick={() => onStageChange(deal.id, s.id)}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${deal.stageId === s.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm ring-2 ring-indigo-500/10' : 'bg-gray-50 border-gray-100 text-gray-500 hover:bg-white hover:border-indigo-200'}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          {s.name}
+                          {deal.stageId === s.id && <Check className="h-3 w-3" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200 my-4">
+                <div className="h-12 w-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
+                  <Briefcase className="h-6 w-6 text-gray-300" />
+                </div>
+                <h4 className="text-sm font-bold text-gray-700 mb-1">Sem negócio ativo</h4>
+                <p className="text-[11px] text-gray-400 mb-5">Adicione este contato ao seu funil de vendas</p>
+                <Button className="w-full bg-indigo-500 hover:bg-indigo-600 rounded-xl font-bold py-5 text-xs shadow-lg shadow-indigo-200" onClick={() => onAddDeal({
+                  title: `Novo negócio - ${resolveName(jid)}`,
+                  contactId: jid,
+                  value: 0,
+                  stageId: stages[0]?.id
+                })}>Criar Negócio</Button>
+              </div>
+            )}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 
 // --- Types ---
 
@@ -8,6 +8,7 @@ export type Agent = {
     avatar: string;
     role: "admin" | "agent";
     email: string;
+    profileId?: string; // maps to ERP Staff profile id
 };
 
 // Represents a Deal/Opportunity in the Kanban board
@@ -20,6 +21,11 @@ export type Deal = {
     stageId: string;
     tags: string[];
     createdAt: number;
+    assignedTo?: string; // Agent ID responsible
+    lastActivity?: number; // timestamp
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    source?: string;
+    dealValue?: number; // numeric value for calculations
 };
 
 // Represents the Funnel Configuration
@@ -41,8 +47,8 @@ export type WhisperMessage = {
 interface CrmContextType {
     // Agents
     agents: Agent[];
-    currentUser: Agent;
-    setCurrentUser: (agent: Agent) => void;
+    currentAgent: Agent | null;
+    setCurrentAgent: (agent: Agent) => void;
     addAgent: (agent: Agent) => void;
     updateAgent: (agentId: string, updates: Partial<Agent>) => void;
     removeAgent: (agentId: string) => void;
@@ -78,22 +84,30 @@ interface CrmContextType {
     // Whispers (Spying/Internal notes)
     whispers: WhisperMessage[];
     addWhisper: (whisper: Omit<WhisperMessage, "id" | "timestamp">) => void;
+
+    // Unread Messages System
+    unreadCounts: Record<string, number>; // chatId -> unread count
+    totalUnread: number;
+    markAsRead: (chatId: string) => void;
+    incrementUnread: (chatId: string, count?: number) => void;
+    setUnreadCount: (chatId: string, count: number) => void;
+    updateUnreadFromChats: (chats: any[]) => void;
+    lastReadTimestamps: Record<string, number>; // chatId -> last read timestamp
+
+    // Backward compat
+    currentUser: Agent;
+    setCurrentUser: (agent: Agent) => void;
 }
 
-// --- Mock Data ---
-
-const MOCK_AGENTS: Agent[] = [
-    { id: "1", name: "Israel", avatar: "https://github.com/shadcn.png", role: "admin", email: "israel@crm.com" },
-    { id: "2", name: "Pedro", avatar: "https://i.pravatar.cc/150?u=pedro", role: "agent", email: "pedro@crm.com" },
-    { id: "3", name: "Ana", avatar: "https://i.pravatar.cc/150?u=ana", role: "agent", email: "ana@crm.com" },
-];
+// --- Default Stages ---
 
 export const DEFAULT_STAGES: FunnelStage[] = [
     { id: "leads", title: "Novos Leads", color: "bg-blue-500" },
     { id: "contact", title: "Em Contato", color: "bg-yellow-500" },
     { id: "proposal", title: "Proposta Enviada", color: "bg-purple-500" },
     { id: "negotiation", title: "Em Negociação", color: "bg-orange-500" },
-    { id: "won", title: "Fechado", color: "bg-emerald-500" },
+    { id: "won", title: "Fechado ✅", color: "bg-emerald-500" },
+    { id: "lost", title: "Perdido", color: "bg-red-500" },
 ];
 
 const CrmContext = createContext<CrmContextType | undefined>(undefined);
@@ -102,17 +116,25 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
     // --- State ---
     const [agents, setAgents] = useState<Agent[]>(() => {
         const saved = localStorage.getItem("crm_agents");
-        return saved ? JSON.parse(saved) : MOCK_AGENTS;
+        return saved ? JSON.parse(saved) : [];
     });
 
-    const [currentUser, setCurrentUser] = useState<Agent>(() => {
-        const saved = localStorage.getItem("crm_current_user");
+    const [currentAgent, setCurrentAgentState] = useState<Agent | null>(() => {
+        const saved = localStorage.getItem("crm_current_agent");
         if (saved) {
-            const savedUser = JSON.parse(saved);
-            return savedUser;
+            try { return JSON.parse(saved); } catch { return null; }
         }
-        return MOCK_AGENTS[0];
+        return null;
     });
+
+    // Backward compat wrapper
+    const currentUser = currentAgent || { id: "0", name: "Usuário", avatar: "", role: "admin" as const, email: "" };
+    const setCurrentUser = (agent: Agent) => setCurrentAgentState(agent);
+
+    const setCurrentAgent = (agent: Agent) => {
+        setCurrentAgentState(agent);
+        localStorage.setItem("crm_current_agent", JSON.stringify(agent));
+    };
 
     // Persisted Assignments (chatId -> agentId)
     const [assignments, setAssignments] = useState<Record<string, string>>(() => {
@@ -155,14 +177,97 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
         return saved ? JSON.parse(saved) : [];
     });
 
+    // --- Unread Messages System ---
+    const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>(() => {
+        const saved = localStorage.getItem("crm_unread_counts");
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    const [lastReadTimestamps, setLastReadTimestamps] = useState<Record<string, number>>(() => {
+        const saved = localStorage.getItem("crm_last_read");
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    const totalUnread = useMemo(() => {
+        return Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+    }, [unreadCounts]);
+
+    const markAsRead = useCallback((chatId: string) => {
+        setUnreadCounts(prev => {
+            if (!prev[chatId] || prev[chatId] === 0) return prev;
+            const next = { ...prev };
+            next[chatId] = 0;
+            return next;
+        });
+        setLastReadTimestamps(prev => ({
+            ...prev,
+            [chatId]: Math.floor(Date.now() / 1000)
+        }));
+    }, []);
+
+    const incrementUnread = useCallback((chatId: string, count: number = 1) => {
+        setUnreadCounts(prev => ({
+            ...prev,
+            [chatId]: (prev[chatId] || 0) + count
+        }));
+    }, []);
+
+    const setUnreadCount = useCallback((chatId: string, count: number) => {
+        setUnreadCounts(prev => {
+            if (prev[chatId] === count) return prev;
+            return { ...prev, [chatId]: count };
+        });
+    }, []);
+
+    // Use a ref for lastReadTimestamps to avoid stale closures in updateUnreadFromChats
+    const lastReadTimestampsRef = React.useRef(lastReadTimestamps);
+    React.useEffect(() => {
+        lastReadTimestampsRef.current = lastReadTimestamps;
+    }, [lastReadTimestamps]);
+
+    const updateUnreadFromChats = useCallback((chats: any[]) => {
+        setUnreadCounts(prev => {
+            const currentLastRead = lastReadTimestampsRef.current;
+            const next = { ...prev };
+            let changed = false;
+            for (const chat of chats) {
+                const jid = chat.id || chat.remoteJid;
+                if (!jid) continue;
+                const apiUnread = chat.unreadCount || 0;
+
+                // If we've already read this chat locally, respect that decision
+                const lastRead = currentLastRead[jid] || 0;
+                const chatTs = Number(chat.messageTimestamp || 0);
+
+                // Only mark as unread if there's a NEW message AFTER our last read
+                if (lastRead > 0 && chatTs <= lastRead) {
+                    // We already read this conversation and no new messages arrived
+                    if (next[jid] !== 0) {
+                        next[jid] = 0;
+                        changed = true;
+                    }
+                    continue;
+                }
+
+                if (apiUnread > 0 && chatTs > lastRead) {
+                    // New messages arrived after we last read
+                    if (next[jid] !== apiUnread) {
+                        next[jid] = apiUnread;
+                        changed = true;
+                    }
+                } else if (apiUnread === 0 && next[jid] > 0) {
+                    next[jid] = 0;
+                    changed = true;
+                }
+            }
+            return changed ? next : prev;
+        });
+    }, []);
+
     // --- Effects to Save State ---
     useEffect(() => {
         localStorage.setItem("crm_agents", JSON.stringify(agents));
     }, [agents]);
-
-    useEffect(() => {
-        localStorage.setItem("crm_current_user", JSON.stringify(currentUser));
-    }, [currentUser]);
 
     useEffect(() => {
         localStorage.setItem("crm_assignments", JSON.stringify(assignments));
@@ -196,6 +301,14 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("crm_whispers", JSON.stringify(whispers));
     }, [whispers]);
 
+    useEffect(() => {
+        localStorage.setItem("crm_unread_counts", JSON.stringify(unreadCounts));
+    }, [unreadCounts]);
+
+    useEffect(() => {
+        localStorage.setItem("crm_last_read", JSON.stringify(lastReadTimestamps));
+    }, [lastReadTimestamps]);
+
     // --- Actions ---
 
     const assignChat = (chatId: string, agentId: string) => {
@@ -208,7 +321,11 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
     };
 
     const addDeal = (deal: Deal) => {
-        setDeals((prev) => [...prev, deal]);
+        setDeals((prev) => {
+            // Prevent duplicate deals
+            if (prev.some(d => d.id === deal.id)) return prev;
+            return [...prev, deal];
+        });
     };
 
     const updateDeal = (dealId: string, updates: Partial<Deal>) => {
@@ -245,15 +362,13 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
 
     const updateAgent = (agentId: string, updates: Partial<Agent>) => {
         setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, ...updates } : a)));
-        // If updating current user, update it too
-        if (currentUser.id === agentId) {
-            setCurrentUser((prev) => ({ ...prev, ...updates }));
+        if (currentAgent?.id === agentId) {
+            setCurrentAgentState((prev) => prev ? { ...prev, ...updates } : prev);
         }
     };
 
     const removeAgent = (agentId: string) => {
         setAgents((prev) => prev.filter((a) => a.id !== agentId));
-        // Clean up assignments for this agent
         setAssignments((prev) => {
             const newAssignments = { ...prev };
             Object.keys(newAssignments).forEach(chatId => {
@@ -271,7 +386,6 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
 
     const removeStage = (stageId: string) => {
         setStages((prev) => prev.filter((s) => s.id !== stageId));
-        // Move deals from deleted stage to first stage
         setDeals((prev) => prev.map(d =>
             d.stageId === stageId ? { ...d, stageId: stages[0]?.id || "leads" } : d
         ));
@@ -294,6 +408,8 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
         <CrmContext.Provider
             value={{
                 agents,
+                currentAgent,
+                setCurrentAgent,
                 currentUser,
                 setCurrentUser,
                 addAgent,
@@ -322,7 +438,15 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
                 setHiddenChatPassword,
                 setDeals,
                 whispers,
-                addWhisper
+                addWhisper,
+                // Unread
+                unreadCounts,
+                totalUnread,
+                markAsRead,
+                incrementUnread,
+                setUnreadCount,
+                updateUnreadFromChats,
+                lastReadTimestamps,
             }}
         >
             {children}

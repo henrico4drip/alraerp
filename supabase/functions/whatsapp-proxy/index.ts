@@ -13,6 +13,18 @@ const EVO_CONFIG = {
     instanceName: Deno.env.get('EVOLUTION_INSTANCE') || 'alraerp',
 }
 
+const CHATWOOT_CONFIG = {
+    enabled: true,
+    accountId: Deno.env.get('CHATWOOT_ACCOUNT_ID') || '1',
+    token: Deno.env.get('CHATWOOT_TOKEN') || 'pgh3rRR6ZLirSnzdnuQZbhNV',
+    url: Deno.env.get('CHATWOOT_URL') || 'http://84.247.143.180', // External for ERP proxy
+    internalUrl: Deno.env.get('CHATWOOT_INTERNAL_URL') || 'http://rails:3000', // Internal for Evolution
+    importContacts: true,
+    importMessages: true,
+    daysLimitImportMessages: 365,
+    reopenConversation: true,
+}
+
 const OPENAI_KEY = Deno.env.get('OPENAI_API_KEY')
 
 // -- SERVICE CLASSES --
@@ -34,27 +46,27 @@ class EvolutionService {
         }
 
         try {
-            console.log(`[EVO] Request: ${init.method || 'GET'} ${url} (Key prefix: ${configKey.substring(0, 3)}...)`)
-            const res = await fetch(url, { ...init, headers })
-            const text = await res.text()
-            let json = null
-            try { json = JSON.parse(text) } catch { }
+            const requestId = Math.random().toString(36).substring(7)
+            console.log(`[EVO] [${requestId}] ${init.method || 'GET'} ${url}`)
 
-            // AUTO-RECOVERY: If 401 and we have a hardcoded fallback that is different, try it once
-            if (res.status === 401 && retryWithFallback && configKey !== 'Henrico9516') {
-                console.warn(`[EVO] 401 Unauthorized with configured key. Retrying with default fallback 'Henrico9516'...`)
-                const fallbackHeaders = { ...headers, 'apikey': 'Henrico9516', 'apiKey': 'Henrico9516' }
-                const retryRes = await fetch(url, { ...init, headers: fallbackHeaders })
-                const retryText = await retryRes.text()
-                let retryJson = null
-                try { retryJson = JSON.parse(retryText) } catch { }
-                return { status: retryRes.status, json: retryJson, text: retryText }
+            // Set a timeout to prevent Edge Function 504 Gateway Timeout (60s limit)
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 20000) // 20s timeout per call
+
+            try {
+                const res = await fetch(url, { ...init, headers, signal: controller.signal })
+                const text = await res.text()
+                let json = null
+                try { json = JSON.parse(text) } catch { }
+
+                console.log(`[EVO] [${requestId}] Response: ${res.status}`)
+                return { status: res.status, json, text }
+            } finally {
+                clearTimeout(timeoutId)
             }
-
-            return { status: res.status, json, text }
-        } catch (e) {
+        } catch (e: any) {
             console.error(`[EVO] Fatal Error: ${e.message}`)
-            return { status: 0, json: null, text: e.message }
+            return { status: 504, json: null, text: e.message }
         }
     }
 }
@@ -139,11 +151,11 @@ serve(async (req) => {
         const { action, payload } = body
         const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        
+
         // Log para debug
         console.log(`[DEBUG] SUPABASE_URL: ${supabaseUrl ? 'definido' : 'nao definido'}`)
         console.log(`[DEBUG] SERVICE_ROLE_KEY: ${supabaseServiceKey ? 'definido (length: ' + supabaseServiceKey.length + ')' : 'nao definido'}`)
-        
+
         // Admin client with service role key (bypasses RLS)
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
             auth: {
@@ -166,17 +178,17 @@ serve(async (req) => {
 
         // Support both Evolution API v1 (lowercase) and v2 (uppercase) event formats
         const eventName = (body.event || '').toLowerCase()
-        if (eventName === 'messages.upsert' || eventName === 'messages.update' || eventName === 'contacts.upsert' || eventName === 'contacts.update' || eventName === 'connection.update' || eventName === 'send.message' || eventName === 'messages_upsert' || eventName === 'messages_update' || eventName === 'contacts_upsert' || eventName === 'contacts_update' || eventName === 'connection_update' || eventName === 'send_message') {
+        if (eventName === 'messages.upsert' || eventName === 'messages.update' || eventName === 'messages.set' || eventName === 'contacts.upsert' || eventName === 'contacts.update' || eventName === 'connection.update' || eventName === 'send.message' || eventName === 'messages_upsert' || eventName === 'messages_update' || eventName === 'messages_set' || eventName === 'contacts_upsert' || eventName === 'contacts_update' || eventName === 'connection_update' || eventName === 'send_message') {
             console.log(`[WEBHOOK] Received ${body.event} for instance ${body.instance}`)
-            
+
             const data = body.data || body.data?.data || {}
             // Evolution API structure varies: sometimes body.data is the payload, sometimes body.data.data
 
             const instanceName = body.instance || 'alraerp'
-            
+
             // For alraerp instance, use a fixed user ID or look up by instance name
             let userId = null
-            
+
             if (instanceName === 'alraerp') {
                 // Find the admin user or first user
                 const { data: adminUsers } = await supabaseAdmin.from('profiles')
@@ -184,7 +196,7 @@ serve(async (req) => {
                     .order('created_at', { ascending: true })
                     .limit(1)
                 userId = adminUsers?.[0]?.id
-                
+
                 // Fallback: try 'users' table if profiles is empty
                 if (!userId) {
                     const { data: usersData } = await supabaseAdmin.from('users')
@@ -193,11 +205,21 @@ serve(async (req) => {
                         .limit(1)
                     userId = usersData?.[0]?.id
                 }
-                
-                // Final fallback: use a default system user ID
+
+                // Final fallback: create/use a default system user ID
                 if (!userId) {
-                    console.log('[WEBHOOK] No user found in profiles or users table, using system default')
-                    userId = '00000000-0000-0000-0000-000000000000'
+                    console.log('[WEBHOOK] No user found, creating system user...')
+                    const systemId = '00000000-0000-0000-0000-000000000000'
+
+                    // Try to create the system user in users table (minimal - just id)
+                    const { error: createUserError } = await supabaseAdmin.from('users').upsert({
+                        id: systemId
+                    }, { onConflict: 'id' })
+
+                    console.log('[WEBHOOK] Create user result:', createUserError ? `Error: ${createUserError.message}` : 'Success')
+
+                    userId = systemId
+                    console.log('[WEBHOOK] Using system user ID:', userId)
                 }
             } else {
                 // Instance convention: "erp_USERID" -> extract header id
@@ -216,26 +238,36 @@ serve(async (req) => {
                 const contacts = Array.isArray(data) ? data : [data]
                 for (const c of contacts) {
                     if (!c.id) continue
-                    const phone = c.id.split('@')[0]
-                    const name = c.pushName || c.name || c.verifiedName || phone
+                    let phone = c.id.split('@')[0]
+                    const newName = c.pushName || c.name || c.verifiedName || phone
+                    const isNewNameGeneric = !newName || newName === phone || /^\d+$/.test(newName) || newName === 'Você' || newName === 'You'
 
-                    // Upsert mechanism
+                    // Normalização para busca de duplicados
+                    const variants = [phone]
+                    if (phone.startsWith('55') && phone.length === 13 && phone[4] === '9') {
+                        variants.push(phone.substring(0, 4) + phone.substring(5))
+                    } else if (phone.startsWith('55') && phone.length === 12) {
+                        variants.push(phone.substring(0, 4) + '9' + phone.substring(4))
+                    }
+
                     const { data: existing } = await supabaseAdmin.from('customers')
-                        .select('id')
-                        .eq('phone', phone)
+                        .select('id, name')
+                        .in('phone', variants)
                         .maybeSingle()
 
                     if (!existing) {
                         await supabaseAdmin.from('customers').insert({
                             user_id: userId,
                             phone: phone,
-                            name: name,
-                            notes: 'Atualizado via Webhook',
+                            name: newName,
+                            notes: 'Criado via Webhook',
                             created_date: new Date().toISOString()
                         })
-                    } else {
-                        // Optional: update name if significantly better?
-                        // await supabaseAdmin.from('customers').update({ name }).eq('id', existing.id)
+                    } else if (!isNewNameGeneric) {
+                        const isCurrentNameGeneric = !existing.name || existing.name === phone || /^\d+$/.test(existing.name)
+                        if (isCurrentNameGeneric) {
+                            await supabaseAdmin.from('customers').update({ name: newName }).eq('id', existing.id)
+                        }
                     }
                 }
                 return new Response('ok', { headers: corsHeaders })
@@ -243,44 +275,208 @@ serve(async (req) => {
 
             // --- MESSAGES HANDLING ---
             // Save BOTH inbound and outbound messages for full history
-            if (!data) return new Response('ok', { headers: corsHeaders })
+            console.log(`[WEBHOOK] Messages handler - data entries: ${Array.isArray(data) ? data.length : (data.messages ? 'object with messages' : 'single message')}`)
 
-            const jid = data.key.remoteJid
-            // Ignore status updates (@status.broadcast) and groups (@g.us) if not needed
-            if (jid === 'status@broadcast' || jid.includes('@g.us')) return new Response('ok', { headers: corsHeaders })
+            // Support messages.set (array of messages in data.messages) or direct array
+            const entries = Array.isArray(data) ? data : (data.messages && Array.isArray(data.messages) ? data.messages : [data])
 
-            const phone = jid.split('@')[0]
-            const type = data.messageType
-            let content = ''
+            let processedCount = 0
+            let savedCount = 0
 
-            // Basic extraction based on type
-            if (type === 'conversation') content = data.message.conversation
-            else if (type === 'extendedTextMessage') content = data.message.extendedTextMessage.text
-            else if (type === 'audioMessage') content = await AIService.transcribeAudio(data.message.base64)
-            else if (type === 'imageMessage') content = await AIService.analyzeImage(data.message.base64)
-            else if (data.message?.viewOnceMessageV2?.message?.imageMessage) {
-                // ViewOnce images
-                content = await AIService.analyzeImage(
-                    data.message.viewOnceMessageV2.message.imageMessage.base64 || '' // Evolution often sends base64 if configured
-                )
-            }
+            for (const entry of entries) {
+                if (!entry || !entry.key) continue
+                processedCount++
 
-            if (content) {
-                console.log(`[WEBHOOK] Inserting message from ${phone}, userId: ${userId}`)
-                const { data: insertData, error: insertError } = await supabaseAdmin.from('whatsapp_messages').insert({
-                    user_id: userId,
-                    contact_phone: phone,
-                    content,
-                    direction: data.key.fromMe ? 'outbound' : 'inbound',
-                    wa_message_id: data.key.id,
-                    status: data.key.fromMe ? 'sent' : 'received'
-                })
-                if (insertError) {
-                    console.error(`[WEBHOOK] Insert error:`, insertError)
-                } else {
-                    console.log(`[WEBHOOK] Insert successful:`, insertData)
+                const jid = entry.key.remoteJid
+
+                // Ignore status updates (@status.broadcast) and groups (@g.us)
+                if (!jid || jid === 'status@broadcast' || jid.includes('@g.us')) {
+                    continue
+                }
+
+                let phone = jid.split('@')[0]
+                const type = entry.messageType || (entry.message ? Object.keys(entry.message)[0] : '')
+                let content = ''
+
+                // Resolve LID to real phone if possible
+                let resolvedPhone = phone
+                const isDisguisedLID = phone.startsWith('2406') || phone.length >= 14 || jid.includes('@lid')
+
+                if (isDisguisedLID && !entry.key.fromMe) {
+                    const deepJid = entry.message?.senderPn || entry.senderPn || entry.message?.participant || entry.participant || entry.key?.participant || entry.message?.user || entry.user
+                    if (deepJid && typeof deepJid === 'string' && deepJid.includes('@s.whatsapp.net')) {
+                        const cleanDeep = deepJid.split('@')[0].replace(/\D/g, '')
+                        if (cleanDeep && cleanDeep !== phone) {
+                            resolvedPhone = cleanDeep
+                            console.log(`[WEBHOOK] Resolved masked LID ${phone} to real phone ${resolvedPhone}`)
+
+                            // SAVE LAPPING PERMANENTLY
+                            try {
+                                await supabaseAdmin.from('wa_lid_mappings').upsert({
+                                    lid: phone, // often the LID is passed as 'phone' in our logic
+                                    phone: resolvedPhone,
+                                    user_id: userId
+                                }, { onConflict: 'lid' })
+                            } catch (e) {
+                                console.error(`[WEBHOOK] Error saving LID mapping:`, e.message)
+                            }
+                        }
+                    }
+                }
+                phone = resolvedPhone
+
+                // Basic extraction based on type
+                if (entry.message?.conversation) content = entry.message.conversation
+                else if (entry.message?.extendedTextMessage?.text) content = entry.message.extendedTextMessage.text
+                else if (entry.message?.audioMessage) content = await AIService.transcribeAudio(entry.message.audioMessage.base64 || '')
+                else if (entry.message?.imageMessage) content = await AIService.analyzeImage(entry.message.imageMessage.base64 || '')
+                else if (entry.message?.viewOnceMessageV2?.message?.imageMessage) {
+                    content = await AIService.analyzeImage(entry.message.viewOnceMessageV2.message.imageMessage.base64 || '')
+                } else if (entry.message?.videoMessage) {
+                    content = entry.message.videoMessage.caption || '[Vídeo]'
+                } else if (entry.message?.documentMessage) {
+                    content = entry.message.documentMessage.fileName || '[Documento]'
+                } else if (entry.message?.stickerMessage) {
+                    content = '[Sticker]'
+                }
+
+                if (content) {
+                    const waId = entry.key.id
+
+                    // ✅ TRAVA ANTI-DUPLICIDADE
+                    const { data: existing } = await supabaseAdmin.from('whatsapp_messages')
+                        .select('id, user_id, contact_phone')
+                        .eq('wa_message_id', waId)
+                        .maybeSingle()
+
+                    if (existing) {
+                        console.log(`[WEBHOOK] Mensagem duplicada ignorada: ${waId}`)
+                        if (!existing.user_id && userId) {
+                            await supabaseAdmin.from('whatsapp_messages').update({ user_id: userId }).eq('id', existing.id)
+                        }
+                        continue
+                    }
+
+                    const isFromMe = entry.key.fromMe || false
+                    let contactName = entry.pushName || entry.verifiedName || phone
+                    const isNewNameGeneric = !contactName || contactName === phone || /^\d+$/.test(contactName) || contactName === 'Você' || contactName === 'You'
+
+                    // RESOLUÇÃO DE NOME E ATUALIZAÇÃO DO CLIENTE (Banco de Dados)
+                    const variants = [phone]
+                    if (phone.startsWith('55') && phone.length === 13 && phone[4] === '9') {
+                        variants.push(phone.substring(0, 4) + phone.substring(5))
+                    } else if (phone.startsWith('55') && phone.length === 12) {
+                        variants.push(phone.substring(0, 4) + '9' + phone.substring(4))
+                    }
+
+                    const { data: customer } = await supabaseAdmin.from('customers')
+                        .select('id, name')
+                        .in('phone', variants)
+                        .maybeSingle()
+
+                    if (!customer && !isFromMe) {
+                        // Criar cliente se não existir (apenas se for inbound)
+                        await supabaseAdmin.from('customers').insert({
+                            user_id: userId,
+                            phone: phone,
+                            name: contactName,
+                            notes: 'Criado via Webhook (Mensagem)',
+                            created_date: new Date().toISOString()
+                        })
+                    } else if (customer) {
+                        // Se cliente já existe, verificar se o nome atual é genérico
+                        const isCurrentNameGeneric = !customer.name || customer.name === phone || /^\d+$/.test(customer.name)
+
+                        // Atualizar nome no banco se o novo nome for melhor
+                        if (isCurrentNameGeneric && !isNewNameGeneric) {
+                            await supabaseAdmin.from('customers').update({ name: contactName }).eq('id', customer.id)
+                        } else if (!isCurrentNameGeneric) {
+                            // Se o nome no banco é melhor (já editado), usamos ele na mensagem
+                            contactName = customer.name
+                        }
+                    } else if (isFromMe && !customer) {
+                        // Se for outbound e não temos o cliente, tentamos pelo menos não salvar 'Você'
+                        contactName = phone
+                    }
+
+                    const insertPayload = {
+                        user_id: userId,
+                        contact_phone: phone,
+                        contact_name: contactName,
+                        content,
+                        direction: isFromMe ? 'outbound' : 'inbound',
+                        wa_message_id: waId,
+                        status: isFromMe ? 'sent' : 'received',
+                        created_at: entry.messageTimestamp ? new Date(Number(entry.messageTimestamp) * 1000).toISOString() : new Date().toISOString()
+                    }
+
+                    const { error: insertError } = await supabaseAdmin.from('whatsapp_messages').insert(insertPayload)
+                    if (!insertError) {
+                        savedCount++
+                        console.log(`[WEBHOOK] Mensagem salva: ${waId} (Contato: ${contactName})`)
+                    }
+
+                    // --- PERFECT CHATWOOT SYNC ---
+                    try {
+                        /*
+                        // 1. Force Contact Name Update in Chatwoot
+                        const fetchOpts = { headers: { 'api_access_token': CHATWOOT_CONFIG.token, 'Content-Type': 'application/json' } }
+                        const cwSearchUrl = `${CHATWOOT_CONFIG.url}/api/v1/accounts/${CHATWOOT_CONFIG.accountId}/contacts/search?q=${phone}`
+                        const searchRes = await fetch(cwSearchUrl, fetchOpts)
+                        const searchData = await searchRes.json()
+                        const cwContact = searchData?.payload?.[0]
+
+                        // Default to Inbox 2 (WhatsApp API usually auto-generates 2 for instances)
+                        // If you have multiple inboxes, they can be searched, but typically Native Evo is Inbox 2 or 1.
+                        let chatwootConvId = null;
+
+                        if (cwContact) {
+                            // Only update name if we have a better one
+                            const isGenericChatwootName = !cwContact.name || cwContact.name.includes(phone) || /^\d+$/.test(cwContact.name)
+                            if (cwContact.name !== contactName && (!customer || customer.name === contactName || isGenericChatwootName)) {
+                                await fetch(`${CHATWOOT_CONFIG.url}/api/v1/accounts/${CHATWOOT_CONFIG.accountId}/contacts/${cwContact.id}`, {
+                                    method: 'PUT',
+                                    headers: fetchOpts.headers,
+                                    body: JSON.stringify({ name: contactName })
+                                })
+                                console.log(`[CHATWOOT] Atualizou nome para: ${contactName}`)
+                            }
+                        */
+
+                        // 2. Outbound Injection: DISABLED to prevent duplicates.
+                        // Evolution API v2 has stable native Chatwoot sync for both inbound and outbound.
+                        /*
+                        if (isFromMe && content) {
+                            const convoRes = await fetch(`${CHATWOOT_CONFIG.url}/api/v1/accounts/${CHATWOOT_CONFIG.accountId}/contacts/${cwContact.id}/conversations`, fetchOpts)
+                            const convoData = await convoRes.json()
+                            const activeConvo = convoData?.payload?.find((c: any) => c.status === 'open') || convoData?.payload?.[0]
+
+                            if (activeConvo) {
+                                chatwootConvId = activeConvo.id
+                                // Verify message dup (wait, we can't easily, but we can try to assume it's missing)
+                                // Inject Message
+                                await fetch(`${CHATWOOT_CONFIG.url}/api/v1/accounts/${CHATWOOT_CONFIG.accountId}/conversations/${chatwootConvId}/messages`, {
+                                    method: 'POST',
+                                    headers: fetchOpts.headers,
+                                    body: JSON.stringify({
+                                        content: content,
+                                        message_type: 1, // Outgoing
+                                        private: false
+                                    })
+                                })
+                                console.log(`[CHATWOOT] Outbound message injected forcibly for ${phone}`)
+                            }
+                        }
+                        */
+                    } catch (cwErr: any) {
+                        console.error(`[CHATWOOT] Sync Error:`, cwErr.message)
+                    }
+                    // --- END PERFECT CHATWOOT SYNC ---
+
                 }
             }
+
+            console.log(`[WEBHOOK] Finished processing. Entries: ${entries.length}, Processed: ${processedCount}, Saved: ${savedCount}`)
             return new Response('ok', { headers: corsHeaders })
         }
 
@@ -294,16 +490,19 @@ serve(async (req) => {
         // =========================================================================================
         // For webhooks: check URL search param ?secret=xxx
         // For internal actions: use Authorization header
-        
+
         const url = new URL(req.url)
         const urlSecret = url.searchParams.get('secret') ?? ''
         const authHeader = req.headers.get('Authorization') ?? ''
-        
+        const webhookSecretHeader = req.headers.get('x-webhook-secret') ?? ''
+
         let user = null
-        
-        // First check URL secret (for Evolution API webhooks)
-        if (urlSecret === WEBHOOK_SECRET) {
-            console.log('[AUTH] Authenticated via URL secret')
+
+        // Check webhook secret (URL param, Authorization header, or x-webhook-secret header from Evolution API)
+        const isValidWebhookSecret = urlSecret === WEBHOOK_SECRET || webhookSecretHeader === WEBHOOK_SECRET
+
+        if (isValidWebhookSecret) {
+            console.log('[AUTH] Authenticated via webhook secret')
             // For webhook secret auth, use the admin/first user
             const { data: adminUsers } = await supabaseAdmin.from('profiles')
                 .select('id, email')
@@ -330,6 +529,103 @@ serve(async (req) => {
 
         switch (action) {
 
+            // --- DATABASE ACTIONS ---
+            case 'get_messages': {
+                const { data: messages, error } = await supabaseAdmin.from('whatsapp_messages')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(20)
+
+                if (error) {
+                    return new Response(JSON.stringify({ error }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+
+                return new Response(JSON.stringify({ messages }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            case 'get_mappings': {
+                const { data: mappings, error } = await supabaseAdmin.from('wa_lid_mappings')
+                    .select('lid, phone')
+
+                if (error) {
+                    return new Response(JSON.stringify({ error }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+
+                return new Response(JSON.stringify({ mappings }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            case 'fix_fk': {
+                // Remove foreign key constraint from whatsapp_messages
+                const { error: fkError } = await supabaseAdmin.rpc('exec_sql', {
+                    sql: 'ALTER TABLE whatsapp_messages DROP CONSTRAINT IF EXISTS whatsapp_messages_user_id_fkey;'
+                })
+
+                if (fkError) {
+                    // Try direct SQL via REST
+                    return new Response(JSON.stringify({
+                        error: fkError,
+                        hint: 'Execute this SQL manually: ALTER TABLE whatsapp_messages DROP CONSTRAINT IF EXISTS whatsapp_messages_user_id_fkey;'
+                    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+
+                return new Response(JSON.stringify({ success: true, message: 'FK removed' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            case 'setup_lid_table': {
+                const sql = `
+                    CREATE TABLE IF NOT EXISTS wa_lid_mappings (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        lid TEXT UNIQUE NOT NULL,
+                        phone TEXT NOT NULL,
+                        user_id UUID,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_wa_lid_mappings_lid ON wa_lid_mappings(lid);
+                    CREATE INDEX IF NOT EXISTS idx_wa_lid_mappings_phone ON wa_lid_mappings(phone);
+                `;
+                const { error } = await supabaseAdmin.rpc('exec_sql', { sql });
+                if (error) return new Response(JSON.stringify({ error }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+
+            // --- SYSTEM SETUP ---
+            case 'init_system': {
+                // Create system user with upsert (create or ignore)
+                const systemId = '00000000-0000-0000-0000-000000000000'
+
+                // First, check what columns exist in users table
+                const { data: sampleUser, error: sampleError } = await supabaseAdmin.from('users').select('*').limit(1)
+                console.log('[INIT_SYSTEM] Sample user check:', { sampleUser, sampleError })
+
+                // Try to create system user with upsert
+                const { data: newUser, error: createError } = await supabaseAdmin.from('users').upsert({
+                    id: systemId,
+                    name: 'Sistema WhatsApp',
+                    email: 'sistema@alraerp.local',
+                    created_date: new Date().toISOString()
+                }, { onConflict: 'id', ignoreDuplicates: true }).select()
+
+                if (createError) {
+                    // Return detailed error
+                    return new Response(JSON.stringify({
+                        error: createError,
+                        sampleUser,
+                        sampleError,
+                        message: 'Failed to create system user'
+                    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+
+                // Verify it was created
+                const { data: verify } = await supabaseAdmin.from('users').select('*').eq('id', systemId)
+
+                return new Response(JSON.stringify({
+                    success: true,
+                    user: newUser,
+                    verify,
+                    message: 'System user created/updated'
+                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
             // --- INSTANCE MANAGEMENT ---
 
             case 'get_status': {
@@ -342,18 +638,73 @@ serve(async (req) => {
             }
 
             case 'connect': {
-                // Try to create first
+                console.log(`[ACTION] Connect called for instance: ${instanceName}`)
+
+                // 1. Try to create or ensure it exists
                 const createRes = await EvolutionService.request('/instance/create', {
                     method: 'POST',
                     body: JSON.stringify({ instanceName, qrcode: true, integration: "WHATSAPP-BAILEYS" })
                 })
 
-                // If it exists (403 or error), try to fetch connect/QR
-                if (createRes.status === 403 || createRes.json?.error) {
-                    const connectRes = await EvolutionService.request(`/instance/connect/${instanceName}`)
-                    return new Response(JSON.stringify(connectRes.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-                }
-                return new Response(JSON.stringify(createRes.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                // 2. CONFIGURE SETTINGS (Force Sync Full History)
+                console.log(`[ACTION] Configuring Instance Settings...`)
+                await EvolutionService.request(`/settings/set/${instanceName}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        rejectCall: false,
+                        groupsIgnore: true,
+                        alwaysOnline: false,
+                        readMessages: false,
+                        readStatus: false,
+                        syncFullHistory: true // CRITICAL for user request
+                    })
+                })
+
+                // 3. CONFIGURE CHATWOOT
+                console.log(`[ACTION] Configuring Chatwoot Integration...`)
+                await EvolutionService.request(`/chatwoot/set/${instanceName}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        enabled: true,
+                        accountId: CHATWOOT_CONFIG.accountId,
+                        token: CHATWOOT_CONFIG.token,
+                        url: CHATWOOT_CONFIG.internalUrl, // Use internal URL for Evolution->Chatwoot communication
+                        nameInbox: "WhatsApp",
+                        importContacts: true,
+                        importMessages: true,
+                        daysLimitImportMessages: 365, // Full year as requested
+                        reopenConversation: true,
+                        mergeBrazilContacts: true,
+                        autoCreate: true,
+                        signMsg: false,
+                        conversationPending: false
+                    })
+                })
+
+                // 4. CONFIGURE WEBHOOK
+                console.log(`[ACTION] Configuring Webhook for ${instanceName}...`)
+                const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-proxy?secret=${WEBHOOK_SECRET}`
+                await EvolutionService.request(`/webhook/set/${instanceName}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        url: webhookUrl,
+                        enabled: true,
+                        events: [
+                            "MESSAGES_UPSERT",
+                            "MESSAGES_UPDATE",
+                            "MESSAGES_SET", // For history sync
+                            "SEND_MESSAGE", // For outbound messages
+                            "CONTACTS_UPSERT",
+                            "CONTACTS_UPDATE",
+                            "CONNECTION_UPDATE"
+                        ],
+                        webhookByEvents: false
+                    })
+                })
+
+                // 5. Get QR Code or Connection State
+                const connectRes = await EvolutionService.request(`/instance/connect/${instanceName}`)
+                return new Response(JSON.stringify(connectRes.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
             case 'logout': {
@@ -369,47 +720,58 @@ serve(async (req) => {
             // --- DATA SYNC ACTIONS ---
 
             case 'fetch_contacts': {
-                // Try multiple endpoints for robustness
-                // 1. /contact/findContacts (standard)
-                let res = await EvolutionService.request(`/contact/findContacts/${instanceName}`)
+                console.log(`[ACTION] fetch_contacts called for ${instanceName}`)
+
+                // Use the same robust strategy as the frontend: POST /chat/findContacts
+                const res = await EvolutionService.request(`/chat/findContacts/${instanceName}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ where: {}, limit: 2000 })
+                })
+
                 let contacts = []
+                const rawData = res.json
+                if (Array.isArray(rawData)) contacts = rawData
+                else if (rawData?.records && Array.isArray(rawData.records)) contacts = rawData.records
+                else if (rawData?.data && Array.isArray(rawData.data)) contacts = rawData.data
+                else if (rawData && typeof rawData === 'object') contacts = Object.values(rawData)
 
-                if (Array.isArray(res.json)) contacts = res.json
-                else if (res.json && Array.isArray(res.json.contacts)) contacts = res.json.contacts
-                else if (res.json && Array.isArray(res.json.data)) contacts = res.json.data
-
-                // 2. Fallback: /contact/fetchContacts (older versions)
-                if (contacts.length === 0) {
-                    res = await EvolutionService.request(`/contact/fetchContacts/${instanceName}`)
-                    if (Array.isArray(res.json)) contacts = res.json
-                }
-
-                console.log(`[CONTACTS] Fetched ${contacts.length} contacts from Evo`)
+                console.log(`[CONTACTS] Fetched ${contacts.length} items from Evo`)
 
                 let savedCount = 0
+                let updatedCount = 0
+
                 for (const c of contacts) {
-                    const phone = c.id.split('@')[0]
-                    const name = c.pushName || c.name || c.verifiedName || phone
-                    const picture = c.profilePictureUrl || null
+                    const jid = c.id || c.remoteJid || c.jid || ''
+                    if (!jid) continue
+
+                    const phone = jid.split('@')[0]
+                    const newName = c.pushName || c.name || c.verifiedName || phone
+                    const isNewNameGeneric = !newName || newName === phone || /^\d+$/.test(newName)
 
                     // Upsert Logic
                     const { data: existing } = await supabaseAdmin.from('customers')
-                        .select('id, user_id')
+                        .select('id, name')
                         .eq('phone', phone)
                         .maybeSingle()
 
                     if (!existing) {
-                        await supabaseAdmin.from('customers').insert({
+                        const { error } = await supabaseAdmin.from('customers').insert({
                             user_id: user.id,
                             phone: phone,
-                            name: name,
-                            notes: 'Importado do WhatsApp (Sync)',
+                            name: newName,
+                            notes: 'Importado via Sync',
                             created_date: new Date().toISOString()
                         })
-                        savedCount++
+                        if (!error) savedCount++
+                    } else if (!isNewNameGeneric) {
+                        const isCurrentNameGeneric = !existing.name || existing.name === phone || /^\d+$/.test(existing.name)
+                        if (isCurrentNameGeneric) {
+                            const { error } = await supabaseAdmin.from('customers').update({ name: newName }).eq('id', existing.id)
+                            if (!error) updatedCount++
+                        }
                     }
                 }
-                return new Response(JSON.stringify({ success: true, count: contacts.length, saved: savedCount }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                return new Response(JSON.stringify({ success: true, count: contacts.length, saved: savedCount, updated: updatedCount }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
             case 'fetch_inbox': {
@@ -442,36 +804,93 @@ serve(async (req) => {
                 const cleanPhone = (phone || '').replace(/\D/g, '')
                 const jid = providedJid || (cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`)
 
-                console.log(`[SYNC] Syncing messages for ${jid}`)
+                console.log(`[SYNC] Syncing messages for ${jid} (phone: ${cleanPhone})`)
 
-                // Attempt 1: Standard Payload
-                let res = await EvolutionService.request(`/chat/fetchMessages/${instanceName}`, {
-                    method: 'POST', body: JSON.stringify({ remoteJid: jid, limit: 50 })
+                // Normalização: variantes com/sem 9o dígito
+                const phoneVariants = [cleanPhone]
+                if (cleanPhone.startsWith('55') && cleanPhone.length === 13 && cleanPhone[4] === '9') {
+                    phoneVariants.push(cleanPhone.substring(0, 4) + cleanPhone.substring(5))
+                } else if (cleanPhone.startsWith('55') && cleanPhone.length === 12) {
+                    phoneVariants.push(cleanPhone.substring(0, 4) + '9' + cleanPhone.substring(4))
+                }
+
+                // Try multiple endpoints to find messages
+                let msgs: any[] = []
+
+                // Attempt 1: findMessages with Prisma-style payload (Evolution v2.3+)
+                let res = await EvolutionService.request(`/chat/findMessages/${instanceName}`, {
+                    method: 'POST', body: JSON.stringify({ where: { key: { remoteJid: jid } }, limit: 200, offset: 0 })
                 })
+                let rawData = res.json
+                if (Array.isArray(rawData)) msgs = rawData
+                else if (rawData?.messages?.records) msgs = rawData.messages.records
+                else if (rawData?.messages && Array.isArray(rawData.messages)) msgs = rawData.messages
+                else if (rawData?.data && Array.isArray(rawData.data)) msgs = rawData.data
 
-                // Attempt 2: "Where" Payload (Prisma style)
-                let msgs = Array.isArray(res.json) ? res.json : (res.json?.messages || res.json?.data || [])
+                // Attempt 2: fetchMessages endpoint (older versions)
                 if (msgs.length === 0) {
-                    console.log('[SYNC] Retrying with Prisma-style payload...')
+                    console.log('[SYNC] findMessages returned 0, trying fetchMessages...')
                     res = await EvolutionService.request(`/chat/fetchMessages/${instanceName}`, {
-                        method: 'POST', body: JSON.stringify({ where: { key: { remoteJid: jid } }, limit: 50 })
+                        method: 'POST', body: JSON.stringify({ remoteJid: jid, limit: 200 })
                     })
-                    msgs = Array.isArray(res.json) ? res.json : (res.json?.messages || res.json?.data || [])
+                    rawData = res.json
+                    msgs = Array.isArray(rawData) ? rawData : (rawData?.messages || rawData?.data || [])
+                }
+
+                // Attempt 3: Also try with phone variants
+                if (msgs.length === 0 && phoneVariants.length > 1) {
+                    for (const variant of phoneVariants) {
+                        const altJid = `${variant}@s.whatsapp.net`
+                        if (altJid === jid) continue
+                        console.log(`[SYNC] Trying variant JID: ${altJid}`)
+                        res = await EvolutionService.request(`/chat/findMessages/${instanceName}`, {
+                            method: 'POST', body: JSON.stringify({ where: { key: { remoteJid: altJid } }, limit: 200, offset: 0 })
+                        })
+                        rawData = res.json
+                        if (Array.isArray(rawData)) msgs = rawData
+                        else if (rawData?.messages?.records) msgs = rawData.messages.records
+                        else if (rawData?.messages && Array.isArray(rawData.messages)) msgs = rawData.messages
+                        else if (rawData?.data && Array.isArray(rawData.data)) msgs = rawData.data
+                        if (msgs.length > 0) break
+                    }
+                }
+
+                console.log(`[SYNC] Found ${msgs.length} messages from Evolution API`)
+
+                // Resolve contact name from customers table
+                let contactName = cleanPhone
+                const { data: customer } = await supabaseAdmin.from('customers')
+                    .select('name')
+                    .in('phone', phoneVariants)
+                    .maybeSingle()
+                if (customer?.name && customer.name !== cleanPhone) {
+                    contactName = customer.name
                 }
 
                 let savedCount = 0
                 for (const m of msgs) {
+                    if (!m.key?.id) continue
+
                     // Extract content
                     let content = ''
                     const msgObj = m.message
-                    if (!msgObj) continue;
+                    if (!msgObj) continue
 
                     if (msgObj.conversation) content = msgObj.conversation
                     else if (msgObj.extendedTextMessage?.text) content = msgObj.extendedTextMessage.text
                     else if (msgObj.imageMessage) content = msgObj.imageMessage.caption || '[Imagem]'
                     else if (msgObj.videoMessage) content = msgObj.videoMessage.caption || '[Vídeo]'
                     else if (msgObj.audioMessage) content = '[Áudio]'
+                    else if (msgObj.documentMessage) content = msgObj.documentMessage.fileName || '[Documento]'
+                    else if (msgObj.stickerMessage) content = '[Sticker]'
                     else content = '[Mídia]'
+
+                    if (!content) continue
+
+                    // Get name from message if available
+                    const pushName = m.pushName || m.verifiedName
+                    const msgContactName = (!m.key.fromMe && pushName && pushName !== cleanPhone && !/^\d+$/.test(pushName))
+                        ? pushName : contactName
 
                     // Check duplicate by ID
                     const { data: exists } = await supabaseAdmin
@@ -480,76 +899,74 @@ serve(async (req) => {
                         .eq('wa_message_id', m.key.id)
                         .maybeSingle()
 
-                    if (!exists && m.key?.id) {
-                        await supabaseAdmin.from('whatsapp_messages').insert({
+                    if (!exists) {
+                        const { error: insertErr } = await supabaseAdmin.from('whatsapp_messages').insert({
                             user_id: user.id,
                             contact_phone: cleanPhone,
+                            contact_name: msgContactName,
                             content: content,
                             direction: m.key.fromMe ? 'outbound' : 'inbound',
                             wa_message_id: m.key.id,
                             status: m.key.fromMe ? 'sent' : 'received',
-                            created_at: m.messageTimestamp ? new Date(m.messageTimestamp * 1000).toISOString() : new Date().toISOString()
+                            created_at: m.messageTimestamp ? new Date(Number(m.messageTimestamp) * 1000).toISOString() : new Date().toISOString()
                         })
-                        savedCount++
+                        if (!insertErr) savedCount++
                     }
                 }
-                return new Response(JSON.stringify({ success: true, saved: savedCount }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
+                console.log(`[SYNC] Done. Saved ${savedCount} new messages for ${cleanPhone}`)
+                return new Response(JSON.stringify({ success: true, saved: savedCount, total: msgs.length }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
             case 'send_message': {
                 const { phone, message, jid: providedJid } = payload || {}
                 const cleanPhone = (phone || '').replace(/\D/g, '')
+                const msgText = (message || '').trim()
+
                 // Heuristic: If providedJid has @lid, keep it. Else assume phone number.
                 let targetJid = providedJid || `${cleanPhone}@s.whatsapp.net`
 
                 // -- ROBUST SEND LOGIC --
-                console.log(`[SEND] Sending to ${targetJid}`)
+                console.log(`[ACTION] send_message called. Target: ${targetJid}, Text Length: ${msgText.length}`)
 
-                // 1. Try Standard Send
+                // 1. Try Primary Send
                 let res = await EvolutionService.request(`/message/sendText/${instanceName}`, {
-                    method: 'POST', body: JSON.stringify({ number: targetJid, text: message })
+                    method: 'POST', body: JSON.stringify({ number: targetJid, text: msgText })
                 })
 
-                // 2. Fallback: If 400/404 and it's a LID, try phone number discovery (The "Pulo do Gato")
+                // 2. Fallback: If 400/404 and it's a LID, try phone number discovery
                 if ((res.status === 400 || res.status === 404) && targetJid.includes('@lid')) {
-                    console.log(`[SEND] LID failed (${res.status}). Trying to discover real phone JID...`)
-
-                    // Strategy: Fetch profile/contact to see if we get the real JID
+                    console.log(`[SEND_RETRY] LID send failed (${res.status}). Attempting JID discovery...`)
                     const contactRes = await EvolutionService.request(`/contact/find/${instanceName}`, {
                         method: 'POST', body: JSON.stringify({ number: targetJid })
                     })
 
-                    // Check if successful and has alternative JID
                     const contact = contactRes.json
                     const alternativeJid = contact?.id || contact?.remoteJid || contact?.jid
 
-                    if (alternativeJid && alternativeJid.includes('@s.whatsapp.net')) {
-                        console.log(`[SEND] Found alternative JID: ${alternativeJid}. Retrying send...`)
-                        targetJid = alternativeJid // Update target
+                    if (alternativeJid && alternativeJid.includes('@s.whatsapp.net') && alternativeJid !== targetJid) {
+                        console.log(`[SEND_RETRY] Found real phone JID: ${alternativeJid}. Retrying once...`)
+                        targetJid = alternativeJid
                         res = await EvolutionService.request(`/message/sendText/${instanceName}`, {
-                            method: 'POST', body: JSON.stringify({ number: targetJid, text: message })
+                            method: 'POST', body: JSON.stringify({ number: targetJid, text: msgText })
                         })
                     } else {
-                        // Strategy: Check message history for recent real JID? 
-                        // (Too expensive for Edge Function timeout usually, skipping for now)
+                        console.log(`[SEND_RETRY] No better JID found. Giving up on retry.`)
                     }
                 }
 
-                // 3. Fallback: Force send flag
-                if (res.status === 400) {
-                    console.log(`[SEND] Retrying with forceSend...`)
-                    res = await EvolutionService.request(`/message/sendText/${instanceName}`, {
-                        method: 'POST', body: JSON.stringify({ number: targetJid, text: message, forceSend: true })
-                    })
-                }
-
                 if (res.status === 201 || res.status === 200) {
+                    const sentMsgInfo = res.json?.key || res.json?.item?.key || res.json?.data?.key || {}
+                    const waId = sentMsgInfo.id || payload.wa_message_id
+
                     await supabaseAdmin.from('whatsapp_messages').insert({
                         user_id: user.id,
                         contact_phone: cleanPhone,
                         content: message,
                         direction: 'outbound',
-                        status: 'sent'
+                        wa_message_id: waId,
+                        status: 'sent',
+                        created_at: new Date().toISOString()
                     })
                 }
 
@@ -658,10 +1075,113 @@ serve(async (req) => {
                 return new Response(JSON.stringify({ success: true, chats: chatsProcessed, count: totalSaved }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
+            case 'chatwoot_proxy': {
+                const { method = 'GET', payload: chatwootPayload } = body
+
+                // The ERP passed the config in payload (API URL, TOKEN, path)
+                const { apiUrl, token, path } = chatwootPayload
+
+                if (!apiUrl || !token || !path) {
+                    return new Response(JSON.stringify({ error: 'Missing Chatwoot proxy config' }), { status: 400, headers: corsHeaders })
+                }
+
+                const url = `${apiUrl}${path}`
+                const headers: any = {
+                    'api_access_token': token,
+                    'Content-Type': 'application/json'
+                }
+
+                try {
+                    const reqOpts: any = { method, headers }
+                    if (method !== 'GET' && method !== 'HEAD' && chatwootPayload.body) {
+                        reqOpts.body = JSON.stringify(chatwootPayload.body)
+                    }
+
+                    const cwRes = await fetch(url, reqOpts)
+                    const cwJson = await cwRes.json()
+
+                    return new Response(JSON.stringify(cwJson), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: cwRes.status })
+                } catch (e: any) {
+                    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+            }
+
+            case 'chatwoot_upload': {
+                const { apiUrl, token, path, fileBase64, fileName, fileType, content = '' } = body.payload
+
+                if (!apiUrl || !token || !path || !fileBase64) {
+                    return new Response(JSON.stringify({ error: 'Missing upload params' }), { status: 400, headers: corsHeaders })
+                }
+
+                // Decode Base64 to Blob
+                const byteCharacters = atob(fileBase64)
+                const byteNumbers = new Array(byteCharacters.length)
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i)
+                }
+                const byteArray = new Uint8Array(byteNumbers)
+                const blob = new Blob([byteArray], { type: fileType || 'application/octet-stream' })
+
+                const formData = new FormData()
+                formData.append('attachments[]', blob, fileName || 'upload.bin')
+                if (content) formData.append('content', content)
+
+                try {
+                    const url = `${apiUrl}${path}`
+                    const cwRes = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'api_access_token': token },
+                        body: formData
+                    })
+                    const cwJson = await cwRes.json()
+                    return new Response(JSON.stringify(cwJson), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: cwRes.status })
+                } catch (e: any) {
+                    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+            }
+
+            case 'chatwoot_import_history': {
+                console.log(`[ACTION] chatwoot_import_history called for ${instanceName}`)
+                const res = await EvolutionService.request(`/chatwoot/importMessages/${instanceName}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        accountId: CHATWOOT_CONFIG.accountId,
+                        token: CHATWOOT_CONFIG.token,
+                        url: CHATWOOT_CONFIG.url
+                    })
+                })
+                return new Response(JSON.stringify(res.json), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            case 'chatwoot_all_messages': {
+                const conversationId = payload.conversationId
+                const maxPages = payload.pages || 5
+                let allMessages: any[] = []
+
+                for (let p = 1; p <= maxPages; p++) {
+                    try {
+                        const res = await fetch(`${CHATWOOT_CONFIG.url}/api/v1/accounts/${CHATWOOT_CONFIG.accountId}/conversations/${conversationId}/messages?page=${p}`, {
+                            headers: { 'api_access_token': CHATWOOT_CONFIG.token, 'Content-Type': 'application/json' }
+                        })
+                        const data = await res.json()
+                        const msgs = data?.payload || []
+                        if (msgs.length === 0) break
+                        allMessages = [...allMessages, ...msgs]
+                    } catch { break }
+                }
+
+                return new Response(JSON.stringify(allMessages), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
             default:
                 return new Response(JSON.stringify({ error: `Invalid action: ${action}` }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
         }
     } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 })
+        console.error(`[FATAL] Global Error:`, error)
+        const errMsg = error?.message || String(error || 'Unknown Error')
+        return new Response(JSON.stringify({ error: errMsg }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500
+        })
     }
 })

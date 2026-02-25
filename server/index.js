@@ -52,41 +52,32 @@ app.get('/config', (req, res) => {
 app.post('/create-checkout-session', async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: { message: 'Stripe not configured' } })
-    const { plan = 'monthly', user_id, user_email } = req.body || {}
+    const { plan = 'starter_monthly', user_id, user_email } = req.body || {}
 
-    const isAnnual = plan === 'annual'
-    const amount = isAnnual ? 45984 : 4790 // em centavos BRL
-    const productName = isAnnual ? 'ERP Plano Anual (20% OFF)' : 'ERP Plano Mensal'
-    const interval = isAnnual ? 'year' : 'month'
+    // Map plan names to Stripe Price IDs
+    const PRICE_MAP = {
+      starter_monthly: 'price_1T2dbkEaiAbeHruTMn0x9dxR',
+      starter_annual: 'price_1T2dcnEaiAbeHruT2gX3vSzM',
+      pro_monthly: 'price_1T2desEaiAbeHruTK5RJ3VRe',
+      pro_annual: 'price_1T2dfpEaiAbeHruTWsd0sl5R',
+      business_monthly: 'price_1T2dhUEaiAbeHruTNOy6BYM3',
+      business_annual: 'price_1T2di3EaiAbeHruT0HZ4zP5C',
+    }
 
-    // Métodos suportados para assinaturas: cartão (inclui Apple Pay/Google Pay quando elegível)
-    const payment_method_types = ['card']
+    const priceId = PRICE_MAP[plan]
+    if (!priceId) return res.status(400).json({ error: { message: `Plano inválido: ${plan}` } })
 
     const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types,
+      payment_method_types: ['card'],
       customer_email: user_email || undefined,
-      line_items: [
-        isAnnual
-          ? {
-            price: 'price_1SXQhgEaiAbeHruTt44ggRQH',
-            quantity: 1,
-          }
-          : {
-            price_data: {
-              currency: 'brl',
-              unit_amount: 4790,
-              product_data: { name: 'ERP Plano Mensal' },
-              recurring: { interval: 'month' },
-            },
-            quantity: 1,
-          },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: { trial_period_days: 7 },
       client_reference_id: user_id || undefined,
-      metadata: user_id ? { user_id, plan } : { plan },
-      success_url: `${FRONTEND}/dashboard?status=success`,
-      cancel_url: `${FRONTEND}/`,
+      metadata: user_id ? { user_id, plan, trial: '7d' } : { plan, trial: '7d' },
+      success_url: `${FRONTEND}/billing?status=success`,
+      cancel_url: `${FRONTEND}/billing`,
     })
 
     res.json({ id: session.id, url: session.url })
@@ -184,38 +175,31 @@ app.post('/create-payment-session', async (req, res) => {
 app.post('/create-trial-session', async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: { message: 'Stripe not configured' } })
-    const { plan = 'monthly', user_id, user_email } = req.body || {}
-    const isAnnual = plan === 'annual'
-    const amount = isAnnual ? 45984 : 4790
-    const productName = isAnnual ? 'ERP Plano Anual (Trial 7 dias)' : 'ERP Plano Mensal (Trial 7 dias)'
-    const interval = isAnnual ? 'year' : 'month'
+    const { plan = 'starter_monthly', user_id, user_email } = req.body || {}
+
+    const PRICE_MAP = {
+      starter_monthly: 'price_1T2dbkEaiAbeHruTMn0x9dxR',
+      starter_annual: 'price_1T2dcnEaiAbeHruT2gX3vSzM',
+      pro_monthly: 'price_1T2desEaiAbeHruTK5RJ3VRe',
+      pro_annual: 'price_1T2dfpEaiAbeHruTWsd0sl5R',
+      business_monthly: 'price_1T2dhUEaiAbeHruTNOy6BYM3',
+      business_annual: 'price_1T2di3EaiAbeHruT0HZ4zP5C',
+    }
+
+    const priceId = PRICE_MAP[plan]
+    if (!priceId) return res.status(400).json({ error: { message: `Plano inválido: ${plan}` } })
 
     const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       customer_email: user_email || undefined,
-      line_items: [
-        isAnnual
-          ? {
-            price: 'price_1SXQhgEaiAbeHruTt44ggRQH',
-            quantity: 1,
-          }
-          : {
-            price_data: {
-              currency: 'brl',
-              unit_amount: 4790,
-              product_data: { name: 'ERP Plano Mensal (Trial 7 dias)' },
-              recurring: { interval: 'month' },
-            },
-            quantity: 1,
-          },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { trial_period_days: 7 },
       client_reference_id: user_id || undefined,
       metadata: user_id ? { user_id, plan, trial: '7d' } : { plan, trial: '7d' },
-      success_url: `${FRONTEND}/dashboard?status=success`,
-      cancel_url: `${FRONTEND}/`,
+      success_url: `${FRONTEND}/billing?status=success`,
+      cancel_url: `${FRONTEND}/billing`,
     })
 
     res.json({ id: session.id, url: session.url })

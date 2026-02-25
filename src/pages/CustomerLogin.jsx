@@ -56,7 +56,7 @@ export default function CustomerLogin() {
             }
             link.setAttribute('href', url)
             link.setAttribute('type', 'image/png')
-        } catch {}
+        } catch { }
     }, [customerData?.logo_url, storeInfo?.logo_url])
 
     const handleLogin = async (e) => {
@@ -68,25 +68,35 @@ export default function CustomerLogin() {
             const clean = identifier.replace(/\D/g, '')
             if (clean.length < 5) throw new Error('Digite um CPF ou Telefone válido')
 
+            // Detecta se é CPF (11 dígitos e 3º dígito NÃO é 9) ou Telefone
+            // CPF: 000.000.000-00 → 11 dígitos, ex: 12345678901
+            // Telefone brasileiro: (XX) 9XXXX-XXXX → 11 dígitos mas 3º dígito = 9
+            // Telefone com DDD sem 9: (XX) XXXX-XXXX → 10 dígitos
+            const isCpf = clean.length === 11 && clean[2] !== '9'
+
+            // Normaliza telefone: remove 55 do início se presente
+            let phoneClean = clean
+            if (!isCpf && phoneClean.startsWith('55') && phoneClean.length > 11) {
+                phoneClean = phoneClean.slice(2)
+            }
+
+            const rpcParams = {
+                p_slug: storeSlug || '',
+                p_cpf: isCpf ? clean : '',
+                p_phone: isCpf ? '' : phoneClean
+            }
+
             // 1. Busca Saldo e Dados do Cliente
-            const { data, error: rpcError } = await supabase.rpc('get_customer_balance', {
-                p_slug: storeSlug,
-                p_cpf: clean,
-                p_phone: clean
-            })
+            const { data, error: rpcError } = await supabase.rpc('get_customer_balance', rpcParams)
 
             if (rpcError) throw rpcError
-            if (!data || data.length === 0) throw new Error('Cliente não encontrado nesta loja.')
+            if (!data || data.length === 0) throw new Error('Cliente não encontrado. Verifique o número digitado.')
 
             setCustomerData(data[0])
 
-            // 2. Busca Histórico de Compras (Novo RPC)
+            // 2. Busca Histórico de Compras
             setLoadingHistory(true)
-            const { data: historyData, error: historyError } = await supabase.rpc('get_customer_sales', {
-                p_slug: storeSlug,
-                p_cpf: clean,
-                p_phone: clean
-            })
+            const { data: historyData, error: historyError } = await supabase.rpc('get_customer_sales', rpcParams)
 
             if (!historyError && historyData) {
                 setSalesHistory(historyData)
@@ -327,15 +337,15 @@ export default function CustomerLogin() {
         </div>
     )
 }
-    const fallbackSettings = async () => {
-        try {
-            const list = await base44.entities.Settings.list()
-            if (Array.isArray(list) && list.length > 0) {
-                const s = list[0]
-                setStoreInfo({
-                    store_name: s.erp_name || 'Portal do Cliente',
-                    logo_url: s.logo_url || null,
-                })
-            }
-        } catch {}
-    }
+const fallbackSettings = async () => {
+    try {
+        const list = await base44.entities.Settings.list()
+        if (Array.isArray(list) && list.length > 0) {
+            const s = list[0]
+            setStoreInfo({
+                store_name: s.erp_name || 'Portal do Cliente',
+                logo_url: s.logo_url || null,
+            })
+        }
+    } catch { }
+}

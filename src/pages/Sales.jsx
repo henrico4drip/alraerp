@@ -124,11 +124,13 @@ export default function Sales() {
           </div>
           <div className="mb-6">
             <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10">
+                <Search className="w-4 h-4 text-gray-400" />
+              </div>
               <input
                 type="text"
                 placeholder="Pesquisar por cliente, número ou valor"
-                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 outline-none"
+                className="w-full pl-11 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 outline-none"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
