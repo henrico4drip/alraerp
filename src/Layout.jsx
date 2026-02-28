@@ -370,8 +370,12 @@ export default function Layout({ children, currentPageName }) {
         {/* Header */}
         {!isCrmRoute && (
           <>
-            <header className="bg-[#3490c7] border-b border-[#3490c7] fixed top-0 left-0 right-0 z-30 shadow-sm w-full overflow-visible">
-              <div className="w-full px-1.5 sm:px-4 py-0.5 sm:py-1 flex items-center justify-between text-white">
+            <header className="bg-[#0a0a0a] border-b border-white/5 fixed top-0 left-0 right-0 z-30 shadow-xl w-full h-12 sm:h-14 overflow-hidden">
+              {/* Decorative Background Element */}
+              <div className="absolute right-0 top-0 h-full w-64 pointer-events-none opacity-40 flex items-center justify-end select-none translate-x-16 translate-y-4">
+                <span className="text-[180px] font-black text-[#3490c7] blur-sm leading-none" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
+              </div>
+              <div className="relative w-full h-full px-1.5 sm:px-4 flex items-center justify-between text-white">
                 <div className="flex flex-wrap items-center gap-4 md:gap-6">
                   <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline -mt-0.5">
                     <span className="text-sm sm:text-base md:text-lg tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.7em', fontWeight: 300 }}>erp+</span></span>
@@ -402,7 +406,7 @@ export default function Layout({ children, currentPageName }) {
                   </Link>
 
                   <a
-                    href="https://chat.alraerp.com.br/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkhlbnJpY28iLCJlbWFpbCI6ImFkbWluQGFkbWluLmNvbSIsImNvbXBhbnlJZCI6MSwicHJvZmlsZSI6ImFkbWluIiwiaWF0IjoxNzcxOTc4NTQxLCJleHAiOjE3NzQ1NzA1NDF9.cKyqA7a19okTOMtElfNqDN72XHVTvNTPdq8HOuNXI4Y"
+                    href="https://chat.alraerp.com.br/sso?key=whatstalk"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="relative inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 text-white transition-colors"
@@ -444,7 +448,7 @@ export default function Layout({ children, currentPageName }) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`rounded-full shadow-sm border border-white/20 w-8 h-8 ${currentProfile?.role === 'admin' ? 'bg-blue-600' : 'bg-gray-600'}`}
+                      className="rounded-full shadow-lg border border-white/20 w-8 h-8 bg-black hover:bg-black/80 ring-1 ring-white/10 transition-all"
                       onClick={() => setAccountOpen((v) => !v)}
                       aria-haspopup="menu"
                       aria-expanded={accountOpen}
