@@ -253,20 +253,8 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
       <main className="flex-1 overflow-hidden relative">
         {/* Mobile Header */}
         <div className="md:hidden h-14 flex items-center justify-between px-4 border-b border-white/10 bg-[#0a0a0a] text-white shadow-md overflow-hidden relative">
-          <div className="absolute right-[30px] top-[40%] -translate-y-1/2 pointer-events-none opacity-40 select-none">
-            <div
-              className="w-[125px] h-[125px] bg-[#3490c7] blur-[0.5px] transform -skew-x-[15deg]"
-              style={{
-                WebkitMaskImage: `url('/alra%20brand.svg')`,
-                WebkitMaskSize: 'contain',
-                WebkitMaskRepeat: 'no-repeat',
-                WebkitMaskPosition: 'center',
-                maskImage: `url('/alra%20brand.svg')`,
-                maskSize: 'contain',
-                maskRepeat: 'no-repeat',
-                maskPosition: 'center',
-              }}
-            />
+          <div className="absolute right-[20px] top-[50%] -translate-y-1/2 pointer-events-none opacity-40 select-none">
+            <span className="text-[280px] font-black italic text-[#3490c7] blur-[1px] leading-none block -mt-[25px] -mr-[10px] transform -skew-x-[12deg]" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
           </div>
           <div className="relative flex items-center justify-between w-full h-full z-10">
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10" onClick={() => setMobileSidebarOpen(true)}>

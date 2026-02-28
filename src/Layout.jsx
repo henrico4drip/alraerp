@@ -371,21 +371,9 @@ export default function Layout({ children, currentPageName }) {
         {!isCrmRoute && (
           <>
             <header className="bg-[#0a0a0a] border-b border-white/10 fixed top-0 left-0 right-0 z-30 shadow-xl w-full h-12 sm:h-14 overflow-hidden">
-              {/* Decorative Background Element - Built with CSS Mask to perfectly match the brand's 'a' curvature */}
-              <div className="absolute right-[35px] top-[40%] -translate-y-1/2 pointer-events-none opacity-50 select-none">
-                <div
-                  className="w-[150px] h-[150px] bg-[#3490c7] blur-[0.5px] transform -skew-x-[15deg]"
-                  style={{
-                    WebkitMaskImage: `url('/alra%20brand.svg')`,
-                    WebkitMaskSize: 'contain',
-                    WebkitMaskRepeat: 'no-repeat',
-                    WebkitMaskPosition: 'center',
-                    maskImage: `url('/alra%20brand.svg')`,
-                    maskSize: 'contain',
-                    maskRepeat: 'no-repeat',
-                    maskPosition: 'center',
-                  }}
-                />
+              {/* Decorative Background Element - Scaled up and shifted to exactly match the reference crop */}
+              <div className="absolute right-[20px] sm:right-[40px] top-[50%] -translate-y-1/2 pointer-events-none opacity-40 select-none">
+                <span className="text-[340px] font-black italic text-[#3490c7] blur-[1px] leading-none block -mt-[30px] -mr-[10px] transform -skew-x-[12deg]" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
               </div>
               <div className="relative z-10 w-full h-full px-1.5 sm:px-4 flex items-center justify-between text-white">
                 <div className="flex flex-wrap items-center gap-4 md:gap-6">
