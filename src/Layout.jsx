@@ -371,10 +371,6 @@ export default function Layout({ children, currentPageName }) {
         {!isCrmRoute && (
           <>
             <header className="bg-[#0a0a0a] border-b border-white/5 fixed top-0 left-0 right-0 z-30 shadow-xl w-full h-12 sm:h-14 overflow-hidden">
-              {/* Decorative Background Element */}
-              <div className="absolute right-0 top-0 h-full w-64 pointer-events-none opacity-40 flex items-center justify-end select-none translate-x-16 translate-y-4">
-                <span className="text-[180px] font-black text-[#3490c7] blur-sm leading-none" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
-              </div>
               <div className="relative w-full h-full px-1.5 sm:px-4 flex items-center justify-between text-white">
                 <div className="flex flex-wrap items-center gap-4 md:gap-6">
                   <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline -mt-0.5">
@@ -444,11 +440,16 @@ export default function Layout({ children, currentPageName }) {
                     )}
 
                   </div>
-                  <div className="relative ml-auto">
+                  <div className="relative ml-auto flex items-center justify-center">
+                    {/* Decorative Background Element - Centered on Profile Button */}
+                    <div className="absolute pointer-events-none opacity-50 select-none -right-4 top-1/2 -translate-y-1/2 z-0">
+                      <span className="text-[200px] font-black text-[#3490c7] blur-[1px] leading-none block translate-x-[28px] translate-y-[-2px]" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
+                    </div>
+
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="rounded-full shadow-lg border border-white/20 w-8 h-8 bg-black hover:bg-black/80 ring-1 ring-white/10 transition-all"
+                      className="relative z-10 rounded-full shadow-lg border border-white/20 w-8 h-8 bg-black hover:bg-black/80 ring-1 ring-white/10 transition-all"
                       onClick={() => setAccountOpen((v) => !v)}
                       aria-haspopup="menu"
                       aria-expanded={accountOpen}
