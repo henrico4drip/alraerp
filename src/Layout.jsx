@@ -373,7 +373,7 @@ export default function Layout({ children, currentPageName }) {
             <header className="bg-[#0a0a0a] border-b border-white/10 fixed top-0 left-0 right-0 z-30 shadow-xl w-full h-12 sm:h-14 overflow-hidden">
               {/* Decorative Background Element - Positioned exactly according to reference */}
               <div className="absolute right-[45px] top-[40%] -translate-y-1/2 pointer-events-none opacity-50 select-none">
-                <span className="text-[220px] font-black text-[#3490c7] blur-[5px] leading-none block" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
+                <span className="text-[170px] font-black italic text-[#3490c7] blur-[1.5px] leading-none block" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
               </div>
               <div className="relative z-10 w-full h-full px-1.5 sm:px-4 flex items-center justify-between text-white">
                 <div className="flex flex-wrap items-center gap-4 md:gap-6">
