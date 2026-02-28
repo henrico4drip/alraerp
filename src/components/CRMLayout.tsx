@@ -253,8 +253,8 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
       <main className="flex-1 overflow-hidden relative">
         {/* Mobile Header */}
         <div className="md:hidden h-14 flex items-center justify-between px-4 border-b border-white/10 bg-[#0a0a0a] text-white shadow-md overflow-hidden relative">
-          <div className="absolute right-[40px] top-[40%] -translate-y-1/2 pointer-events-none opacity-40 select-none">
-            <span className="text-[140px] font-black italic text-[#3490c7] blur-[0.5px] leading-none block transform -skew-x-12" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
+          <div className="absolute right-[30px] top-[40%] -translate-y-1/2 pointer-events-none opacity-40 select-none">
+            <span className="text-[125px] font-black italic text-[#3490c7] blur-[0.5px] leading-none block transform -skew-x-12" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
           </div>
           <div className="relative flex items-center justify-between w-full h-full z-10">
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10" onClick={() => setMobileSidebarOpen(true)}>
