@@ -84,7 +84,7 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
           {!sidebarCollapsed ? (
             <>
               <Link to="/crm/inbox" className="flex items-center gap-2 min-w-0 relative z-10">
-                <div className="h-8 w-8 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 shadow-sm border border-white/20">
+                <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-sm border border-white/10">
                   <Headphones className="h-4 w-4 text-white" />
                 </div>
                 <div className="min-w-0">
@@ -99,7 +99,7 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 rounded-xl text-white/70 hover:text-white hidden md:flex shrink-0 transition-all hover:bg-white/10"
+                  className="h-8 w-8 rounded-xl text-white/50 hover:text-white hover:bg-white/10 hidden md:flex shrink-0 transition-all"
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 >
                   <PanelLeftClose className="h-4 w-4" />
@@ -107,7 +107,7 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 rounded-xl text-white/70 md:hidden transition-all hover:bg-white/10"
+                  className="h-8 w-8 rounded-xl text-white/50 hover:text-white hover:bg-white/10 md:hidden transition-all"
                   onClick={() => setMobileSidebarOpen(false)}
                 >
                   <X className="h-4 w-4" />
@@ -252,17 +252,17 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
       {/* Main Content */}
       <main className="flex-1 overflow-hidden relative">
         {/* Mobile Header */}
-        <div className="md:hidden h-14 flex items-center justify-between px-4 border-b border-white/5 bg-[#0a0a0a] text-white shadow-md overflow-hidden relative">
-          <div className="absolute right-0 top-0 h-full w-48 pointer-events-none opacity-40 flex items-center justify-end select-none translate-x-12 translate-y-3">
-            <span className="text-[120px] font-black text-[#3490c7] blur-[2px] leading-none" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
+        <div className="md:hidden h-14 flex items-center justify-between px-4 border-b border-white/10 bg-[#0a0a0a] text-white shadow-md overflow-hidden relative">
+          <div className="absolute right-[40px] top-[40%] -translate-y-1/2 pointer-events-none opacity-40 select-none">
+            <span className="text-[180px] font-black text-[#3490c7] blur-[4px] leading-none block" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
           </div>
           <div className="relative flex items-center justify-between w-full h-full z-10">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-white hover:bg-white/20" onClick={() => setMobileSidebarOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10" onClick={() => setMobileSidebarOpen(true)}>
               <Menu className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20">
-                <Headphones className="h-3.5 w-3.5 text-white" />
+              <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm border border-white/10">
+                <Headphones className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold text-sm text-white tracking-wide">CRM</span>
               {totalUnread > 0 && (

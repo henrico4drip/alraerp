@@ -370,8 +370,12 @@ export default function Layout({ children, currentPageName }) {
         {/* Header */}
         {!isCrmRoute && (
           <>
-            <header className="bg-[#0a0a0a] border-b border-white/5 fixed top-0 left-0 right-0 z-30 shadow-xl w-full h-12 sm:h-14 overflow-hidden">
-              <div className="relative w-full h-full px-1.5 sm:px-4 flex items-center justify-between text-white">
+            <header className="bg-[#0a0a0a] border-b border-white/10 fixed top-0 left-0 right-0 z-30 shadow-xl w-full h-12 sm:h-14 overflow-hidden">
+              {/* Decorative Background Element - Positioned exactly according to reference */}
+              <div className="absolute right-[45px] top-[40%] -translate-y-1/2 pointer-events-none opacity-50 select-none">
+                <span className="text-[220px] font-black text-[#3490c7] blur-[5px] leading-none block" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
+              </div>
+              <div className="relative z-10 w-full h-full px-1.5 sm:px-4 flex items-center justify-between text-white">
                 <div className="flex flex-wrap items-center gap-4 md:gap-6">
                   <Link to={createPageUrl("Dashboard")} className="inline-flex items-baseline -mt-0.5">
                     <span className="text-sm sm:text-base md:text-lg tracking-wide text-white" style={{ fontFamily: `'Poppins', sans-serif`, fontWeight: 800 }}>alra <span style={{ verticalAlign: 'super', fontSize: '0.7em', fontWeight: 300 }}>erp+</span></span>
@@ -440,23 +444,18 @@ export default function Layout({ children, currentPageName }) {
                     )}
 
                   </div>
-                  <div className="relative ml-auto flex items-center justify-center">
-                    {/* Decorative Background Element - Centered on Profile Button */}
-                    <div className="absolute pointer-events-none opacity-50 select-none -right-4 top-1/2 -translate-y-1/2 z-0">
-                      <span className="text-[200px] font-black text-[#3490c7] blur-[1px] leading-none block translate-x-[28px] translate-y-[-2px]" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
-                    </div>
-
+                  <div className="relative ml-auto flex items-center">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="relative z-10 rounded-full shadow-lg border border-white/20 w-8 h-8 bg-black hover:bg-black/80 ring-1 ring-white/10 transition-all"
+                      className="rounded-full shadow-lg border border-white/30 w-9 h-9 bg-black hover:bg-black/80 ring-1 ring-white/10 transition-all flex items-center justify-center p-0"
                       onClick={() => setAccountOpen((v) => !v)}
                       aria-haspopup="menu"
                       aria-expanded={accountOpen}
                       data-tutorial="profile-menu-btn"
                     >
                       {/* Initials */}
-                      <span className="font-bold text-xs text-white">{currentProfile?.name?.charAt(0) || <UserCircle className="w-5 h-5" />}</span>
+                      <span className="font-bold text-sm text-white">{currentProfile?.name?.charAt(0).toUpperCase() || 'A'}</span>
                     </Button>
 
                     {accountOpen && (
