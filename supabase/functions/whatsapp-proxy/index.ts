@@ -525,7 +525,7 @@ serve(async (req) => {
             return new Response(JSON.stringify({ error: 'Unauthorized', hint: 'Use ?secret=xxx for webhooks or Authorization header for API calls' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        const instanceName = EVO_CONFIG.instanceName
+        const instanceName = body.instanceName || EVO_CONFIG.instanceName
 
         switch (action) {
 
@@ -976,6 +976,73 @@ serve(async (req) => {
                 })
             }
 
+            case 'whatstalk_send_message': {
+                const { phone, message } = payload || {}
+                const cleanPhone = (phone || '').replace(/\D/g, '')
+                const msgText = (message || '').trim()
+
+                console.log(`[ACTION] whatstalk_send_message called. Target: ${cleanPhone}, Text Length: ${msgText.length}`)
+
+                try {
+                    // 1. Authenticate with WhatsTalk
+                    const loginRes = await fetch("http://84.247.143.180:3100/auth/login", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email: "admin@admin.com", password: "123456" })
+                    })
+
+                    if (!loginRes.ok) {
+                        throw new Error(`WhatsTalk Login Failed: ${loginRes.status}`)
+                    }
+
+                    const loginData = await loginRes.json()
+                    const token = loginData.token
+
+                    if (!token) throw new Error("No token returned from WhatsTalk")
+
+                    // 2. Send Message
+                    const sendRes = await fetch("http://84.247.143.180:3100/api/messages/send", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            number: cleanPhone,
+                            body: msgText
+                        })
+                    })
+
+                    const sendData = await sendRes.json()
+
+                    if (!sendRes.ok) {
+                        return new Response(JSON.stringify({ error: sendData }), { status: sendRes.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                    }
+
+                    // Log to supabase tracking if desired
+                    await supabaseAdmin.from('whatsapp_messages').insert({
+                        user_id: user.id,
+                        contact_phone: cleanPhone,
+                        content: message,
+                        direction: 'outbound',
+                        wa_message_id: sendData?.id || `wt_${Date.now()}`,
+                        status: 'sent',
+                        created_at: new Date().toISOString()
+                    }).catch(console.error)
+
+                    return new Response(JSON.stringify({ success: true, data: sendData }), {
+                        status: 200,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    })
+                } catch (err: any) {
+                    console.error('[WHATSTALK ERROR]', err)
+                    return new Response(JSON.stringify({ error: err.message }), {
+                        status: 500,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    })
+                }
+            }
+
             case 'set_webhook': {
                 const { webhookUrl, enabled } = payload || {}
                 const res = await EvolutionService.request(`/webhook/set/${instanceName}`, {
@@ -1098,7 +1165,9 @@ serve(async (req) => {
                     }
 
                     const cwRes = await fetch(url, reqOpts)
-                    const cwJson = await cwRes.json()
+                    const text = await cwRes.text()
+                    let cwJson = {}
+                    try { cwJson = text ? JSON.parse(text) : {} } catch { cwJson = { error: 'Invalid JSON response from Chatwoot', originalText: text } }
 
                     return new Response(JSON.stringify(cwJson), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: cwRes.status })
                 } catch (e: any) {

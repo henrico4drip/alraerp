@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Plus, Filter, Calendar as CalendarIcon, DollarSign, Trash2, Pencil, CheckCircle2, AlertCircle } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, isAfter, isBefore } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, isAfter, isBefore, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Scale, TrendingUp, TrendingDown, Target, Package } from 'lucide-react';
 
@@ -229,6 +229,7 @@ export default function AccountsPayable() {
         return expenses.filter(exp => {
             if (!exp?.due_date) return false;
             const d = new Date(exp.due_date);
+            if (!isValid(d)) return false;
             const matchesMonth = isWithinInterval(d, { start, end });
             const matchesSearch = (exp.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (exp.provider || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -555,7 +556,7 @@ function BalanceModal({ open, onOpenChange, sales, expenses, products, currentMo
     const metrics = useMemo(() => {
         // 1. Vendido (Total sales of the month)
         const soldMonth = sales
-            .filter(s => isWithinInterval(new Date(s.sale_date), { start, end }))
+            .filter(s => s?.sale_date && isValid(new Date(s.sale_date)) && isWithinInterval(new Date(s.sale_date), { start, end }))
             .reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0);
 
         // 2. A Receber (Open installments in this month)
@@ -565,8 +566,8 @@ function BalanceModal({ open, onOpenChange, sales, expenses, products, currentMo
             payments.forEach(p => {
                 if (p.method === 'Carnê' && Array.isArray(p.schedule)) {
                     p.schedule.forEach(inst => {
-                        const due = new Date(inst.due_date);
-                        if (inst.status !== 'paid' && isWithinInterval(due, { start, end })) {
+                        const due = inst.due_date ? new Date(inst.due_date) : null;
+                        if (inst.status !== 'paid' && due && isValid(due) && isWithinInterval(due, { start, end })) {
                             receivablesMonth += Number(inst.amount) || 0;
                         }
                     });
@@ -576,11 +577,11 @@ function BalanceModal({ open, onOpenChange, sales, expenses, products, currentMo
 
         // 3. A Pagar (Expenses of the month)
         const payablesMonth = expenses
-            .filter(e => isWithinInterval(new Date(e.due_date), { start, end }) && e.status !== 'paid')
+            .filter(e => e?.due_date && isValid(new Date(e.due_date)) && isWithinInterval(new Date(e.due_date), { start, end }) && e.status !== 'paid')
             .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
         const paidMonth = expenses
-            .filter(e => isWithinInterval(new Date(e.due_date), { start, end }) && e.status === 'paid')
+            .filter(e => e?.due_date && isValid(new Date(e.due_date)) && isWithinInterval(new Date(e.due_date), { start, end }) && e.status === 'paid')
             .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
         // 4. Potencial de Venda (Stock value)

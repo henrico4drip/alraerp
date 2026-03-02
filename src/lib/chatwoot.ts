@@ -1,7 +1,7 @@
 import { supabase } from '@/api/supabaseClient';
 
 export const CHATWOOT_API_URL = import.meta.env.VITE_CHATWOOT_API_URL?.replace(':3000', '') || 'http://84.247.143.180';
-const CHATWOOT_ACCESS_TOKEN = import.meta.env.VITE_CHATWOOT_ACCESS_TOKEN || '';
+const CHATWOOT_ACCESS_TOKEN = import.meta.env.VITE_CHATWOOT_ACCESS_TOKEN || 'pgh3rRR6ZLirSnzdnuQZbhNV';
 const CHATWOOT_ACCOUNT_ID = import.meta.env.VITE_CHATWOOT_ACCOUNT_ID || '1';
 
 export class ChatwootAPI {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -618,7 +618,6 @@ export default function CashierPayment() {
       const shouldAutoSend = Boolean(settings?.whatsapp_auto_send_cashback);
       console.log('FinalizeSale: AutoSend?', shouldAutoSend, 'Customer?', !!selectedCustomer);
 
-      /* AUTO-SEND DISABLED BY EMERGENCY BLOCK
       if (shouldAutoSend && selectedCustomer) {
         try {
           const { msg, phone } = generateCashbackMessage(
@@ -632,6 +631,7 @@ export default function CashierPayment() {
             const { data: waRes, error: waCallErr } = await supabase.functions.invoke('whatsapp-proxy', {
               body: {
                 action: 'send_message',
+                instanceName: import.meta.env.VITE_EVOLUTION_INSTANCE || 'alraerp',
                 payload: { phone, message: msg }
               }
             });
@@ -661,7 +661,6 @@ export default function CashierPayment() {
           console.error('Erro no envio automático do WhatsApp:', waError);
         }
       }
-      */
 
       setShowReceiptDialog(true);
 

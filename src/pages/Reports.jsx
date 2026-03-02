@@ -62,6 +62,12 @@ export default function Reports() {
 
   // --- Data Processing ---
 
+  const productCategoryMap = useMemo(() => {
+    const map = new Map();
+    products.forEach(p => map.set(p.id, p.category || 'Sem Categoria'));
+    return map;
+  }, [products]);
+
   const productCostMap = useMemo(() => {
     const map = new Map();
     products.forEach(p => map.set(p.id, Number(p.cost || 0)));
@@ -166,6 +172,22 @@ export default function Reports() {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [filteredSales]);
+
+  // Category Sales Data
+  const categoryData = useMemo(() => {
+    const counts = filteredSales.reduce((acc, s) => {
+      (s.items || []).forEach(it => {
+        const category = productCategoryMap.get(it.product_id) || 'Sem Categoria';
+        const total = Number(it.total_price || 0);
+        acc[category] = (acc[category] || 0) + total;
+      });
+      return acc;
+    }, {});
+
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredSales, productCategoryMap]);
 
   // Top Lists
   const topProducts = useMemo(() => {
@@ -556,6 +578,55 @@ export default function Reports() {
                     <span className="text-slate-900 font-bold">{Math.round((d.value / summary.totalRevenue) * 100)}%</span>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+
+            {/* Sales by Category */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.35 }}
+              className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6"
+            >
+              <h3 className="text-sm font-bold text-slate-800 mb-4">Vendas por Categoria</h3>
+              <div className="h-[200px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-bold text-slate-800">
+                    {categoryData.length}
+                  </span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Categorias</span>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                {categoryData.slice(0, 4).map((d, i) => (
+                  <div key={i} className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-slate-600 font-medium truncate max-w-[120px]">{d.name}</span>
+                    </div>
+                    <span className="text-slate-900 font-bold">R$ {d.value.toFixed(2)}</span>
+                  </div>
+                ))}
+                {categoryData.length === 0 && <p className="text-xs text-slate-400">Sem dados</p>}
               </div>
             </motion.div>
 
