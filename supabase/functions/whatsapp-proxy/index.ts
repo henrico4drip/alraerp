@@ -719,6 +719,19 @@ serve(async (req) => {
 
             // --- DATA SYNC ACTIONS ---
 
+            case 'check_instance_exists': {
+                try {
+                    const res = await EvolutionService.request(`/instance/connectionState/${instanceName}`)
+                    console.log(`[ACTION] Check instance exists: ${instanceName} -> ${res.status}`);
+                    if (res.status === 404 || res.json?.status === 404 || res.json?.error === 'Not Found') {
+                        return new Response(JSON.stringify({ exists: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                    }
+                    return new Response(JSON.stringify({ exists: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                } catch (e) {
+                    return new Response(JSON.stringify({ exists: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+            }
+
             case 'fetch_contacts': {
                 console.log(`[ACTION] fetch_contacts called for ${instanceName}`)
 

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { EvolutionAPI, isSameJid, formatPhoneNumber } from '../lib/evolution';
 import { useAuth } from '../auth/AuthContext';
 import { supabase } from '../api/supabaseClient';
+import { useEffectiveSettings } from '../hooks/useEffectiveSettings';
 import QRCode from 'qrcode';
 
 interface EvolutionContextType {
@@ -34,11 +35,12 @@ const EvolutionContext = createContext<EvolutionContextType | undefined>(undefin
 
 export function EvolutionProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
+    const settings = useEffectiveSettings();
 
-    // Instance name: use the pre-configured 'alraerp' instance that has Chatwoot integration
+    // Instance name: use the user's custom instance name from settings, fallback to pre-configured instance
     const instanceName = useMemo(() => {
-        return import.meta.env.VITE_EVOLUTION_INSTANCE || 'alraerp';
-    }, []);
+        return settings?.whatsapp_instance_name || import.meta.env.VITE_EVOLUTION_INSTANCE || 'alraerp';
+    }, [settings?.whatsapp_instance_name]);
 
     const [stats, setStatsState] = useState(() => {
         const saved = localStorage.getItem('evolution_stats');

@@ -177,6 +177,20 @@ export class EvolutionAPI {
         }
     }
 
+    async checkInstanceExists(name?: string): Promise<boolean> {
+        const targetName = name || this.instanceName;
+        if (this.supabase) {
+            const res = await this.proxyInvoke('check_instance_exists', { instanceName: targetName });
+            return res?.exists === true;
+        }
+        try {
+            const res = await this.client.get(`/instance/connectionState/${targetName}`);
+            return res.status === 200 || res.status === 400; // if it returns status, it exists
+        } catch (e: any) {
+            return false;
+        }
+    }
+
     async getQRCode(): Promise<any> {
         if (this.supabase) return this.proxyInvoke('connect');
 

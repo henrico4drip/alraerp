@@ -22,6 +22,44 @@ export default function WhatsappSettings() {
     const effectiveDetails = useEffectiveSettings()
     const [diagEnabled, setDiagEnabled] = useState(false)
     const [syncing, setSyncing] = useState(false)
+    const [customInstanceName, setCustomInstanceName] = useState(instanceName || "")
+    const [isSavingInstance, setIsSavingInstance] = useState(false)
+
+    useEffect(() => {
+        if (instanceName && !customInstanceName) {
+            setCustomInstanceName(instanceName)
+        }
+    }, [instanceName, customInstanceName])
+
+    const handleSaveInstanceName = async () => {
+        if (!customInstanceName || customInstanceName.trim() === '') {
+            toast.error('O nome da instância não pode estar vazio');
+            return;
+        }
+        if (customInstanceName === instanceName) return;
+
+        try {
+            setIsSavingInstance(true);
+            const exists = await api?.checkInstanceExists(customInstanceName);
+            if (exists) {
+                toast.error('Essa instância já está em uso. Por favor, escolha outro nome (ex: sua_empresa_oficial).');
+                setIsSavingInstance(false);
+                return;
+            }
+
+            const { user } = (await supabase.auth.getUser()).data;
+            if (user) {
+                await supabase.from('settings').update({ whatsapp_instance_name: customInstanceName }).eq('user_id', user.id);
+                toast.success('Nome da instância atualizado! Atualizando página para aplicar...');
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Erro ao verificar ou salvar instância');
+        } finally {
+            setIsSavingInstance(false);
+        }
+    }
 
     // Agent Form State
     const [newAgentName, setNewAgentName] = useState("");
@@ -110,8 +148,25 @@ export default function WhatsappSettings() {
                             <CardTitle className="flex items-center gap-2 text-2xl font-bold text-gray-900">
                                 <Smartphone className="w-6 h-6 text-green-600" /> Conectar WhatsApp
                             </CardTitle>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Instância: <code className="bg-white/50 px-1.5 py-0.5 rounded border">{instanceName}</code>
+                            <p className="text-sm text-gray-500 mt-1 flex flex-col gap-2">
+                                <span className="font-medium">Instância de Conexão:</span>
+                                {isConnected ? (
+                                    <code className="bg-white/50 px-2 py-1 flex max-w-max rounded border">{instanceName}</code>
+                                ) : (
+                                    <div className="flex items-center gap-2 max-w-xs mt-1">
+                                        <Input
+                                            value={customInstanceName}
+                                            onChange={e => setCustomInstanceName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                                            className="h-8 text-xs w-48 bg-white border-blue-200"
+                                            placeholder="nome_da_instancia"
+                                        />
+                                        {customInstanceName !== instanceName && (
+                                            <Button size="sm" variant="default" onClick={handleSaveInstanceName} disabled={isSavingInstance} className="h-8 bg-blue-600 hover:bg-blue-700 text-white shadow-sm border border-blue-700 font-semibold px-4 transition-all duration-200 ease-in-out hover:scale-105 active:scale-95">
+                                                {isSavingInstance ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Nome"}
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
                             </p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
