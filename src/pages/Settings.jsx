@@ -55,8 +55,12 @@ export default function Settings() {
 
   // Wholesale State
   const [wholesaleEnabled, setWholesaleEnabled] = useState(false)
-  const [wholesaleType, setWholesaleType] = useState('global') // 'global' | 'item'
   const [wholesaleMinCount, setWholesaleMinCount] = useState(5)
+
+  // Local PIX Gateway State
+  const [pixGateway, setPixGateway] = useState('none') // 'none' | 'asaas' | 'mercadopago'
+  const [asaasApiKey, setAsaasApiKey] = useState('')
+  const [mpAccessToken, setMpAccessToken] = useState('')
 
   useEffect(() => {
     loadStaff()
@@ -135,6 +139,12 @@ export default function Settings() {
     setTargetAudience(effective.target_audience || '')
     setMainProducts(effective.main_products || '')
 
+    try {
+      setPixGateway(localStorage.getItem('pix_gateway') || 'none')
+      setAsaasApiKey(localStorage.getItem('asaas_api_key') || '')
+      setMpAccessToken(localStorage.getItem('mp_access_token') || '')
+    } catch { }
+
     setIsLoading(false)
   }, [effective])
 
@@ -185,6 +195,14 @@ export default function Settings() {
         setSettings(created)
         try { localStorage.setItem('settings', JSON.stringify([created])) } catch { }
       }
+
+      // Save Local PIX Settings
+      try {
+        localStorage.setItem('pix_gateway', pixGateway)
+        localStorage.setItem('asaas_api_key', asaasApiKey)
+        localStorage.setItem('mp_access_token', mpAccessToken)
+      } catch { }
+
       alert('Configurações salvas!')
     } catch (err) {
       console.error('Falha ao salvar configurações:', err)
@@ -471,6 +489,52 @@ export default function Settings() {
                           placeholder="CNPJ, E-mail ou Celular"
                         />
                         <p className="text-xs text-gray-500 italic leading-snug">Seu cliente verá essa chave na tela de checkout para pagamentos rápidos.</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-6 border-t border-gray-50">
+                      <Label className="text-gray-700 font-semibold flex items-center gap-2 text-lg">
+                        Integração Gateway PIX
+                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full uppercase">Automático</span>
+                      </Label>
+                      <p className="text-sm text-gray-500 mb-4">Se configurado, o sistema irá gerar o QR Code Dinâmico direto no seu banco e confirmar o pagamento sozinho na tela do caixa.</p>
+                      <div className="grid md:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <Label className="text-gray-600">Provedor PIX</Label>
+                          <select
+                            value={pixGateway}
+                            onChange={(e) => setPixGateway(e.target.value)}
+                            className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:ring-blue-500"
+                          >
+                            <option value="none">Manual (Apenas Copia e Cola)</option>
+                            <option value="asaas">ASAAS (Gerar e Autenticar Auto)</option>
+                            <option value="mercadopago">Mercado Pago (Gerar e Autenticar Auto)</option>
+                          </select>
+                        </div>
+                        {pixGateway === 'asaas' && (
+                          <div className="space-y-2 md:col-span-2">
+                            <Label className="text-gray-600">ASAAS API Key (Access Token)</Label>
+                            <Input
+                              type="password"
+                              value={asaasApiKey}
+                              onChange={(e) => setAsaasApiKey(e.target.value)}
+                              className="h-11 rounded-xl border-gray-200"
+                              placeholder="\$aact_MzkwODA..."
+                            />
+                          </div>
+                        )}
+                        {pixGateway === 'mercadopago' && (
+                          <div className="space-y-2 md:col-span-2">
+                            <Label className="text-gray-600">Mercado Pago Access Token (Produção)</Label>
+                            <Input
+                              type="password"
+                              value={mpAccessToken}
+                              onChange={(e) => setMpAccessToken(e.target.value)}
+                              className="h-11 rounded-xl border-gray-200"
+                              placeholder="APP_USR-..."
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 

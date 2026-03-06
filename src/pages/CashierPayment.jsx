@@ -124,6 +124,8 @@ export default function CashierPayment() {
   const [showPixDialog, setShowPixDialog] = useState(false);
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState('');
   const [pixPayload, setPixPayload] = useState('');
+  const [pixTxId, setPixTxId] = useState(null);
+  const [isPixGenerating, setIsPixGenerating] = useState(false);
   const [waSending, setWaSending] = useState(false);
   const [waSent, setWaSent] = useState(false);
   const [showCashbackSuccess, setShowCashbackSuccess] = useState(false);
@@ -249,31 +251,96 @@ export default function CashierPayment() {
     setPaymentDraft({ method: "", amount: 0, installments: 1 })
   }
 
-  const generatePixCode = async () => {
-    if (!settings?.pix_key) return;
+  // Auto Confirmation PIX API Polling
+  useEffect(() => {
+    let intervalId;
+    if (showPixDialog && pixTxId) {
+      const pixGateway = localStorage.getItem('pix_gateway');
+      const asaasToken = localStorage.getItem('asaas_api_key');
+      const mpToken = localStorage.getItem('mp_access_token');
 
+      intervalId = setInterval(async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('pix-gateway', {
+            body: {
+              action: 'check_pix_status',
+              payload: { gateway: pixGateway, txId: pixTxId, asaas_token: asaasToken, mp_token: mpToken }
+            }
+          });
+          if (!error && data?.isPaid) {
+            clearInterval(intervalId);
+            setPixTxId(null);
+            setShowPixDialog(false);
+            addPayment();
+            alert("✅ PIX Recebido e Confirmado Automaticamente!");
+          }
+        } catch (e) {
+          console.error("Erro ao checar status PIX automático:", e);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(intervalId);
+  }, [showPixDialog, pixTxId]);
+
+  const generatePixCode = async () => {
     const amount = Number(paymentDraft.amount || 0);
     if (amount <= 0) return;
 
     try {
-      const pix = new Pix(
-        settings.pix_key,
-        settings.erp_name || 'AlraERP Store',
-        settings.company_city || 'Cidade',
-        amount,
-        'TX' + Date.now().toString().slice(-10) // Unique TxId
-      );
+      setIsPixGenerating(true);
+      const pixGateway = localStorage.getItem('pix_gateway') || 'none';
 
-      const payload = pix.getPayload();
-      setPixPayload(payload);
+      if (pixGateway !== 'none') {
+        const asaasToken = localStorage.getItem('asaas_api_key');
+        const mpToken = localStorage.getItem('mp_access_token');
 
-      const url = await QRCode.toDataURL(payload);
-      setPixQrCodeUrl(url);
-      setShowPixDialog(true);
+        const { data, error } = await supabase.functions.invoke('pix-gateway', {
+          body: {
+            action: 'create_pix',
+            payload: {
+              gateway: pixGateway,
+              amount: amount,
+              asaas_token: asaasToken,
+              mp_token: mpToken,
+              description: settings?.erp_name ? `Compra na ${settings.erp_name}` : 'Compra'
+            }
+          }
+        });
+
+        if (error || data?.error) {
+          throw new Error(data?.error || error?.message || 'Falha ao gerar PIX no Gateway');
+        }
+
+        setPixTxId(data.txId);
+        setPixPayload(data.qrCodePayload);
+        setPixQrCodeUrl(data.qrCodeImage);
+        setShowPixDialog(true);
+        setShowConfirmPixDialog(false);
+      } else {
+        if (!settings?.pix_key) throw new Error("Chave PIX não configurada em Configurações.");
+
+        const pix = new Pix(
+          settings.pix_key,
+          settings.erp_name || 'AlraERP Store',
+          settings.company_city || 'Cidade',
+          amount,
+          'TX' + Date.now().toString().slice(-10)
+        );
+
+        const payload = pix.getPayload();
+        setPixPayload(payload);
+        const url = await QRCode.toDataURL(payload);
+        setPixQrCodeUrl(url);
+        setShowPixDialog(true);
+        setShowConfirmPixDialog(false);
+      }
     } catch (e) {
       console.error('Error generating PIX:', e);
       alert('Erro ao gerar QR Code PIX: ' + e.message);
       addPayment();
+      setShowConfirmPixDialog(false);
+    } finally {
+      setIsPixGenerating(false);
     }
   };
 
@@ -306,9 +373,12 @@ export default function CashierPayment() {
     }
 
     // Intercept PIX
-    if (method === 'PIX' && settings?.pix_key) {
-      setShowConfirmPixDialog(true);
-      return;
+    if (method === 'PIX') {
+      const pixGateway = localStorage.getItem('pix_gateway') || 'none';
+      if (settings?.pix_key || pixGateway !== 'none') {
+        setShowConfirmPixDialog(true);
+        return;
+      }
     }
 
     addPayment();
@@ -1422,11 +1492,11 @@ export default function CashierPayment() {
           onOpenChange={setShowConfirmPixDialog}
           title="Gerar PIX"
           description="Deseja gerar um QR Code PIX para este pagamento?"
-          confirmText="Sim, Gerar PIX"
+          confirmText={isPixGenerating ? "Iniciando Automação..." : "Sim, Gerar PIX"}
           cancelText="Não, apenas adicionar"
           destructive={false}
           onConfirm={() => {
-            generatePixCode();
+            if (!isPixGenerating) generatePixCode();
           }}
           onCancel={() => {
             addPayment();
