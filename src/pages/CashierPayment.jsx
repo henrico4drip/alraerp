@@ -693,9 +693,10 @@ export default function CashierPayment() {
 
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
-      setIsFinalizing(false);
-      window.dispatchEvent(new CustomEvent('cashier-finalizing', { detail: false }));
-      alert("Falha ao finalizar venda.");
+
+    } catch (error) {
+      console.error('Erro ao finalizar venda:', error);
+      alert("Falha ao finalizar venda. Verifique os logs do console.");
     } finally {
       isLocked.current = false;
       setIsFinalizing(false);
