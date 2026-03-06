@@ -37,10 +37,26 @@ export function EvolutionProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const settings = useEffectiveSettings();
 
-    // Instance name: use the user's custom instance name from settings, fallback to pre-configured instance
+    // Instance name: use localStorage to persist individual instance name without relying on DB changes
     const instanceName = useMemo(() => {
-        return settings?.whatsapp_instance_name || import.meta.env.VITE_EVOLUTION_INSTANCE || 'alraerp';
-    }, [settings?.whatsapp_instance_name]);
+        const storedCustom = localStorage.getItem('whatsapp_instance_name');
+        let baseName = '';
+        if (storedCustom) {
+            if (storedCustom.startsWith('erp_')) {
+                baseName = storedCustom;
+            } else if (user?.id) {
+                baseName = `erp_${user.id.substring(0, 8)}_${storedCustom}`;
+            } else {
+                baseName = storedCustom;
+            }
+            return baseName.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        }
+        // Se nao tem custom salvo, gera o proprio pro usuario
+        if (user?.id) {
+            return `erp_${user.id.substring(0, 8)}`;
+        }
+        return import.meta.env.VITE_EVOLUTION_INSTANCE || 'alraerp';
+    }, [user?.id]);
 
     const [stats, setStatsState] = useState(() => {
         const saved = localStorage.getItem('evolution_stats');

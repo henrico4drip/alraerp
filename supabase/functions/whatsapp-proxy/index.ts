@@ -222,8 +222,11 @@ serve(async (req) => {
                     console.log('[WEBHOOK] Using system user ID:', userId)
                 }
             } else {
-                // Instance convention: "erp_USERID" -> extract header id
-                const prefix = instanceName.replace('erp_', '')
+                // Instance convention: "erp_USERIDPREFIX_customName" or "erp_USERID"
+                let prefix = instanceName.replace('erp_', '')
+                if (prefix.includes('_')) {
+                    prefix = prefix.split('_')[0]
+                }
                 const { data: users } = await supabaseAdmin.from('profiles').select('id').ilike('id', `${prefix}%`)
                 userId = users?.[0]?.id
             }
@@ -582,6 +585,15 @@ serve(async (req) => {
                     );
                     CREATE INDEX IF NOT EXISTS idx_wa_lid_mappings_lid ON wa_lid_mappings(lid);
                     CREATE INDEX IF NOT EXISTS idx_wa_lid_mappings_phone ON wa_lid_mappings(phone);
+                `;
+                const { error } = await supabaseAdmin.rpc('exec_sql', { sql });
+                if (error) return new Response(JSON.stringify({ error }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+
+            case 'alter_settings': {
+                const sql = `
+                    ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp_instance_name TEXT;
                 `;
                 const { error } = await supabaseAdmin.rpc('exec_sql', { sql });
                 if (error) return new Response(JSON.stringify({ error }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

@@ -47,12 +47,9 @@ export default function WhatsappSettings() {
                 return;
             }
 
-            const { user } = (await supabase.auth.getUser()).data;
-            if (user) {
-                await supabase.from('settings').update({ whatsapp_instance_name: customInstanceName }).eq('user_id', user.id);
-                toast.success('Nome da instância atualizado! Atualizando página para aplicar...');
-                setTimeout(() => window.location.reload(), 2000);
-            }
+            localStorage.setItem('whatsapp_instance_name', customInstanceName);
+            toast.success('Nome da instância atualizado! Atualizando página para aplicar...');
+            setTimeout(() => window.location.reload(), 2000);
         } catch (e) {
             console.error(e);
             toast.error('Erro ao verificar ou salvar instância');
