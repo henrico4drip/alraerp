@@ -191,11 +191,20 @@ export default function CashierPayment() {
     },
   });
 
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name?.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
-      c.phone?.includes(customerSearchTerm)
-  );
+  const cleanSearchTerm = customerSearchTerm.replace(/\D/g, "");
+
+  const filteredCustomers = customers.filter(c => {
+    const searchLower = customerSearchTerm.toLowerCase();
+    const phoneClean = (c.phone || '').replace(/\D/g, "");
+    const cpfClean = (c.cpf || '').replace(/\D/g, "");
+
+    return (c.name || '').toLowerCase().includes(searchLower) ||
+      (c.email || '').toLowerCase().includes(searchLower) ||
+      (c.phone || '').includes(customerSearchTerm) ||
+      (cleanSearchTerm && phoneClean.includes(cleanSearchTerm)) ||
+      (c.cpf || '').includes(customerSearchTerm) ||
+      (cleanSearchTerm && cpfClean.includes(cleanSearchTerm));
+  });
 
   const customer = selectedCustomer
     ? customers.find((c) => c.id === selectedCustomer.id)
