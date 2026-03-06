@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Minus, Plus, Trash2, Check, FileText, QrCode, Banknote, CreditCard, CalendarRange, MoreHorizontal, ShoppingCart, Package, Gift, Loader2 } from "lucide-react";
 import { useCashier } from "@/context/CashierContext";
 import { useNavigate } from "react-router-dom";
+import { useEvolution } from "@/contexts/EvolutionContext";
 import CustomerDialog from "@/components/CustomerDialog";
 import Receipt from "@/components/Receipt";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -64,6 +65,7 @@ const generateCashbackMessage = (sale, customer, settings) => {
 export default function CashierPayment() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { api } = useEvolution() || {};
   const {
     cart,
     setCart,
@@ -627,20 +629,23 @@ export default function CashierPayment() {
           );
 
           if (phone) {
-            console.log('Step 5: Invoking whatsapp-proxy...', phone);
-            const { data: waRes, error: waCallErr } = await supabase.functions.invoke('whatsapp-proxy', {
-              body: {
-                action: 'send_message',
-                instanceName: import.meta.env.VITE_EVOLUTION_INSTANCE || 'alraerp',
-                payload: { phone, message: msg }
+            console.log('Step 5: Invoking evolution API for send_message...', phone);
+            let waRes = null;
+            let waCallErr = null;
+            try {
+              if (api) {
+                waRes = await api.sendTextMessage(phone + '@s.whatsapp.net', msg);
+              } else {
+                waCallErr = new Error("Evolution API not initialized");
               }
-            });
+            } catch (err) {
+              waCallErr = err;
+            }
             console.log('Step 5 Result:', { waRes, waCallErr });
 
             console.log('AutoSend Result Full:', JSON.stringify({ waRes, waCallErr }));
 
-            // Check if successful (allowing any truthy status or success flag)
-            const isSuccess = !waCallErr && waRes && (waRes.success || waRes.status === 'success' || !waRes.error);
+            const isSuccess = !waCallErr && waRes;
 
             if (isSuccess) {
               setWaSent(true);
@@ -717,12 +722,10 @@ export default function CashierPayment() {
 
       // Tenta envio automático via Evolution API, se possível
       let delivered = false;
-      if (phone) {
+      if (phone && api) {
         try {
-          const { error: waErr } = await supabase.functions.invoke('whatsapp-proxy', {
-            body: { action: 'send_message', payload: { phone, message: msg } }
-          });
-          if (!waErr) {
+          const waRes = await api.sendTextMessage(phone + '@s.whatsapp.net', msg);
+          if (waRes) {
             delivered = true;
           }
         } catch (_) {
