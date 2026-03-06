@@ -38,6 +38,16 @@ import { base44 } from './api/base44Client'
 import { useProfile, ProfileProvider } from './context/ProfileContext'
 import CustomerLogin from './pages/CustomerLogin'
 
+// Force cache invalidation - v3
+const APP_CACHE_VERSION = 'v1.1';
+try {
+  if (window.localStorage.getItem('app_cache_version') !== APP_CACHE_VERSION) {
+    window.localStorage.removeItem('tanstack-query');
+    window.localStorage.setItem('app_cache_version', APP_CACHE_VERSION);
+    console.log('[App] Cleared stale React Query cache for new version.');
+  }
+} catch (e) { }
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
