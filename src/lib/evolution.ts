@@ -106,10 +106,15 @@ export class EvolutionAPI {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ action, payload })
+            body: JSON.stringify({ action, instanceName: this.instanceName, payload })
         });
 
         // Handle 401/403 - tentar refresh token uma vez
+        if (response.status === 404) {
+            console.log('[EvolutionAPI] Proxy received 404 (Edge Func not handling instance/action correctly), treating as error');
+            throw new Error(`Edge Function error: 404 Not Found`);
+        }
+
         if ((response.status === 401 || response.status === 403) && retryCount < 1) {
             console.log('[EvolutionAPI] Token expired, attempting refresh...');
             const { data: refreshData, error: refreshError } = await this.supabase.auth.refreshSession();
