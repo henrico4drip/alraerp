@@ -11,8 +11,10 @@ export default function ConfirmDialog({
   cancelText = "Cancelar",
   destructive = false,
   onConfirm,
+  onCancel,
 }) {
   const handleCancel = () => {
+    onCancel?.();
     onOpenChange?.(false);
   };
   const handleConfirm = () => {

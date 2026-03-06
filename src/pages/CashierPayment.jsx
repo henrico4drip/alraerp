@@ -120,6 +120,7 @@ export default function CashierPayment() {
   const [showConfirmRemovePayment, setShowConfirmRemovePayment] = useState(false);
   const [confirmRemovePaymentIdx, setConfirmRemovePaymentIdx] = useState(null);
   const [editingPaymentIdx, setEditingPaymentIdx] = useState(null);
+  const [showConfirmPixDialog, setShowConfirmPixDialog] = useState(false);
   const [showPixDialog, setShowPixDialog] = useState(false);
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState('');
   const [pixPayload, setPixPayload] = useState('');
@@ -306,10 +307,8 @@ export default function CashierPayment() {
 
     // Intercept PIX
     if (method === 'PIX' && settings?.pix_key) {
-      if (confirm('Deseja gerar um QR Code PIX para este pagamento?')) {
-        generatePixCode();
-        return;
-      }
+      setShowConfirmPixDialog(true);
+      return;
     }
 
     addPayment();
@@ -1415,6 +1414,22 @@ export default function CashierPayment() {
           destructive
           onConfirm={() => {
             if (confirmRemovePaymentIdx != null) removePayment(confirmRemovePaymentIdx);
+          }}
+        />
+
+        <ConfirmDialog
+          open={showConfirmPixDialog}
+          onOpenChange={setShowConfirmPixDialog}
+          title="Gerar PIX"
+          description="Deseja gerar um QR Code PIX para este pagamento?"
+          confirmText="Sim, Gerar PIX"
+          cancelText="Não, apenas adicionar"
+          destructive={false}
+          onConfirm={() => {
+            generatePixCode();
+          }}
+          onCancel={() => {
+            addPayment();
           }}
         />
 
