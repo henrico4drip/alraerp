@@ -97,17 +97,38 @@ function makeRepo(table) {
     list: async (order) => {
       const userId = await getCurrentUserId()
       if (!userId) return []
-      const q = supabase.from(table).select('*').eq('user_id', userId)
-      if (order === '-created_date') {
-        q.order('created_date', { ascending: false })
-      } else if (order === '-due_date') {
-        q.order('due_date', { ascending: false })
-      } else if (order === 'due_date') {
-        q.order('due_date', { ascending: true })
+
+      let allData = [];
+      let from = 0;
+      let limit = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        let q = supabase.from(table).select('*').eq('user_id', userId).range(from, from + limit - 1)
+        if (order === '-created_date') {
+          q.order('created_date', { ascending: false })
+        } else if (order === '-due_date') {
+          q.order('due_date', { ascending: false })
+        } else if (order === 'due_date') {
+          q.order('due_date', { ascending: true })
+        }
+
+        const { data, error } = await q
+        if (error) throw error
+
+        if (data && data.length > 0) {
+          allData = allData.concat(data)
+          if (data.length < limit) {
+            hasMore = false;
+          } else {
+            from += limit;
+            if (from >= 15000) hasMore = false; // safety break
+          }
+        } else {
+          hasMore = false;
+        }
       }
-      const { data, error } = await q
-      if (error) throw error
-      return data || []
+      return allData
     },
     create: async (obj) => {
       const userId = await getCurrentUserId()
