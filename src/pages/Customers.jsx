@@ -107,12 +107,20 @@ export default function Customers() {
     }
   };
 
-  const filteredCustomers = customers.filter(c =>
-    (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.phone || '').includes(search) ||
-    (c.email || '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.cpf || '').includes(search)
-  );
+  const cleanSearch = search.replace(/\D/g, "");
+
+  const filteredCustomers = customers.filter(c => {
+    const searchLower = search.toLowerCase();
+    const phoneClean = (c.phone || '').replace(/\D/g, "");
+    const cpfClean = (c.cpf || '').replace(/\D/g, "");
+
+    return (c.name || '').toLowerCase().includes(searchLower) ||
+      (c.email || '').toLowerCase().includes(searchLower) ||
+      (c.phone || '').includes(search) || // keep literal match just in case
+      (cleanSearch && phoneClean.includes(cleanSearch)) ||
+      (c.cpf || '').includes(search) ||
+      (cleanSearch && cpfClean.includes(cleanSearch));
+  });
 
   const sortedCustomers = React.useMemo(() => {
     const arr = [...filteredCustomers];
