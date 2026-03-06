@@ -32,7 +32,12 @@ export default function CustomerDialog({ open, onOpenChange, customer, onSaved, 
       if (onSaved) onSaved(formData);
       if (onOpenChange) onOpenChange(false);
     } catch (err) {
-      alert(err?.message || "Falha ao salvar cliente");
+      const msg = err?.message || "";
+      if (msg.includes("idx_customers_user_phone_normalized") || msg.includes("clientes_phone_key") || err?.code === "23505") {
+        alert("Este número de telefone (ou CPF) já está cadastrado para outro cliente!");
+      } else {
+        alert(msg || "Falha ao salvar cliente");
+      }
     }
   };
 
