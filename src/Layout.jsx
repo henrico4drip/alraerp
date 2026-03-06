@@ -370,10 +370,12 @@ export default function Layout({ children, currentPageName }) {
         {/* Header */}
         {!isCrmRoute && (
           <>
-            <header className="bg-[#0a0a0a] border-b border-white/10 fixed top-0 left-0 right-0 z-30 shadow-xl w-full h-12 sm:h-14 overflow-hidden">
+            <header className="bg-[#0a0a0a] border-b border-white/10 fixed top-0 left-0 right-0 z-30 shadow-xl w-full h-12 sm:h-14">
               {/* Decorative Background Element - Scaled up and shifted to exactly match the reference crop */}
-              <div className="absolute right-[5px] sm:right-[20px] top-[50%] -translate-y-1/2 pointer-events-none opacity-40 select-none">
-                <span className="text-[340px] font-black italic text-[#3490c7] blur-[1px] leading-none block mt-[25px] -mr-[10px] transform -skew-x-[12deg]" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
+              <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute right-[5px] sm:right-[20px] top-[50%] -translate-y-1/2 pointer-events-none opacity-40 select-none">
+                  <span className="text-[340px] font-black italic text-[#3490c7] blur-[1px] leading-none block mt-[25px] -mr-[10px] transform -skew-x-[12deg]" style={{ fontFamily: `'Poppins', sans-serif` }}>a</span>
+                </div>
               </div>
               <div className="relative z-10 w-full h-full px-1.5 sm:px-4 flex items-center justify-between text-white">
                 <div className="flex flex-wrap items-center gap-4 md:gap-6">
