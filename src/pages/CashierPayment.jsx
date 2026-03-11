@@ -261,13 +261,20 @@ export default function CashierPayment() {
 
       intervalId = setInterval(async () => {
         try {
-          const { data, error } = await supabase.functions.invoke('pix-gateway', {
-            body: {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          const res = await fetch(`${supabaseUrl}/functions/v1/pix-gateway`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}`, 'apikey': supabaseKey },
+            body: JSON.stringify({
               action: 'check_pix_status',
               payload: { gateway: pixGateway, txId: pixTxId, asaas_token: asaasToken, mp_token: mpToken }
-            }
+            })
           });
-          if (!error && data?.isPaid) {
+          const text = await res.text();
+          let data;
+          try { data = JSON.parse(text); } catch { return; }
+          if (data?.isPaid) {
             clearInterval(intervalId);
             setPixTxId(null);
             setShowPixDialog(false);
@@ -294,8 +301,13 @@ export default function CashierPayment() {
         const asaasToken = localStorage.getItem('asaas_api_key');
         const mpToken = localStorage.getItem('mp_access_token');
 
-        const { data, error } = await supabase.functions.invoke('pix-gateway', {
-          body: {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        const res = await fetch(`${supabaseUrl}/functions/v1/pix-gateway`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}`, 'apikey': supabaseKey },
+          body: JSON.stringify({
             action: 'create_pix',
             payload: {
               gateway: pixGateway,
@@ -304,11 +316,17 @@ export default function CashierPayment() {
               mp_token: mpToken,
               description: settings?.erp_name ? `Compra na ${settings.erp_name}` : 'Compra'
             }
-          }
+          })
         });
 
-        if (error || data?.error) {
-          throw new Error(data?.error || error?.message || 'Falha ao gerar PIX no Gateway');
+        const text = await res.text();
+        console.log('[PIX] Raw response:', res.status, text.slice(0, 500));
+
+        let data;
+        try { data = JSON.parse(text); } catch { throw new Error(`Resposta inválida do servidor (${res.status}): ${text.slice(0, 200)}`); }
+
+        if (data?.error) {
+          throw new Error(data.error);
         }
 
         setPixTxId(data.txId);
