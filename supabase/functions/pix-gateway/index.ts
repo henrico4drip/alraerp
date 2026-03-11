@@ -67,7 +67,7 @@ serve(async (req: Request) => {
 
           // Try production URL first, then sandbox
           const urls = [
-            "https://api.asaas.com/api/v3",
+            "https://api.asaas.com/v3",
             "https://sandbox.asaas.com/api/v3"
           ];
 
@@ -93,8 +93,8 @@ serve(async (req: Request) => {
 
           console.log(`[PIX-ASAAS] Using base URL: ${baseUrl}`);
 
-          // 1. Search for existing generic customer or create one
-          const { data: searchJson } = await safeFetchJson(`${baseUrl}/customers?name=Cliente ERP Avulso&limit=1`, {
+          // 1. Search for existing generic customer (by CPF) or create one
+          const { data: searchJson } = await safeFetchJson(`${baseUrl}/customers?cpfCnpj=24971563792&limit=1`, {
             headers: { 'access_token': asaas_token }
           });
           console.log("[PIX-ASAAS] Customer search:", JSON.stringify(searchJson).slice(0, 300));
@@ -105,7 +105,7 @@ serve(async (req: Request) => {
             const { data: cusJson, status: cusStatus, rawText: cusRaw } = await safeFetchJson(`${baseUrl}/customers`, {
               method: "POST",
               headers: { 'access_token': asaas_token, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: "Cliente ERP Avulso" })
+              body: JSON.stringify({ name: "Cliente ERP Avulso", cpfCnpj: "24971563792" })
             });
             console.log("[PIX-ASAAS] Customer create:", cusStatus, cusRaw.slice(0, 300));
             if (!cusJson?.id) {
@@ -173,7 +173,7 @@ serve(async (req: Request) => {
         }
 
         if (gateway === 'asaas') {
-          const urls = ["https://api.asaas.com/api/v3", "https://sandbox.asaas.com/api/v3"];
+          const urls = ["https://api.asaas.com/v3", "https://sandbox.asaas.com/api/v3"];
           for (const url of urls) {
             const { status, data: asaasJson } = await safeFetchJson(`${url}/payments/${txId}`, {
               headers: { 'access_token': asaas_token }
