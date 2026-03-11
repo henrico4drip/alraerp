@@ -55,6 +55,7 @@ export default function Settings() {
 
   // Wholesale State
   const [wholesaleEnabled, setWholesaleEnabled] = useState(false)
+  const [wholesaleType, setWholesaleType] = useState('global') // 'global' | 'item'
   const [wholesaleMinCount, setWholesaleMinCount] = useState(5)
 
   // Local PIX Gateway State
