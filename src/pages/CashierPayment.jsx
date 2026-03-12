@@ -129,6 +129,7 @@ export default function CashierPayment() {
   const [waSending, setWaSending] = useState(false);
   const [waSent, setWaSent] = useState(false);
   const [showCashbackSuccess, setShowCashbackSuccess] = useState(false);
+  const [showPixSuccess, setShowPixSuccess] = useState(false);
   const amountInputRef = useRef(null);
   useEffect(() => {
     const animatePayment = sessionStorage.getItem('animateCashierPaymentEntry') === 'true';
@@ -279,7 +280,8 @@ export default function CashierPayment() {
             setPixTxId(null);
             setShowPixDialog(false);
             addPayment();
-            alert("✅ PIX Recebido e Confirmado Automaticamente!");
+            setShowPixSuccess(true);
+            setTimeout(() => setShowPixSuccess(false), 3000);
           }
         } catch (e) {
           console.error("Erro ao checar status PIX automático:", e);
@@ -902,39 +904,47 @@ export default function CashierPayment() {
       )}
 
       {/* PIX QR Code Dialog */}
-      <Dialog open={showPixDialog} onOpenChange={setShowPixDialog}>
-        <DialogContent className="max-w-md bg-white rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-center text-xl font-bold flex flex-col items-center gap-2">
-              <QrCode className="w-8 h-8 text-green-600" />
-              Pagamento via PIX
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-4 space-y-4">
-            <div className="p-4 bg-white border-2 border-dashed border-green-200 rounded-2xl shadow-sm">
-              {pixQrCodeUrl && <img src={pixQrCodeUrl} alt="QR Code PIX" className="w-64 h-64 object-contain" />}
+      <Dialog open={showPixDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowPixDialog(false);
+          setPixTxId(null);
+        }
+      }}>
+        <DialogContent className="max-w-sm bg-white rounded-3xl border-none shadow-2xl">
+          <div className="flex flex-col items-center justify-center p-6 space-y-5">
+            <div className="flex items-center gap-2">
+              <QrCode className="w-6 h-6 text-green-600" />
+              <h2 className="text-xl font-bold text-gray-900">Pagamento PIX</h2>
+            </div>
+
+            <div className="p-3 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-100 rounded-2xl">
+              {pixQrCodeUrl && <img src={pixQrCodeUrl} alt="QR Code PIX" className="w-56 h-56 object-contain" />}
             </div>
 
             <div className="text-center space-y-1">
-              <p className="font-bold text-gray-900 text-2xl">R$ {Number(paymentDraft.amount || 0).toFixed(2)}</p>
-              <p className="text-sm text-gray-400">Escaneie o código acima para pagar</p>
+              <p className="font-black text-gray-900 text-3xl">R$ {Number(paymentDraft.amount || 0).toFixed(2)}</p>
             </div>
 
-            <div className="flex gap-2 w-full">
-              <Button variant="outline" className="flex-1 rounded-xl h-11 border-gray-200" onClick={() => {
-                navigator.clipboard.writeText(pixPayload);
-                alert('Código PIX Copia e Cola copiado!');
-              }}>
-                Copiar Código
-              </Button>
-              <Button className="flex-1 rounded-xl h-11 bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-200" onClick={() => {
-                setShowPixDialog(false);
-                addPayment();
-              }}>
-                <Check className="w-4 h-4 mr-1" />
-                Já Recebi
-              </Button>
-            </div>
+            {pixTxId ? (
+              <div className="flex items-center gap-3 bg-amber-50 text-amber-700 px-4 py-3 rounded-2xl w-full">
+                <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                <div>
+                  <p className="text-sm font-bold">Aguardando pagamento...</p>
+                  <p className="text-xs opacity-70">A tela confirmará automaticamente</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center">Escaneie o código acima para pagar</p>
+            )}
+
+            {pixPayload && (
+              <button
+                onClick={() => { navigator.clipboard.writeText(pixPayload); }}
+                className="text-xs text-green-600 hover:text-green-700 font-medium underline underline-offset-2 transition-colors"
+              >
+                Copiar código Copia e Cola
+              </button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -1472,6 +1482,26 @@ export default function CashierPayment() {
                 <h3 className="text-2xl font-black">CASHBACK ENVIADO!</h3>
                 <p className="text-emerald-50 opacity-90 text-sm font-medium">
                   Seu cliente recebeu uma mensagem recheada de benefícios.
+                </p>
+              </div>
+              <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-white animate-progress" />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* PIX Success Animation */}
+        <Dialog open={showPixSuccess} onOpenChange={setShowPixSuccess}>
+          <DialogContent className="max-w-[320px] p-8 border-none bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-[2rem] shadow-2xl overflow-hidden">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center animate-bounce">
+                <Check className="w-12 h-12 text-white stroke-[3]" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black">PIX CONFIRMADO!</h3>
+                <p className="text-green-50 opacity-90 text-sm font-medium">
+                  Pagamento recebido e adicionado à venda automaticamente.
                 </p>
               </div>
               <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
