@@ -329,9 +329,31 @@ export default function CashierPayment() {
           throw new Error(data.error);
         }
 
+        // Save txId for auto-confirmation polling
         setPixTxId(data.txId);
-        setPixPayload(data.qrCodePayload);
-        setPixQrCodeUrl(data.qrCodeImage);
+
+        if (data.useLocalQr || !data.qrCodePayload) {
+          // Gateway returned useLocalQr (e.g. ASAAS creates "cobv" which allows scheduling)
+          // Generate STATIC QR code locally using the user's PIX key (no scheduling possible)
+          if (!settings?.pix_key) throw new Error("Chave PIX não configurada. Vá em Configurações > Financeiro.");
+
+          const pix = new Pix(
+            settings.pix_key,
+            settings.erp_name || 'AlraERP Store',
+            settings.company_city || 'Cidade',
+            amount,
+            'TX' + Date.now().toString().slice(-10)
+          );
+          const payload = pix.getPayload();
+          setPixPayload(payload);
+          const url = await QRCode.toDataURL(payload);
+          setPixQrCodeUrl(url);
+        } else {
+          // Gateway returned its own QR code (e.g. Mercado Pago creates immediate PIX)
+          setPixPayload(data.qrCodePayload);
+          setPixQrCodeUrl(data.qrCodeImage);
+        }
+
         setShowPixDialog(true);
         setShowConfirmPixDialog(false);
       } else {

@@ -139,22 +139,12 @@ serve(async (req: Request) => {
           }
           const txId = chargeJson.id;
 
-          // 3. Get QR Code (small delay for ASAAS to generate)
-          await new Promise(r => setTimeout(r, 2000));
-
-          const { data: qrJson, rawText: qrRaw, status: qrStatus } = await safeFetchJson(`${baseUrl}/payments/${txId}/pixQrCode`, {
-            headers: { 'access_token': asaas_token }
-          });
-          console.log("[PIX-ASAAS] QR response:", qrStatus, qrRaw.slice(0, 500));
-
-          if (!qrJson?.payload && !qrJson?.encodedImage) {
-            return jsonOk({ error: `QR Code não disponível ainda (${qrStatus}). Resposta: ${qrRaw.slice(0, 200)}` });
-          }
-
+          // NOTE: We skip ASAAS's QR code (it generates "cobv" which allows scheduling).
+          // The frontend will generate a STATIC QR code locally using the user's PIX key.
+          // ASAAS is used only for auto-confirmation polling via check_pix_status.
           return jsonOk({
             txId: txId,
-            qrCodePayload: qrJson.payload,
-            qrCodeImage: qrJson.encodedImage ? "data:image/png;base64," + qrJson.encodedImage : null
+            useLocalQr: true
           });
         }
 
