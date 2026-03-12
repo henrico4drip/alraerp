@@ -72,7 +72,6 @@ serve(async (req: Request) => {
           ];
 
           let baseUrl = '';
-          let customerId = '';
 
           for (const url of urls) {
             console.log(`[PIX-ASAAS] Trying base URL: ${url}`);
@@ -93,66 +92,27 @@ serve(async (req: Request) => {
 
           console.log(`[PIX-ASAAS] Using base URL: ${baseUrl}`);
 
-          // 1. Search for existing generic customer (by CPF) or create one
-          const { data: searchJson } = await safeFetchJson(`${baseUrl}/customers?cpfCnpj=24971563792&limit=1`, {
-            headers: { 'access_token': asaas_token }
-          });
-          console.log("[PIX-ASAAS] Customer search:", JSON.stringify(searchJson).slice(0, 300));
-
-          if (searchJson?.data?.length > 0) {
-            customerId = searchJson.data[0].id;
-          } else {
-            const { data: cusJson, status: cusStatus, rawText: cusRaw } = await safeFetchJson(`${baseUrl}/customers`, {
-              method: "POST",
-              headers: { 'access_token': asaas_token, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: "Cliente ERP Avulso", cpfCnpj: "24971563792" })
-            });
-            console.log("[PIX-ASAAS] Customer create:", cusStatus, cusRaw.slice(0, 300));
-            if (!cusJson?.id) {
-              const errMsg = cusJson?.errors?.[0]?.description || cusRaw.slice(0, 200) || `Status ${cusStatus}`;
-              return jsonOk({ error: `Erro ao criar cliente ASAAS: ${errMsg}` });
-            }
-            customerId = cusJson.id;
-          }
-
-          // 2. Create PIX Charge (dueDate = today for immediate payment, NOT future)
-          const today = new Date().toISOString().split('T')[0];
-          const chargeBody = {
-            customer: customerId,
-            billingType: 'PIX',
-            value: Number(amount),
-            dueDate: today,
-            description: description || 'Compra ERP'
-          };
-          console.log("[PIX-ASAAS] Creating charge:", JSON.stringify(chargeBody));
-
-          const { data: chargeJson, status: chargeStatus, rawText: chargeRaw } = await safeFetchJson(`${baseUrl}/payments`, {
+          // Use ASAAS Static QR Code endpoint — generates immediate PIX (NO scheduling)
+          // Money goes to ASAAS account, and we get a static QR that expires in 10 min
+          const { data: qrJson, rawText: qrRaw, status: qrStatus } = await safeFetchJson(`${baseUrl}/pix/qrCodes/static`, {
             method: "POST",
             headers: { 'access_token': asaas_token, 'Content-Type': 'application/json' },
-            body: JSON.stringify(chargeBody)
+            body: JSON.stringify({
+              value: Number(amount),
+              description: description || 'Compra ERP',
+              allowsMultiplePayments: false,
+              expirationSeconds: 600 // 10 minutes
+            })
           });
-          console.log("[PIX-ASAAS] Charge response:", chargeStatus, chargeRaw.slice(0, 500));
-
-          if (!chargeJson?.id) {
-            const errMsg = chargeJson?.errors?.[0]?.description || chargeRaw.slice(0, 200) || `Status ${chargeStatus}`;
-            return jsonOk({ error: `Erro ao criar cobrança ASAAS: ${errMsg}` });
-          }
-          const txId = chargeJson.id;
-
-          // 3. Get ASAAS QR Code (with small delay for generation)
-          await new Promise(r => setTimeout(r, 1500));
-
-          const { data: qrJson, rawText: qrRaw, status: qrStatus } = await safeFetchJson(`${baseUrl}/payments/${txId}/pixQrCode`, {
-            headers: { 'access_token': asaas_token }
-          });
-          console.log("[PIX-ASAAS] QR response:", qrStatus, qrRaw.slice(0, 500));
+          console.log("[PIX-ASAAS] Static QR response:", qrStatus, qrRaw.slice(0, 500));
 
           if (!qrJson?.payload && !qrJson?.encodedImage) {
-            return jsonOk({ error: `QR Code não disponível ainda (${qrStatus}). Tente novamente.` });
+            const errMsg = qrJson?.errors?.[0]?.description || qrRaw.slice(0, 200) || `Status ${qrStatus}`;
+            return jsonOk({ error: `Erro ao gerar QR Code estático ASAAS: ${errMsg}` });
           }
 
           return jsonOk({
-            txId: txId,
+            txId: qrJson.id || null,
             qrCodePayload: qrJson.payload,
             qrCodeImage: qrJson.encodedImage ? "data:image/png;base64," + qrJson.encodedImage : null
           });
