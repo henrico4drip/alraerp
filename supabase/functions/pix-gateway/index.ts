@@ -132,17 +132,23 @@ serve(async (req: Request) => {
         }
 
         if (gateway === 'asaas') {
+          // For static QR codes, txId is the QR code ID (e.g. "4493471700000609423626ASA")
+          // When paid, ASAAS creates a payment with pixQrCodeId matching this ID
           const urls = ["https://api.asaas.com/v3", "https://sandbox.asaas.com/api/v3"];
           for (const url of urls) {
-            const { status, data: asaasJson } = await safeFetchJson(`${url}/payments/${txId}`, {
+            const { status, data: listJson } = await safeFetchJson(
+              `${url}/payments?pixQrCodeId=${encodeURIComponent(txId)}&limit=1`, {
               headers: { 'access_token': asaas_token }
             });
-            if (status === 200 && asaasJson?.status) {
-              const isPaid = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(asaasJson.status);
-              return jsonOk({ isPaid, rawStatus: asaasJson.status });
+            if (status === 200 && listJson?.data?.length > 0) {
+              const payment = listJson.data[0];
+              const isPaid = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(payment.status);
+              console.log(`[PIX-ASAAS] Check status for QR ${txId}: ${payment.status} (isPaid: ${isPaid})`);
+              return jsonOk({ isPaid, rawStatus: payment.status });
             }
           }
-          return jsonOk({ isPaid: false, rawStatus: 'UNKNOWN' });
+          // No payment found yet for this QR code
+          return jsonOk({ isPaid: false, rawStatus: 'PENDING' });
         }
         return jsonOk({ error: 'Gateway desconhecido para check_pix_status' });
       }
