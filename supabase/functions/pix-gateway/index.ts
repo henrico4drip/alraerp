@@ -115,14 +115,13 @@ serve(async (req: Request) => {
             customerId = cusJson.id;
           }
 
-          // 2. Create PIX Charge
-          const dateDue = new Date();
-          dateDue.setDate(dateDue.getDate() + 1);
+          // 2. Create PIX Charge (dueDate = today for immediate payment, NOT future)
+          const today = new Date().toISOString().split('T')[0];
           const chargeBody = {
             customer: customerId,
             billingType: 'PIX',
             value: Number(amount),
-            dueDate: dateDue.toISOString().split('T')[0],
+            dueDate: today,
             description: description || 'Compra ERP'
           };
           console.log("[PIX-ASAAS] Creating charge:", JSON.stringify(chargeBody));
