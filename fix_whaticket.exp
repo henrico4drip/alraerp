@@ -1,0 +1,7 @@
+#!/usr/bin/expect -f
+set timeout 60
+spawn ssh root@84.247.143.180
+expect "password:" { send "Henrico9516\r" }
+expect "#" { send "cd /root\r" }
+expect "#" { send "find . -type f -name \"api.js\" -o -name \"api.ts\" | grep frontend \r" }
+expect "#" { send "exit\r" }

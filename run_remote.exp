@@ -1,0 +1,16 @@
+#!/usr/bin/expect -f
+log_file -a "remote_output.log"
+spawn ssh -o StrictHostKeyChecking=no root@84.247.143.180
+expect {
+    "password:" {
+        send "Henrico9516\r"
+    }
+    timeout {
+        puts "Connection timeout"
+        exit 1
+    }
+}
+expect -re ".*#.*|.*\\$.*"
+send "find / -type f -name 'api.js' 2>/dev/null | grep what\r"
+expect -re ".*#.*|.*\\$.*"
+send "exit\r"

@@ -1,0 +1,42 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn sshpass -p "Henrico9516" ssh -o "StrictHostKeyChecking=no" root@84.247.143.180
+expect "# "
+send "cd /root/install_whaticket\r"
+expect "# "
+send "rm -f config && ./install_primaria\r"
+
+expect "Selecione abaixo a proxima"
+send "0\r"
+
+expect "Insira senha para o usuario Deploy e Banco de Dados"
+send "passdeploy123\r"
+
+expect "Insira o link do Github da sua"
+send "https://github.com/lipnotic/Whaticket-Saas-2024.git\r"
+
+expect "Informe um nome para a Instancia"
+send "alra\r"
+
+expect "Qtde de Con"
+send "10\r"
+
+expect "Qtde de Usuarios"
+send "10\r"
+
+expect "FRONTEND"
+send "chat.alraerp.com.br\r"
+
+expect "BACKEND"
+send "api.alraerp.com.br\r"
+
+expect "porta do FRONTEND"
+send "3333\r"
+
+expect "porta do BACKEND"
+send "8080\r"
+
+expect "porta do REDIS"
+send "5000\r"
+
+expect eof

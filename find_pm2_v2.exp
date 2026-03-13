@@ -1,0 +1,20 @@
+#!/usr/bin/expect -f
+set timeout 30
+log_file -a "remote_fix5.log"
+spawn ssh -o StrictHostKeyChecking=no root@84.247.143.180
+expect {
+    "password:" {
+        send "Henrico9516\r"
+    }
+    timeout {
+        puts "Connection timeout"
+        exit 1
+    }
+}
+expect -re {.*#|.*\$}
+send "su - deploy -c 'pm2 list'\r"
+expect -re {.*#|.*\$}
+send "ls -la /home/deploy\r"
+expect -re {.*#|.*\$}
+send "exit\r"
+expect eof

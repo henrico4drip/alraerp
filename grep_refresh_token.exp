@@ -1,0 +1,18 @@
+#!/usr/bin/expect -f
+set timeout 180
+log_file -a "remote_fix10.log"
+spawn ssh -o StrictHostKeyChecking=no root@84.247.143.180
+expect {
+    "password:" {
+        send "Henrico9516\r"
+    }
+    timeout {
+        puts "Connection timeout"
+        exit 1
+    }
+}
+expect -re {.*#|.*\$}
+send "grep -rl \"refresh_token\" /home /var/www /opt 2>/dev/null | grep -E \"\\.js$|\\.ts$\" | grep -v node_modules\r"
+expect -re {.*#|.*\$}
+send "exit\r"
+expect eof

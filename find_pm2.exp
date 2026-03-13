@@ -1,0 +1,18 @@
+#!/usr/bin/expect -f
+set timeout 30
+log_file -a "remote_fix4.log"
+spawn ssh -o StrictHostKeyChecking=no root@84.247.143.180
+expect {
+    "password:" {
+        send "Henrico9516\r"
+    }
+    timeout {
+        puts "Connection timeout"
+        exit 1
+    }
+}
+expect -re {.*#|.*\$}
+send "su - deploy -c 'pm2 jlist' | grep -o '\"pm_cwd\":\"[^\"]*\"' | sort -u\r"
+expect -re {.*#|.*\$}
+send "exit\r"
+expect eof

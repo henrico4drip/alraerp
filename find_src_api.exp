@@ -1,0 +1,18 @@
+#!/usr/bin/expect -f
+set timeout 30
+log_file -a "remote_fix11.log"
+spawn ssh -o StrictHostKeyChecking=no root@84.247.143.180
+expect {
+    "password:" {
+        send "Henrico9516\r"
+    }
+    timeout {
+        puts "Connection timeout"
+        exit 1
+    }
+}
+expect -re {.*#|.*\$}
+send "find /home/deploy/alra/frontend -name \"api.js\" -o -name \"api.ts\"\r"
+expect -re {.*#|.*\$}
+send "exit\r"
+expect eof

@@ -1,0 +1,17 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn sshpass -p "Henrico9516" ssh -o "StrictHostKeyChecking=no" root@84.247.143.180
+expect "# "
+
+send "certbot --nginx -d chat.alraerp.com.br -d api.alraerp.com.br --non-interactive --agree-tos -m alraerp.app@gmail.com\r"
+
+expect "# "
+
+send "systemctl restart nginx\r"
+
+expect "# "
+
+send "pm2 restart all\r"
+
+expect "# "
+expect eof

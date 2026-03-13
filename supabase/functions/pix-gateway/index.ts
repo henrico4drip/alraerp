@@ -122,7 +122,7 @@ serve(async (req: Request) => {
       }
 
       case 'create_carne': {
-        const { asaas_token, customer_name, customer_cpf, amount, installments, first_due_days, description } = payload;
+        const { asaas_token, customer_name, customer_cpf, amount, installments, first_due_days, description, billing_type } = payload;
         if (!asaas_token) return jsonOk({ error: "Token do ASAAS não configurado." });
 
         // Detect base URL
@@ -138,42 +138,62 @@ serve(async (req: Request) => {
 
         // Find or create customer
         let customerId = '';
-        const cpfClean = customer_cpf?.replace(/\D/g, '') || '';
+        const cpfClean = (customer_cpf || '').replace(/\D/g, '');
+        const nameClean = (customer_name || '').trim();
 
-        if (cpfClean) {
+        console.log(`[CARNE-ASAAS] Identifying customer. Name: "${nameClean}", CPF: "${cpfClean}"`);
+
+        if (cpfClean && cpfClean.length >= 11) {
+          console.log(`[CARNE-ASAAS] Searching by CPF: ${cpfClean}`);
           const { data: searchJson } = await safeFetchJson(`${baseUrl}/customers?cpfCnpj=${cpfClean}&limit=1`, {
             headers: { 'access_token': asaas_token }
           });
           if (searchJson?.data?.length > 0) {
             customerId = searchJson.data[0].id;
+            console.log(`[CARNE-ASAAS] Found by CPF: ${customerId} (${searchJson.data[0].name})`);
           }
         }
 
-        if (!customerId && customer_name) {
-          const { data: searchByName } = await safeFetchJson(`${baseUrl}/customers?name=${encodeURIComponent(customer_name)}&limit=1`, {
+        if (!customerId && nameClean && nameClean.length > 2 && nameClean.toLowerCase() !== 'null') {
+          console.log(`[CARNE-ASAAS] Searching by Name: "${nameClean}"`);
+          const { data: searchByName } = await safeFetchJson(`${baseUrl}/customers?name=${encodeURIComponent(nameClean)}&limit=5`, {
             headers: { 'access_token': asaas_token }
           });
           if (searchByName?.data?.length > 0) {
-            customerId = searchByName.data[0].id;
+            // Try to find a better match in the first 5 results
+            const matches = searchByName.data.filter((c: any) =>
+              c.name.toLowerCase().includes(nameClean.toLowerCase()) ||
+              nameClean.toLowerCase().includes(c.name.toLowerCase())
+            );
+
+            if (matches.length > 0) {
+              customerId = matches[0].id;
+              console.log(`[CARNE-ASAAS] Match found in results: ${customerId} ("${matches[0].name}")`);
+            } else {
+              console.log(`[CARNE-ASAAS] Search returned results but none matched "${nameClean}" sufficiently.`);
+            }
           }
         }
 
         if (!customerId) {
+          console.log(`[CARNE-ASAAS] Customer not found. Creating new: "${nameClean || 'Cliente ERP'}"`);
           // Create customer
-          const cusBody: any = { name: customer_name || 'Cliente ERP' };
-          if (cpfClean) cusBody.cpfCnpj = cpfClean;
-          const { data: cusJson } = await safeFetchJson(`${baseUrl}/customers`, {
+          const cusBody: any = { name: nameClean || 'Cliente ERP' };
+          if (cpfClean && cpfClean.length >= 11) cusBody.cpfCnpj = cpfClean;
+          const { data: cusJson, rawText: cusRaw } = await safeFetchJson(`${baseUrl}/customers`, {
             method: "POST",
             headers: { 'access_token': asaas_token, 'Content-Type': 'application/json' },
             body: JSON.stringify(cusBody)
           });
           if (!cusJson?.id) {
-            return jsonOk({ error: `Erro ao criar cliente ASAAS: ${cusJson?.errors?.[0]?.description || 'Erro desconhecido'}` });
+            console.error(`[CARNE-ASAAS] Failed to create customer:`, cusRaw);
+            return jsonOk({ error: `Erro ao criar cliente ASAAS: ${cusJson?.errors?.[0]?.description || 'Erro operacional no ASAAS'}` });
           }
           customerId = cusJson.id;
+          console.log(`[CARNE-ASAAS] Created new customer: ${customerId}`);
         }
 
-        console.log(`[CARNE-ASAAS] Customer: ${customerId}, Amount: ${amount}, Installments: ${installments}`);
+        console.log(`[CARNE-ASAAS] Final Customer ID: ${customerId}. Amount: ${amount}, Installments: ${installments}`);
 
         // Create installment payment
         const installmentCount = Number(installments || 1);
@@ -187,17 +207,16 @@ serve(async (req: Request) => {
 
         const chargeBody = {
           customer: customerId,
-          billingType: 'PIX',
+          billingType: billing_type || 'PIX',
           value: totalAmount,
           installmentCount: installmentCount,
-          installmentValue: perInstallment,
           dueDate: dueDateStr,
           description: description || 'Carnê ERP',
           interest: { value: 0 },
           fine: { value: 0 },
         };
 
-        console.log("[CARNE-ASAAS] Creating installment:", JSON.stringify(chargeBody));
+        console.log("[CARNE-ASAAS] Creating installment charge:", JSON.stringify(chargeBody));
 
         const { data: chargeJson, rawText: chargeRaw, status: chargeStatus } = await safeFetchJson(`${baseUrl}/payments`, {
           method: "POST",

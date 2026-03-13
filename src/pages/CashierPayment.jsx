@@ -638,7 +638,7 @@ export default function CashierPayment() {
       const pixGw = localStorage.getItem('pix_gateway') || 'none';
       if (pixGw === 'asaas') {
         const asaasToken = localStorage.getItem('asaas_api_key');
-        const carnePayments = paymentsWithSchedule.filter(p => p.method === 'Carnê');
+        const carnePayments = paymentsWithSchedule.filter(p => ['Carnê', 'Boleto', 'Boleto Bancário'].includes(p.method));
 
         for (const cp of carnePayments) {
           try {
@@ -647,6 +647,7 @@ export default function CashierPayment() {
 
             // Build description from items
             const itemsDesc = effectiveItems.map(i => `${i.product_name} x${i.quantity}`).join(', ');
+            const isBoleto = cp.method.includes('Boleto');
 
             const res = await fetch(`${supabaseUrl}/functions/v1/pix-gateway`, {
               method: 'POST',
@@ -660,7 +661,8 @@ export default function CashierPayment() {
                   amount: cp.amount,
                   installments: cp.installments,
                   first_due_days: cp.first_due_days || 30,
-                  description: `Carnê ${cp.installments}x - ${itemsDesc}`.slice(0, 200)
+                  billing_type: isBoleto ? 'BOLETO' : 'PIX',
+                  description: `${isBoleto ? 'Boleto' : 'Carnê'} ${cp.installments}x - ${itemsDesc}`.slice(0, 200)
                 }
               })
             });

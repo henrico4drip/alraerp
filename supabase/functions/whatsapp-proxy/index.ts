@@ -600,6 +600,17 @@ serve(async (req) => {
                 return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
 
+            case 'alter_settings_pix': {
+                const sql = `
+                    ALTER TABLE settings ADD COLUMN IF NOT EXISTS pix_gateway TEXT DEFAULT 'none';
+                    ALTER TABLE settings ADD COLUMN IF NOT EXISTS asaas_api_key TEXT;
+                    ALTER TABLE settings ADD COLUMN IF NOT EXISTS mp_access_token TEXT;
+                `;
+                const { error } = await supabaseAdmin.rpc('exec_sql', { sql });
+                if (error) return new Response(JSON.stringify({ error }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+
             // --- SYSTEM SETUP ---
             case 'init_system': {
                 // Create system user with upsert (create or ignore)
@@ -948,6 +959,14 @@ serve(async (req) => {
                 const cleanPhone = (phone || '').replace(/\D/g, '')
                 const msgText = (message || '').trim()
 
+                // Normalização: variantes com/sem 9o dígito
+                const phoneVariants = [cleanPhone]
+                if (cleanPhone.startsWith('55') && cleanPhone.length === 13 && cleanPhone[4] === '9') {
+                    phoneVariants.push(cleanPhone.substring(0, 4) + cleanPhone.substring(5))
+                } else if (cleanPhone.startsWith('55') && cleanPhone.length === 12) {
+                    phoneVariants.push(cleanPhone.substring(0, 4) + '9' + cleanPhone.substring(4))
+                }
+
                 // Heuristic: If providedJid has @lid, keep it. Else assume phone number.
                 let targetJid = providedJid || `${cleanPhone}@s.whatsapp.net`
 
@@ -977,6 +996,28 @@ serve(async (req) => {
                         })
                     } else {
                         console.log(`[SEND_RETRY] No better JID found. Giving up on retry.`)
+                    }
+                }
+
+                // 3. Fallback: If 400/404 and it's a standard number, try DDD 9th digit variations
+                if ((res.status === 400 || res.status === 404) && !targetJid.includes('@lid') && phoneVariants.length > 1) {
+                    for (const variant of phoneVariants) {
+                        const variantJid = `${variant}@s.whatsapp.net`
+                        if (variantJid === targetJid) continue
+
+                        console.log(`[SEND_RETRY] Phone send failed (${res.status}). Attempting with variant 9th digit: ${variantJid}`)
+                        const variantRes = await EvolutionService.request(`/message/sendText/${instanceName}`, {
+                            method: 'POST', body: JSON.stringify({ number: variantJid, text: msgText })
+                        })
+
+                        if (variantRes.status === 201 || variantRes.status === 200) {
+                            console.log(`[SEND_RETRY] Success with variant ${variantJid}!`)
+                            res = variantRes;
+                            targetJid = variantJid;
+                            break;
+                        } else {
+                            console.log(`[SEND_RETRY] Variant ${variantJid} also failed with ${variantRes.status}.`)
+                        }
                     }
                 }
 

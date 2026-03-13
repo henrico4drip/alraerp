@@ -1,0 +1,22 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn sshpass -p "Henrico9516" ssh -o "StrictHostKeyChecking=no" root@84.247.143.180
+expect "# "
+
+send "rm -f /etc/nginx/sites-enabled/alra-backend\r"
+expect "# "
+send "rm -f /etc/nginx/sites-enabled/alra-frontend\r"
+expect "# "
+
+send "certbot --nginx -d chat.alraerp.com.br -d api.alraerp.com.br --non-interactive --agree-tos -m alraerp.app@gmail.com\r"
+
+expect "# "
+
+send "cd /root/install_whaticket\r"
+
+expect "# "
+
+send "cat lib/_system.sh | grep 'certbot'\r"
+
+expect "# "
+expect eof

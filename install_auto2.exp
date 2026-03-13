@@ -1,0 +1,33 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn sshpass -p "Henrico9516" ssh -o "StrictHostKeyChecking=no" root@84.247.143.180
+expect "# "
+send "cd /install_whaticket\r"
+expect "# "
+send "./install_primaria\r"
+
+expect "Alter. dominio Whaticket"
+send "0\r"
+
+expect "Qual o nome da empresa"
+send "app\r"
+
+expect "Digite a Senha para o Deploy"
+send "senha_deploy123\r"
+
+expect "Qual o link do Painel Web"
+send "chat.alraerp.com.br\r"
+
+expect "Qual o link da API"
+send "api.alraerp.com.br\r"
+
+expect "Digite a Porta para o Front End do Whaticket"
+send "3333\r"
+
+expect "Digite a Porta para o Back End do Whaticket"
+send "8080\r"
+
+expect "Digite a Porta do Redis do Whaticket"
+send "5000\r"
+
+expect eof

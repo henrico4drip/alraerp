@@ -1,0 +1,39 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn sshpass -p "Henrico9516" ssh -o "StrictHostKeyChecking=no" root@84.247.143.180
+expect "# "
+send "cd /root/install_whaticket\r"
+expect "# "
+send "rm -f config && ./install_primaria\r"
+
+expect "Insira senha para o usuario Deploy e Banco de Dados"
+send "passdeploy123\r"
+
+expect "Selecione abaixo"
+send "0\r"
+
+expect "nome para a Instancia/Empresa que será instalada"
+send "alra\r"
+
+expect "Qtde de Conexões/Whats que a alra poderá cadastrar"
+send "10\r"
+
+expect "Qtde de Usuarios/Atendentes que a alra poderá cadastrar"
+send "10\r"
+
+expect "dominio do FRONTEND/PAINEL para a alra"
+send "chat.alraerp.com.br\r"
+
+expect "dominio do BACKEND/API para a alra"
+send "api.alraerp.com.br\r"
+
+expect "porta do FRONTEND para a alra"
+send "3333\r"
+
+expect "porta do BACKEND para a alra"
+send "8080\r"
+
+expect "porta do REDIS/CACHE para a alra"
+send "5000\r"
+
+expect eof
