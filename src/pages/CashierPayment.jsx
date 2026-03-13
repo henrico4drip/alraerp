@@ -1081,13 +1081,14 @@ export default function CashierPayment() {
             {/* Payment Methods Grid */}
             <div className="space-y-2">
               <Label className={`text-xs font-bold uppercase tracking-wider transition-all ${!paymentDraft.method ? 'text-red-600 animate-pulse' : 'text-gray-400'}`}>Forma de Pagamento {!paymentDraft.method && <span className="text-red-500">*</span>}</Label>
-              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+              <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                 {[
                   { id: 'PIX', icon: QrCode },
                   { id: 'Dinheiro', icon: Banknote },
                   { id: 'Cartão de Débito', label: 'Débito', icon: CreditCard },
                   { id: 'Cartão de Crédito', label: 'Crédito', icon: CreditCard },
                   { id: 'Carnê', icon: CalendarRange },
+                  { id: 'Boleto', icon: FileText },
                   { id: 'Cashback', icon: Gift },
                   { id: 'Outros', icon: MoreHorizontal }
                 ].map((m) => {
@@ -1103,6 +1104,7 @@ export default function CashierPayment() {
                       case 'Cartão de Débito': return 'bg-blue-100 border-blue-600 text-blue-800 shadow-md';
                       case 'Cartão de Crédito': return 'bg-indigo-100 border-indigo-600 text-indigo-800 shadow-md';
                       case 'Carnê': return 'bg-yellow-100 border-yellow-600 text-yellow-800 shadow-md';
+                      case 'Boleto': return 'bg-teal-100 border-teal-600 text-teal-800 shadow-md';
                       case 'Cashback': return 'bg-purple-100 border-purple-600 text-purple-800 shadow-md';
                       case 'Outros': return 'bg-slate-100 border-slate-600 text-slate-800 shadow-md';
                       default: return 'bg-gray-100 border-gray-600 text-gray-800 shadow-md';
@@ -1118,6 +1120,7 @@ export default function CashierPayment() {
                       case 'Cartão de Débito': return 'bg-blue-300 text-blue-900';
                       case 'Cartão de Crédito': return 'bg-indigo-300 text-indigo-900';
                       case 'Carnê': return 'bg-yellow-300 text-yellow-900';
+                      case 'Boleto': return 'bg-teal-300 text-teal-900';
                       case 'Cashback': return 'bg-purple-300 text-purple-900';
                       case 'Outros': return 'bg-slate-300 text-slate-900';
                       default: return 'bg-gray-300 text-gray-900';
@@ -1131,6 +1134,7 @@ export default function CashierPayment() {
                       case 'Cartão de Débito': return 'bg-blue-600';
                       case 'Cartão de Crédito': return 'bg-indigo-600';
                       case 'Carnê': return 'bg-yellow-600';
+                      case 'Boleto': return 'bg-teal-600';
                       case 'Cashback': return 'bg-purple-600';
                       case 'Outros': return 'bg-slate-600';
                       default: return 'bg-gray-600';
