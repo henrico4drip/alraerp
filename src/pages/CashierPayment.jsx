@@ -637,7 +637,7 @@ export default function CashierPayment() {
       const pixGw = localStorage.getItem('pix_gateway') || 'none';
       if (pixGw === 'asaas') {
         const asaasToken = localStorage.getItem('asaas_api_key');
-        const carnePayments = paymentsWithSchedule.filter(p => p.method === 'Carnê' && p.installments > 1);
+        const carnePayments = paymentsWithSchedule.filter(p => p.method === 'Carnê');
 
         for (const cp of carnePayments) {
           try {
