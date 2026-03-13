@@ -141,9 +141,9 @@ export default function Settings() {
     setMainProducts(effective.main_products || '')
 
     try {
-      setPixGateway(localStorage.getItem('pix_gateway') || 'none')
-      setAsaasApiKey(localStorage.getItem('asaas_api_key') || '')
-      setMpAccessToken(localStorage.getItem('mp_access_token') || '')
+      setPixGateway(effective.pix_gateway || localStorage.getItem('pix_gateway') || 'none')
+      setAsaasApiKey(effective.asaas_api_key || localStorage.getItem('asaas_api_key') || '')
+      setMpAccessToken(effective.mp_access_token || localStorage.getItem('mp_access_token') || '')
     } catch { }
 
     setIsLoading(false)
@@ -185,6 +185,9 @@ export default function Settings() {
       brand_voice: brandVoice,
       target_audience: targetAudience,
       main_products: mainProducts,
+      pix_gateway: pixGateway,
+      asaas_api_key: asaasApiKey,
+      mp_access_token: mpAccessToken,
     }
     try {
       if (settings) {

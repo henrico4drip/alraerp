@@ -205,35 +205,43 @@ serve(async (req: Request) => {
         dueDate.setDate(dueDate.getDate() + firstDueDays);
         const dueDateStr = dueDate.toISOString().split('T')[0];
 
-        const chargeBody = {
+        const chargeBody: any = {
           customer: customerId,
           billingType: billing_type || 'PIX',
           value: totalAmount,
-          installmentCount: installmentCount,
           dueDate: dueDateStr,
           description: description || 'Carnê ERP',
           interest: { value: 0 },
           fine: { value: 0 },
         };
 
-        console.log("[CARNE-ASAAS] Creating installment charge:", JSON.stringify(chargeBody));
+        if (installmentCount > 1) {
+          chargeBody.installmentCount = installmentCount;
+          chargeBody.installmentValue = perInstallment;
+          console.log(`[CARNE-ASAAS] Multiple installments: ${installmentCount}x of ${perInstallment}`);
+        } else {
+          console.log(`[CARNE-ASAAS] Single payment: ${totalAmount}`);
+        }
+
+        console.log("[CARNE-ASAAS] Creating charge with body:", JSON.stringify(chargeBody));
 
         const { data: chargeJson, rawText: chargeRaw, status: chargeStatus } = await safeFetchJson(`${baseUrl}/payments`, {
           method: "POST",
           headers: { 'access_token': asaas_token, 'Content-Type': 'application/json' },
           body: JSON.stringify(chargeBody)
         });
-        console.log("[CARNE-ASAAS] Response:", chargeStatus, chargeRaw.slice(0, 500));
+        console.log("[CARNE-ASAAS] Response status:", chargeStatus, "Body summary:", chargeRaw.slice(0, 500));
 
-        if (!chargeJson?.id) {
+        if (!chargeJson?.id && !chargeJson?.installment) {
           const errMsg = chargeJson?.errors?.[0]?.description || chargeRaw.slice(0, 200);
-          return jsonOk({ error: `Erro ao criar carnê ASAAS: ${errMsg}` });
+          console.error(`[CARNE-ASAAS] ASAAS error: ${errMsg}`);
+          return jsonOk({ error: `Erro no ASAAS: ${errMsg}` });
         }
 
         return jsonOk({
           success: true,
-          installmentId: chargeJson.installment,
-          firstPaymentId: chargeJson.id,
+          installmentId: chargeJson.installment || null,
+          firstPaymentId: chargeJson.id || (chargeJson.payments && chargeJson.payments[0]?.id),
           installmentCount,
           perInstallment,
           dueDate: dueDateStr,

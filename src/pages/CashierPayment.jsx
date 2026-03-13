@@ -635,9 +635,12 @@ export default function CashierPayment() {
       setLastSale(createdSale || saleData);
 
       // --- ASAAS CARNÊ INTEGRATION ---
-      const pixGw = localStorage.getItem('pix_gateway') || 'none';
+      const pixGw = settings?.pix_gateway || 'none';
       if (pixGw === 'asaas') {
-        const asaasToken = localStorage.getItem('asaas_api_key');
+        const asaasToken = settings?.asaas_api_key;
+        if (!asaasToken) {
+          console.warn('ASAAS Integration: Token not found in settings.');
+        }
         const carnePayments = paymentsWithSchedule.filter(p => ['Carnê', 'Boleto', 'Boleto Bancário'].includes(p.method));
 
         for (const cp of carnePayments) {
