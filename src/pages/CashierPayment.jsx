@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Minus, Plus, Trash2, Check, FileText, QrCode, Banknote, CreditCard, CalendarRange, MoreHorizontal, ShoppingCart, Package, Gift, Loader2 } from "lucide-react";
+import { Minus, Plus, Trash2, Check, FileText, QrCode, Banknote, CreditCard, CalendarRange, MoreHorizontal, ShoppingCart, Package, Gift, Loader2, X } from "lucide-react";
 import { useCashier } from "@/context/CashierContext";
 import { useNavigate } from "react-router-dom";
 import { useEvolution } from "@/contexts/EvolutionContext";
