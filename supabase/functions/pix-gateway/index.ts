@@ -121,6 +121,107 @@ serve(async (req: Request) => {
         return jsonOk({ error: `Gateway '${gateway}' não suportado.` });
       }
 
+      case 'create_carne': {
+        const { asaas_token, customer_name, customer_cpf, amount, installments, first_due_days, description } = payload;
+        if (!asaas_token) return jsonOk({ error: "Token do ASAAS não configurado." });
+
+        // Detect base URL
+        const urls = ["https://api.asaas.com/v3", "https://sandbox.asaas.com/api/v3"];
+        let baseUrl = '';
+        for (const url of urls) {
+          const { status, data: testJson } = await safeFetchJson(`${url}/customers?limit=1`, {
+            headers: { 'access_token': asaas_token }
+          });
+          if (status === 200 && testJson?.data !== undefined) { baseUrl = url; break; }
+        }
+        if (!baseUrl) return jsonOk({ error: "Não foi possível conectar ao ASAAS." });
+
+        // Find or create customer
+        let customerId = '';
+        const cpfClean = customer_cpf?.replace(/\D/g, '') || '';
+
+        if (cpfClean) {
+          const { data: searchJson } = await safeFetchJson(`${baseUrl}/customers?cpfCnpj=${cpfClean}&limit=1`, {
+            headers: { 'access_token': asaas_token }
+          });
+          if (searchJson?.data?.length > 0) {
+            customerId = searchJson.data[0].id;
+          }
+        }
+
+        if (!customerId && customer_name) {
+          const { data: searchByName } = await safeFetchJson(`${baseUrl}/customers?name=${encodeURIComponent(customer_name)}&limit=1`, {
+            headers: { 'access_token': asaas_token }
+          });
+          if (searchByName?.data?.length > 0) {
+            customerId = searchByName.data[0].id;
+          }
+        }
+
+        if (!customerId) {
+          // Create customer
+          const cusBody: any = { name: customer_name || 'Cliente ERP' };
+          if (cpfClean) cusBody.cpfCnpj = cpfClean;
+          const { data: cusJson } = await safeFetchJson(`${baseUrl}/customers`, {
+            method: "POST",
+            headers: { 'access_token': asaas_token, 'Content-Type': 'application/json' },
+            body: JSON.stringify(cusBody)
+          });
+          if (!cusJson?.id) {
+            return jsonOk({ error: `Erro ao criar cliente ASAAS: ${cusJson?.errors?.[0]?.description || 'Erro desconhecido'}` });
+          }
+          customerId = cusJson.id;
+        }
+
+        console.log(`[CARNE-ASAAS] Customer: ${customerId}, Amount: ${amount}, Installments: ${installments}`);
+
+        // Create installment payment
+        const installmentCount = Number(installments || 1);
+        const totalAmount = Number(amount);
+        const perInstallment = Number((totalAmount / installmentCount).toFixed(2));
+        const firstDueDays = Number(first_due_days || 30);
+
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + firstDueDays);
+        const dueDateStr = dueDate.toISOString().split('T')[0];
+
+        const chargeBody = {
+          customer: customerId,
+          billingType: 'PIX',
+          value: totalAmount,
+          installmentCount: installmentCount,
+          installmentValue: perInstallment,
+          dueDate: dueDateStr,
+          description: description || 'Carnê ERP',
+          interest: { value: 0 },
+          fine: { value: 0 },
+        };
+
+        console.log("[CARNE-ASAAS] Creating installment:", JSON.stringify(chargeBody));
+
+        const { data: chargeJson, rawText: chargeRaw, status: chargeStatus } = await safeFetchJson(`${baseUrl}/payments`, {
+          method: "POST",
+          headers: { 'access_token': asaas_token, 'Content-Type': 'application/json' },
+          body: JSON.stringify(chargeBody)
+        });
+        console.log("[CARNE-ASAAS] Response:", chargeStatus, chargeRaw.slice(0, 500));
+
+        if (!chargeJson?.id) {
+          const errMsg = chargeJson?.errors?.[0]?.description || chargeRaw.slice(0, 200);
+          return jsonOk({ error: `Erro ao criar carnê ASAAS: ${errMsg}` });
+        }
+
+        return jsonOk({
+          success: true,
+          installmentId: chargeJson.installment,
+          firstPaymentId: chargeJson.id,
+          installmentCount,
+          perInstallment,
+          dueDate: dueDateStr,
+          customerAsaasId: customerId
+        });
+      }
+
       case 'check_pix_status': {
         const { gateway, txId, asaas_token, mp_token } = payload;
         if (gateway === 'mercadopago') {

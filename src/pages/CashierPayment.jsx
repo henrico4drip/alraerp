@@ -633,6 +633,49 @@ export default function CashierPayment() {
 
       setLastSale(createdSale || saleData);
 
+      // --- ASAAS CARNÊ INTEGRATION ---
+      const pixGw = localStorage.getItem('pix_gateway') || 'none';
+      if (pixGw === 'asaas') {
+        const asaasToken = localStorage.getItem('asaas_api_key');
+        const carnePayments = paymentsWithSchedule.filter(p => p.method === 'Carnê' && p.installments > 1);
+
+        for (const cp of carnePayments) {
+          try {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+            // Build description from items
+            const itemsDesc = effectiveItems.map(i => `${i.product_name} x${i.quantity}`).join(', ');
+
+            const res = await fetch(`${supabaseUrl}/functions/v1/pix-gateway`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}`, 'apikey': supabaseKey },
+              body: JSON.stringify({
+                action: 'create_carne',
+                payload: {
+                  asaas_token: asaasToken,
+                  customer_name: selectedCustomer?.name || null,
+                  customer_cpf: selectedCustomer?.cpf || null,
+                  amount: cp.amount,
+                  installments: cp.installments,
+                  first_due_days: cp.first_due_days || 30,
+                  description: `Carnê ${cp.installments}x - ${itemsDesc}`.slice(0, 200)
+                }
+              })
+            });
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch { data = null; }
+            if (data?.success) {
+              console.log(`✅ Carnê criado no ASAAS: ${cp.installments}x de R$${(cp.amount / cp.installments).toFixed(2)} — Installment ID: ${data.installmentId}`);
+            } else {
+              console.warn('⚠️ Falha ao criar carnê no ASAAS:', data?.error || text);
+            }
+          } catch (e) {
+            console.warn('⚠️ Erro ao enviar carnê para ASAAS:', e.message);
+          }
+        }
+      }
       // --- FISCAL EMISSION (NFCe) ---
       if (settings?.focus_company_id && createdSale?.id) {
         try {
