@@ -130,6 +130,7 @@ export default function CashierPayment() {
   const [waSent, setWaSent] = useState(false);
   const [showCashbackSuccess, setShowCashbackSuccess] = useState(false);
   const [showPixSuccess, setShowPixSuccess] = useState(false);
+  const [carneResult, setCarneResult] = useState({ show: false, success: false, message: '' });
   const amountInputRef = useRef(null);
   useEffect(() => {
     const animatePayment = sessionStorage.getItem('animateCashierPaymentEntry') === 'true';
@@ -668,11 +669,14 @@ export default function CashierPayment() {
             try { data = JSON.parse(text); } catch { data = null; }
             if (data?.success) {
               console.log(`✅ Carnê criado no ASAAS: ${cp.installments}x de R$${(cp.amount / cp.installments).toFixed(2)} — Installment ID: ${data.installmentId}`);
+              setCarneResult({ show: true, success: true, message: `${cp.installments}x de R$ ${(cp.amount / cp.installments).toFixed(2)}` });
             } else {
               console.warn('⚠️ Falha ao criar carnê no ASAAS:', data?.error || text);
+              setCarneResult({ show: true, success: false, message: data?.error || 'Erro desconhecido ao criar carnê.' });
             }
           } catch (e) {
             console.warn('⚠️ Erro ao enviar carnê para ASAAS:', e.message);
+            setCarneResult({ show: true, success: false, message: 'Falha de conexão com o gateway.' });
           }
         }
       }
@@ -1550,6 +1554,35 @@ export default function CashierPayment() {
               <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
                 <div className="h-full bg-white animate-progress" />
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* CARNÊ Result Animation */}
+        <Dialog open={carneResult.show} onOpenChange={(open) => setCarneResult(prev => ({ ...prev, show: open }))}>
+          <DialogContent className={`max-w-[320px] p-8 border-none text-white rounded-[2rem] shadow-2xl overflow-hidden ${carneResult.success ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-red-500 to-rose-600'}`}>
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center animate-bounce">
+                {carneResult.success ? <Check className="w-12 h-12 text-white stroke-[3]" /> : <X className="w-12 h-12 text-white stroke-[3]" />}
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black">{carneResult.success ? 'CARNÊ GERADO!' : 'ERRO NO CARNÊ'}</h3>
+                <p className="text-white/90 text-sm font-medium">
+                  {carneResult.message}
+                </p>
+                {!carneResult.success && (
+                  <p className="text-xs text-white/70 mt-2">Dica: Carnês no ASAAS exigem cliente com CPF/CNPJ válido.</p>
+                )}
+              </div>
+              {carneResult.success ? (
+                <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-white animate-progress" onAnimationEnd={() => setCarneResult(prev => ({ ...prev, show: false }))} />
+                </div>
+              ) : (
+                <Button className="w-full bg-white/20 hover:bg-white/30 text-white rounded-xl mt-4" onClick={() => setCarneResult(prev => ({ ...prev, show: false }))}>
+                  Entendi
+                </Button>
+              )}
             </div>
           </DialogContent>
         </Dialog>
