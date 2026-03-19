@@ -70,7 +70,7 @@ app.post('/create-checkout-session', async (req, res) => {
     const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types: ['card', 'pix', 'boleto'],
+      payment_method_types: ['card'],
       billing_address_collection: 'required',
       phone_number_collection: { enabled: true },
       tax_id_collection: { enabled: true },
@@ -202,7 +202,7 @@ app.post('/create-trial-session', async (req, res) => {
     const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types: ['card', 'pix', 'boleto'],
+      payment_method_types: ['card'],
       billing_address_collection: 'required',
       phone_number_collection: { enabled: true },
       tax_id_collection: { enabled: true },
