@@ -70,7 +70,7 @@ app.post('/create-checkout-session', async (req, res) => {
     const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      automatic_payment_methods: { enabled: true },
+      payment_method_types: ['card', 'pix', 'boleto'],
       billing_address_collection: 'required',
       phone_number_collection: { enabled: true },
       tax_id_collection: { enabled: true },
