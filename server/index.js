@@ -70,7 +70,12 @@ app.post('/create-checkout-session', async (req, res) => {
     const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types: ['card'],
+      automatic_payment_methods: { enabled: true },
+      billing_address_collection: 'required',
+      phone_number_collection: { enabled: true },
+      tax_id_collection: { enabled: true },
+      allow_promotion_codes: true,
+      locale: 'pt-BR',
       customer_email: user_email || undefined,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { trial_period_days: 7 },
@@ -147,6 +152,11 @@ app.post('/create-payment-session', async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card', 'boleto', 'pix'],
+      billing_address_collection: 'required',
+      phone_number_collection: { enabled: true },
+      tax_id_collection: { enabled: true },
+      allow_promotion_codes: true,
+      locale: 'pt-BR',
       customer_email: user_email || undefined,
       line_items: [
         {
@@ -192,7 +202,12 @@ app.post('/create-trial-session', async (req, res) => {
     const FRONTEND = getFrontendOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'pix', 'boleto'],
+      billing_address_collection: 'required',
+      phone_number_collection: { enabled: true },
+      tax_id_collection: { enabled: true },
+      allow_promotion_codes: true,
+      locale: 'pt-BR',
       customer_email: user_email || undefined,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { trial_period_days: 7 },
