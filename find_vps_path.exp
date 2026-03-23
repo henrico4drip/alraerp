@@ -1,0 +1,19 @@
+#!/usr/bin/expect -f
+set timeout 60
+spawn ssh -o StrictHostKeyChecking=no root@84.247.143.180
+expect {
+    "passphrase" {
+        send "\r"
+        exp_continue
+    }
+    "password:" {
+        send "Henrico9516\r"
+    }
+}
+expect -re {.*#|.*\$}
+send "grep -r 'alraerp.com.br' /etc/nginx/sites-enabled\r"
+expect -re {.*#|.*\$}
+send "find /home/deploy -maxdepth 2 -type d\r"
+expect -re {.*#|.*\$}
+send "exit\r"
+expect eof

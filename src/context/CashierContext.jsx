@@ -13,6 +13,48 @@ export function CashierProvider({ children }) {
   // Desconto em % (0–100)
   const [discountPercent, setDiscountPercent] = useState(0);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [suspendedSales, setSuspendedSales] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('alraerp_suspended_sales') || '[]');
+    } catch { return []; }
+  });
+
+  const saveSuspendedSales = (list) => {
+    setSuspendedSales(list);
+    localStorage.setItem('alraerp_suspended_sales', JSON.stringify(list));
+  };
+
+  const suspendSale = () => {
+    if (cart.length === 0) return false;
+    const newSuspension = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      cart: [...cart],
+      selectedCustomer: selectedCustomer ? { ...selectedCustomer } : null,
+      observations: observations,
+      discountPercent: discountPercent,
+    };
+    saveSuspendedSales([newSuspension, ...suspendedSales]);
+    setCart([]);
+    setSelectedCustomer(null);
+    setObservations("");
+    setDiscountPercent(0);
+    return true;
+  };
+
+  const resumeSale = (id) => {
+    const sale = suspendedSales.find(s => s.id === id);
+    if (!sale) return;
+    setCart(sale.cart || []);
+    setSelectedCustomer(sale.selectedCustomer || null);
+    setObservations(sale.observations || "");
+    setDiscountPercent(sale.discountPercent || 0);
+    saveSuspendedSales(suspendedSales.filter(s => s.id !== id));
+  };
+
+  const deleteSuspendedSale = (id) => {
+    saveSuspendedSales(suspendedSales.filter(s => s.id !== id));
+  };
 
   const addToCart = (product) => {
     const existingItem = cart.find((item) => item.product_id === product.id);
@@ -123,6 +165,10 @@ export function CashierProvider({ children }) {
     discountAmount,
     isFinalizing,
     setIsFinalizing,
+    suspendedSales,
+    suspendSale,
+    resumeSale,
+    deleteSuspendedSale,
   };
 
   return <CashierContext.Provider value={value}>{children}</CashierContext.Provider>;

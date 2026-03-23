@@ -25,7 +25,12 @@ import {
   Download,
   MessageSquare,
   Loader2,
-  LayoutGrid
+  LayoutGrid,
+  Pause,
+  Clock,
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,12 +42,21 @@ import Tutorial from '@/components/Tutorial'
 import { useProfile } from "@/context/ProfileContext";
 import { useCrm } from "@/contexts/CrmContext";
 
+import { useCashier } from "@/context/CashierContext";
+
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const { currentProfile, logoutProfile } = useProfile();
   const settings = useEffectiveSettings();
+  const { 
+    cart, 
+    suspendSale, 
+    suspendedSales, 
+    resumeSale, 
+    deleteSuspendedSale 
+  } = useCashier() || {};
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [showAgendaDialog, setShowAgendaDialog] = useState(false);
@@ -125,29 +139,41 @@ export default function Layout({ children, currentPageName }) {
   const [editTaskPriority, setEditTaskPriority] = useState("Média");
   const [editTaskCategory, setEditTaskCategory] = useState("Outro");
   const isCashierRoute = location.pathname.startsWith('/cashier');
-  const isCrmRoute = location.pathname.startsWith('/crm');
+  const isCrmRoute = location.pathname.startsWith('/chat/alraerp');
+  const isDashboard = location.pathname === '/dashboard' || location.pathname === '/';
   const [keepBottomNavForEntry, setKeepBottomNavForEntry] = useState(false);
-
-  useEffect(() => {
-    // Quando navega para /cashier e existe a flag de animação, mantém o rodapé da dashboard visível
-    // por alguns milissegundos para o highlight "chegar em CAIXA" antes de trocar o rodapé.
-    if (isCashierRoute) {
-      try {
-        const animate = sessionStorage.getItem('animateCashierEntry') === 'true';
-        if (animate) {
-          setKeepBottomNavForEntry(true);
-          setTimeout(() => setKeepBottomNavForEntry(false), 550);
-        } else {
-          setKeepBottomNavForEntry(false);
-        }
-      } catch {
-        setKeepBottomNavForEntry(false);
-      }
-    } else {
-      setKeepBottomNavForEntry(false);
-    }
-  }, [location.pathname]);
+  const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+
+  // Keyboard Shortcuts for Cashier
+  useEffect(() => {
+    if (!isCashierRoute) return;
+
+    const handleShortcuts = (e) => {
+      // F7: Suspend
+      if (e.key === 'F7') {
+        e.preventDefault();
+        const ok = suspendSale();
+        if (ok) alert("Venda suspensa!");
+      }
+      // F10: View Suspended
+      if (e.key === 'F10') {
+        e.preventDefault();
+        setShowSuspendedDialog(true);
+      }
+      // F8: Finalize/Payment
+      if (e.key === 'F8') {
+        e.preventDefault();
+        if (location.pathname.includes('/payment')) {
+          window.dispatchEvent(new CustomEvent('cashier-finish-sale'));
+        } else {
+          navigate('/cashier/payment');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleShortcuts);
+    return () => window.removeEventListener('keydown', handleShortcuts);
+  }, [isCashierRoute, location.pathname, suspendSale, navigate]);
 
 
   useEffect(() => {
@@ -279,7 +305,6 @@ export default function Layout({ children, currentPageName }) {
 
 
 
-  const isDashboard = location.pathname === createPageUrl("Dashboard");
   const isSettings = location.pathname === createPageUrl("Settings");
   // Se não encontrar a rota atual, inicializa com CAIXA (índice 0)
   const activeIndex = bottomNavItems.findIndex((i) => location.pathname === i.path);
@@ -543,10 +568,10 @@ export default function Layout({ children, currentPageName }) {
         {/* Main Content */}
         <main className={
           isCrmRoute ? 'flex-1 h-full overflow-hidden' :
-            isDashboard ? 'flex-1 flex items-center justify-center min-h-[calc(100vh-112px-64px)] pb-20' :
+            isDashboard ? 'flex-1 flex flex-col items-center justify-center p-0 min-h-[calc(100vh-120px)] sm:min-h-[calc(100vh-140px)] w-full' :
               'flex-1 pb-20'
         }>
-          {isDashboard ? <div className="ios-home-reveal w-full mt-8">{children}</div> : children}
+          {isDashboard ? <div className="ios-home-reveal w-full h-full flex items-center justify-center">{children}</div> : children}
         </main>
 
         {/* Agenda Calendar Dialog - Estilo Apple/iCloud */}
@@ -1045,45 +1070,130 @@ export default function Layout({ children, currentPageName }) {
 
         {/* Cashier "Revolver" Footer */}
         {(isCashierRoute && !keepBottomNavForEntry) && (
-          <div className="fixed bottom-0 left-0 right-0 z-30 h-[80px] bg-white border-t border-gray-200 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] animate-in slide-in-from-bottom-24 spin-in-3 duration-700 ease-out flex items-center px-4 gap-4 perspective-[1000px]">
-            {/* Left Button (Back) */}
-            <button
-              onClick={() => {
-                if (location.pathname.includes('/payment')) navigate('/cashier/products');
-                else navigate('/dashboard');
-              }}
-              className="flex-1 h-[56px] rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              <span className="text-xl">‹</span> Voltar
-            </button>
+          <div className="fixed bottom-0 left-0 right-0 z-30 h-[90px] bg-white border-t border-gray-200 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex items-center px-4 gap-3">
+            {/* Action Buttons Group */}
+            <div className="flex flex-col gap-1 items-stretch">
+              <button
+                onClick={() => {
+                  const ok = suspendSale();
+                  if (ok) alert("Venda suspensa!");
+                }}
+                disabled={!cart || cart.length === 0}
+                className="h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                title="Pausar Venda (F7)"
+              >
+                <Pause className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Pausar (F7)</span>
+              </button>
+              <button
+                onClick={() => setShowSuspendedDialog(true)}
+                className="h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center gap-2 transition-all active:scale-95 relative"
+                title="Vendas em Aberto (F10)"
+              >
+                <Clock className="w-3.5 h-3.5" /> 
+                <span className="hidden sm:inline">Abertos (F10)</span>
+                {suspendedSales?.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow-md">
+                    {suspendedSales.length}
+                  </span>
+                )}
+              </button>
+            </div>
 
-            {/* Right Button (Proceed) with Blue Highlight "Pill" */}
-            <button
-              onClick={() => {
-                if (isFinalizing) return;
-                if (location.pathname.includes('/payment')) {
-                  // Dispatch event for Payment page to handle submit
-                  window.dispatchEvent(new CustomEvent('cashier-finish-sale'));
-                } else {
-                  navigate('/cashier/payment');
-                }
-              }}
-              disabled={isFinalizing}
-              className="flex-[2] h-[56px] rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {/* Highlight effect */}
-              {!isFinalizing && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />}
+            {/* Navigation / Finalize */}
+            <div className="flex-1 flex items-center gap-3">
+              <button
+                onClick={() => {
+                  if (location.pathname.includes('/payment')) navigate('/cashier/products');
+                  else navigate('/dashboard');
+                }}
+                className="flex-[1] h-[56px] rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-base hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-1"
+              >
+                <ChevronLeft className="w-5 h-5" /> Voltar
+              </button>
 
-              {isFinalizing ? (
-                <>Finalizando... <Loader2 className="w-6 h-6 animate-spin" /></>
-              ) : location.pathname.includes('/payment') ? (
-                <>Finalizar <Check className="w-6 h-6" /></>
-              ) : (
-                <>Pagamento <span className="text-2xl">›</span></>
-              )}
-            </button>
+              <button
+                onClick={() => {
+                  if (isFinalizing) return;
+                  if (location.pathname.includes('/payment')) {
+                    window.dispatchEvent(new CustomEvent('cashier-finish-sale'));
+                  } else {
+                    navigate('/cashier/payment');
+                  }
+                }}
+                disabled={isFinalizing}
+                className="flex-[2] h-[56px] rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isFinalizing ? (
+                  <>Finalizando... <Loader2 className="w-6 h-6 animate-spin" /></>
+                ) : location.pathname.includes('/payment') ? (
+                  <>Finalizar (F8) <Check className="w-6 h-6" /></>
+                ) : (
+                  <>Pagamento <ChevronRight className="w-6 h-6" /></>
+                )}
+              </button>
+            </div>
           </div>
         )}
+
+        {/* Suspended Sales Dialog */}
+        <Dialog open={showSuspendedDialog} onOpenChange={setShowSuspendedDialog}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Vendas em Aberto</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              {(!suspendedSales || suspendedSales.length === 0) ? (
+                <div className="text-center py-8 text-slate-400">
+                  <Clock className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                  <p>Nenhuma venda pausada</p>
+                </div>
+              ) : (
+                <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2">
+                  {suspendedSales.map((s) => (
+                    <div key={s.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 flex flex-col gap-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">
+                            {s.selectedCustomer?.name || 'Venda Avulsa'}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-medium">
+                            {new Date(s.date).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                        <p className="text-sm font-black text-blue-600">
+                          R$ {s.cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0).toFixed(2)}
+                        </p>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={() => { resumeSale(s.id); setShowSuspendedDialog(false); }}
+                          className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 h-9 font-bold text-xs"
+                        >
+                          Continuar
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          onClick={() => deleteSuspendedSale(s.id)}
+                          className="w-10 h-9 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Button 
+                variant="outline" 
+                onClick={() => setShowSuspendedDialog(false)} 
+                className="w-full rounded-xl h-11 font-bold text-slate-600"
+              >
+                Fechar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Tutorial System */}

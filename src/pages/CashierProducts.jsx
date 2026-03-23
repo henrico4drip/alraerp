@@ -143,7 +143,11 @@ export default function CashierProducts() {
   const isSearching = (searchFocused || (searchTerm && searchTerm.trim().length > 0));
 
   const filteredProducts = products
-    .filter((p) => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const searchParts = searchTerm.toLowerCase().split(' ').filter(p => p.length > 0);
+      return searchParts.every(part => name.includes(part));
+    })
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
 
   return (
