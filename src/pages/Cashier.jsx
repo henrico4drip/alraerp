@@ -17,7 +17,9 @@ import {
   Check,
   UserPlus,
   FileText,
-  Edit
+  Edit,
+  Pause,
+  List
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -52,7 +54,9 @@ export default function Cashier() {
 
   const [lastSale, setLastSale] = useState(null);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
+  const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
   const searchRef = useRef(null);
+  const customerSearchRef = useRef(null);
   const queryClient = useQueryClient();
 
   // Product Dialog & State
@@ -87,6 +91,12 @@ export default function Cashier() {
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
     queryFn: () => base44.entities.Customer.list(),
+    initialData: [],
+  });
+
+  const { data: suspendedSales = [], isLoading: isLoadingSuspended } = useQuery({
+    queryKey: ['suspended_sales'],
+    queryFn: () => base44.entities.SuspendedSale.list('-created_date'),
     initialData: [],
   });
 
@@ -159,6 +169,71 @@ export default function Cashier() {
   useEffect(() => {
     setCart(prev => recalculatePrices(prev));
   }, [settings?.wholesale_enabled, settings?.wholesale_type, settings?.wholesale_min_count, products]);
+
+  // Focus search input on mount
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, []);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger if a dialog is open (except for Esc)
+      const isDialogOpen = showNewCustomerDialog || showProductDialog || showReceiptDialog || showConfirmRemoveCartItem || showConfirmRemovePayment;
+      
+      if (e.key === "Escape") {
+        if (isDialogOpen) return; // Let the Dialog handle its own Escape
+        setSearchTerm("");
+        setCustomerSearchTerm("");
+        searchRef.current?.focus();
+        return;
+      }
+
+      if (isDialogOpen) return;
+
+      switch (e.key) {
+        case "F10":
+          e.preventDefault();
+          setShowSuspendedDialog(true);
+          break;
+        case "F7":
+          e.preventDefault();
+          handleSuspendSale();
+          break;
+        case "F1":
+          e.preventDefault();
+          setShowNewCustomerDialog(true);
+          break;
+        case "F2":
+          e.preventDefault();
+          customerSearchRef.current?.focus();
+          break;
+        case "F3":
+          e.preventDefault();
+          handleOpenProductDialog();
+          break;
+        case "F4":
+          e.preventDefault();
+          searchRef.current?.focus();
+          break;
+        case "F8":
+          e.preventDefault();
+          if (cart.length > 0 && (payments.length > 0 || remainingAmount() <= 0)) {
+            handleFinalizeSale();
+          }
+          break;
+        case "F9":
+          e.preventDefault();
+          addPayment();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cart, payments, showNewCustomerDialog, showProductDialog, showReceiptDialog, showConfirmRemoveCartItem, showConfirmRemovePayment]);
   // ---------------------------------
 
   const createSaleMutation = useMutation({
@@ -193,6 +268,56 @@ export default function Cashier() {
       setNewCustomerForm({ name: "", phone: "", email: "" });
     },
   });
+
+  const suspendSaleMutation = useMutation({
+    mutationFn: (data) => base44.entities.SuspendedSale.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['suspended_sales']);
+      setCart([]);
+      setSelectedCustomer(null);
+      setCustomerSearchTerm("");
+      setObservations("");
+      setPayments([]);
+      setCashbackToUse(0);
+      searchRef.current?.focus();
+    }
+  });
+
+  const deleteSuspendedSaleMutation = useMutation({
+    mutationFn: (id) => base44.entities.SuspendedSale.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['suspended_sales']);
+    }
+  });
+
+  const handleSuspendSale = async () => {
+    if (cart.length === 0) return;
+    const identifier = selectedCustomer?.name || prompt("Identificador para este pedido (ex: Mesa, Nome):") || "Sem identificação";
+    
+    suspendSaleMutation.mutate({
+      identifier,
+      cart,
+      customer_id: selectedCustomer?.id,
+      customer_name: selectedCustomer?.name,
+      observations,
+      total_amount: calculateTotal(),
+      created_at: new Date().toISOString()
+    });
+  };
+
+  const resumeSuspendedSale = (suspended) => {
+    setCart(suspended.cart || []);
+    if (suspended.customer_id) {
+      setSelectedCustomer({ id: suspended.customer_id, name: suspended.customer_name });
+      setCustomerSearchTerm(suspended.customer_name || "");
+    } else {
+      setSelectedCustomer(null);
+      setCustomerSearchTerm("");
+    }
+    setObservations(suspended.observations || "");
+    deleteSuspendedSaleMutation.mutate(suspended.id);
+    setShowSuspendedDialog(false);
+  };
 
   const handleOpenProductDialog = (product = null) => {
     if (product) {
@@ -238,13 +363,29 @@ export default function Cashier() {
     }
   };
 
-  const handleSearchProducts = (value) => {
+  const handleSearchProducts = (value, forceAdd = false) => {
     setSearchTerm(value);
+    
+    // 1. Check for exact barcode match
     const productByBarcode = products.find(p => p.barcode === value);
     if (productByBarcode) {
       addToCart(productByBarcode);
       setSearchTerm("");
       searchRef.current?.focus();
+      return;
+    }
+
+    // 2. If Enter was pressed and there's exactly one result, add it
+    if (forceAdd) {
+      const filtered = products.filter(p => 
+        p.name?.toLowerCase().includes(value.toLowerCase()) || 
+        p.barcode === value
+      );
+      if (filtered.length === 1) {
+        addToCart(filtered[0]);
+        setSearchTerm("");
+        searchRef.current?.focus();
+      }
     }
   };
 
@@ -266,6 +407,7 @@ export default function Cashier() {
       }];
     }
     updateCart(nextCart);
+    searchRef.current?.focus();
   };
 
   const updateQuantity = (productId, change) => {
@@ -280,6 +422,7 @@ export default function Cashier() {
   const removeFromCart = (productId) => {
     const nextCart = cart.filter(item => item.product_id !== productId);
     updateCart(nextCart);
+    searchRef.current?.focus();
   };
 
   const calculateTotal = () => {
@@ -315,6 +458,7 @@ export default function Cashier() {
     };
     setPayments([...payments, newEntry]);
     setPaymentDraft({ method: "", amount: "", installments: 1 });
+    searchRef.current?.focus();
   };
 
   const removePayment = (index) => {
@@ -413,9 +557,14 @@ export default function Cashier() {
     setPaymentMethod("");
     setCashbackToUse(0);
     setObservations("");
+    setObservations("");
     setCustomerSearchTerm("");
     setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    setTimeout(() => {
+      setShowSuccess(false);
+      searchRef.current?.focus();
+    }, 3000);
+    searchRef.current?.focus();
   };
 
   const printReceipt = (sale) => {
@@ -480,14 +629,25 @@ export default function Cashier() {
     win.close();
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter(p => {
+    const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+    if (searchWords.length === 0) return true;
+    const targetStr = `${p.name} ${p.barcode} ${p.category}`.toLowerCase();
+    return searchWords.every(word => targetStr.includes(word));
+  });
 
-  const filteredCustomers = customers.filter(c =>
-    c.name?.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
-    c.phone?.includes(customerSearchTerm)
-  );
+  const filteredCustomers = customers.filter(c => {
+    const searchWords = customerSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+    if (searchWords.length === 0) return true;
+    const targetStr = `${c.name} ${c.phone} ${c.email || ''} ${c.cpf || ''}`.toLowerCase();
+    const phoneClean = (c.phone || '').replace(/\D/g, "");
+    const cleanSearch = customerSearchTerm.replace(/\D/g, "");
+
+    // If it's a numeric search, check cleaned phone/cpf first
+    if (cleanSearch && (phoneClean.includes(cleanSearch) || (c.cpf || '').replace(/\D/g, "").includes(cleanSearch))) return true;
+
+    return searchWords.every(word => targetStr.includes(word));
+  });
 
   const customer = selectedCustomer ? customers.find(c => c.id === selectedCustomer.id) : null;
   const maxCashbackToUse = customer ? Math.min(customer.cashback_balance, calculateTotal()) : 0;
@@ -552,17 +712,17 @@ export default function Cashier() {
                     onChange={(e) => handleSearchProducts(e.target.value)}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
-                        handleSearchProducts(searchTerm);
+                        handleSearchProducts(searchTerm, true);
                       }
                     }}
-                    placeholder="Buscar por nome ou código de barras..."
+                    placeholder="Buscar por nome ou código de barras (F4)..."
                     className="w-full rounded-xl border-gray-200"
                   />
                 </div>
 
                 <div className="mb-3">
                   <Button onClick={() => handleOpenProductDialog()} className="rounded-xl bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4 mr-2" /> Novo Produto
+                    <Plus className="w-4 h-4 mr-2" /> Novo Produto (F3)
                   </Button>
                 </div>
 
@@ -676,9 +836,10 @@ export default function Cashier() {
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <Input
+                        ref={customerSearchRef}
                         value={customerSearchTerm}
                         onChange={(e) => setCustomerSearchTerm(e.target.value)}
-                        placeholder="Buscar cliente..."
+                        placeholder="Buscar cliente (F2)..."
                         className="rounded-xl border-gray-200"
                       />
                       {customerSearchTerm && filteredCustomers.length > 0 && (
@@ -704,7 +865,7 @@ export default function Cashier() {
                       onClick={() => setShowNewCustomerDialog(true)}
                       className="rounded-xl bg-pink-600 hover:bg-pink-700 px-3"
                     >
-                      <UserPlus className="w-4 h-4" />
+                      <UserPlus className="w-4 h-4 mr-1" /> (F1)
                     </Button>
                   </div>
                 </div>
@@ -777,7 +938,7 @@ export default function Cashier() {
                         />
                       </div>
                     )}
-                    <Button onClick={addPayment} className="rounded-xl bg-blue-600 hover:bg-blue-700">Adicionar</Button>
+                    <Button onClick={addPayment} className="rounded-xl bg-blue-600 hover:bg-blue-700">Adicionar (F9)</Button>
                   </div>
                   {payments.length > 0 && (
                     <div className="mt-2 space-y-1">
@@ -841,12 +1002,32 @@ export default function Cashier() {
 
                 <Button
                   onClick={handleFinalizeSale}
-                  disabled={cart.length === 0 || payments.length === 0 || remainingAmount() > 0}
                   className="w-full mt-4 bg-green-600 hover:bg-green-700 rounded-xl h-11 text-base font-semibold"
+                  disabled={cart.length === 0 || (payments.length === 0 && remainingAmount() > 0.01)}
                 >
                   <DollarSign className="w-5 h-5 mr-2" />
-                  Finalizar Venda
+                  Finalizar Venda (F8)
                 </Button>
+
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleSuspendSale}
+                    className="flex-1 rounded-xl h-10 border-amber-200 text-amber-700 hover:bg-amber-50"
+                    disabled={cart.length === 0}
+                  >
+                    <Pause className="w-4 h-4 mr-2" />
+                    Suspender (F7)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSuspendedDialog(true)}
+                    className="flex-1 rounded-xl h-10 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  >
+                    <List className="w-4 h-4 mr-2" />
+                    Abertos (F10)
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1037,6 +1218,38 @@ export default function Cashier() {
             if (confirmRemovePaymentIdx != null) removePayment(confirmRemovePaymentIdx);
           }}
         />
+
+        {/* Suspended Sales Dialog */}
+        <Dialog open={showSuspendedDialog} onOpenChange={setShowSuspendedDialog}>
+          <DialogContent className="sm:max-w-lg rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <List className="w-5 h-5 text-indigo-600" />
+                Atendimentos em Aberto
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              {suspendedSales.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">Nenhum atendimento suspenso.</div>
+              ) : (
+                suspendedSales.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:shadow-sm transition-all group">
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900 truncate">{s.identifier}</p>
+                      <p className="text-xs text-gray-500">
+                        {s.cart?.length || 0} itens • R$ {(s.total_amount || 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="sm" onClick={() => resumeSuspendedSale(s)} className="rounded-lg bg-indigo-600 h-8 px-3">Retomar</Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteSuspendedSaleMutation.mutate(s.id)} className="rounded-lg h-8 text-red-500"><Trash2 className="w-4 h-4" /></Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div >
   );

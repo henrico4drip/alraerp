@@ -46,6 +46,7 @@ export default function CashierProducts() {
   const [confirmRemoveCartItemId, setConfirmRemoveCartItemId] = useState(null);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [editingPriceValue, setEditingPriceValue] = useState("");
+  const [activeTab, setActiveTab] = useState("catalog"); // 'catalog' | 'cart'
   useEffect(() => {
     const animate = sessionStorage.getItem('animateCashierEntry') === 'true';
     if (animate) {
@@ -146,11 +147,32 @@ export default function CashierProducts() {
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
 
   return (
-    <div className="fixed inset-0 top-[60px] pb-[100px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
+    <div className="fixed inset-0 top-[48px] sm:top-[60px] pb-[80px] sm:pb-[100px] bg-white lg:bg-slate-50/50 p-0 sm:p-4 overflow-hidden flex flex-col">
+      {/* Mobile Tabs */}
+      <div className="lg:hidden flex border-b border-gray-100 bg-white shrink-0">
+        <button
+          onClick={() => setActiveTab("catalog")}
+          className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'catalog' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}
+        >
+          CATÁLOGO
+        </button>
+        <button
+          onClick={() => setActiveTab("cart")}
+          className={`flex-1 py-3 text-sm font-bold transition-colors relative ${activeTab === 'cart' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}
+        >
+          CARRINHO
+          {cart.length > 0 && (
+            <span className="absolute top-2 right-4 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center animate-bounce">
+              {cart.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       <div className="flex-1 max-w-[1600px] w-full mx-auto flex flex-col lg:flex-row gap-3 sm:gap-4 overflow-hidden">
 
         {/* Left Column: Products (2/3) */}
-        <div className="flex-[1.5] lg:flex-[2] overflow-hidden flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-gray-200/60 shadow-sm relative">
+        <div className={`flex-[1.5] lg:flex-[2] overflow-hidden flex flex-col bg-white lg:rounded-3xl border-x lg:border border-gray-200/60 shadow-sm relative ${activeTab === 'catalog' ? 'flex' : 'hidden lg:flex'}`}>
           {/* Header */}
           <div className="shrink-0 px-3 sm:px-6 py-2 sm:py-4 border-b border-gray-100 flex items-center justify-between bg-white relative z-10">
             <div className="flex items-center gap-3">
@@ -201,7 +223,7 @@ export default function CashierProducts() {
             {isLoading ? (
               <LoadingSpinner />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 auto-rows-max p-2">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 auto-rows-max p-2">
                 {filteredProducts.map((product) => (
                   <button
                     key={product.id}
@@ -240,7 +262,7 @@ export default function CashierProducts() {
         </div>
 
         {/* Right Column: Cart (1/3) */}
-        <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-3xl border border-gray-200/60 shadow-sm relative mb-20">
+        <div className={`flex-1 overflow-hidden flex flex-col bg-white lg:rounded-3xl lg:border border-gray-200/60 shadow-sm relative ${activeTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
           {/* Header */}
           <div className="shrink-0 px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white relative z-10">
             <div className="flex items-center gap-3">

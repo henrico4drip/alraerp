@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import PrintLabelsModal from "@/components/PrintLabelsModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import InventorySkeleton from "@/components/InventorySkeleton";
 
 export default function Inventory() {
   const settingsEff = useEffectiveSettings();
@@ -157,11 +158,13 @@ export default function Inventory() {
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState('name_asc');
 
-  const filteredProducts = products.filter(p =>
-    (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.barcode || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.category || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredProducts = products.filter(p => {
+    const searchWords = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (searchWords.length === 0) return true;
+    
+    const targetStr = `${p.name} ${p.barcode} ${p.category}`.toLowerCase();
+    return searchWords.every(word => targetStr.includes(word));
+  });
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     const num = (v) => typeof v === 'number' ? v : parseFloat(v || 0)
@@ -195,38 +198,40 @@ export default function Inventory() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8 overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Estoque</h1>
-            <p className="text-gray-500 mt-1">Gerencie seus produtos</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Estoque</h1>
+            <p className="text-gray-500 text-sm mt-1">Gerencie seus produtos</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <Button
               variant="outline"
               onClick={() => navigate('/inventory/insights')}
-              className="rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              className="flex-1 md:flex-none rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50 h-9 px-3 text-xs sm:text-sm"
             >
-              <TrendingUp className="w-4 h-4 mr-2" />
+              <TrendingUp className="w-4 h-4 mr-1 sm:mr-2" />
               Insights
-            </Button>
-            <Button onClick={() => setShowImportDialog(true)} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">Importar</Button>
-            <Button onClick={() => setShowExportDialog(true)} className="rounded-xl bg-slate-600 hover:bg-slate-700">Exportar</Button>
-            <Button
-              onClick={() => setShowPrintLabelsModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
-              disabled={products.length === 0}
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Imprimir Etiquetas
             </Button>
             <Button
               onClick={() => handleOpenDialog()}
               data-tutorial="new-product-btn"
-              className="bg-blue-600 hover:bg-blue-700 rounded-xl"
+              className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-3 text-xs sm:text-sm order-first md:order-last"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Produto
+              <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+              Novo
             </Button>
+            <div className="flex gap-2 w-full md:w-auto">
+              <Button onClick={() => setShowImportDialog(true)} variant="secondary" className="flex-1 md:flex-none rounded-xl h-9 text-xs">Importar</Button>
+              <Button onClick={() => setShowExportDialog(true)} variant="secondary" className="flex-1 md:flex-none rounded-xl h-9 text-xs">Exportar</Button>
+              <Button
+                onClick={() => setShowPrintLabelsModal(true)}
+                variant="secondary"
+                className="flex-1 md:flex-none rounded-xl h-9 text-xs"
+                disabled={products.length === 0}
+              >
+                <Printer className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -259,7 +264,7 @@ export default function Inventory() {
         </div>
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[12px_0_24px_-12px_rgba(0,0,0,0.25),_-12px_0_24px_-12px_rgba(0,0,0,0.25)]">
           {isLoading ? (
-            <LoadingSpinner />
+            <InventorySkeleton />
           ) : (
             <>
               <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
@@ -518,6 +523,7 @@ export default function Inventory() {
                     if (lines.length === 0) return
                     const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
                     const idx = (name) => headers.indexOf(name)
+                    const toCreate = []
                     for (let i = 1; i < lines.length; i++) {
                       const cols = lines[i].split(',')
                       const payload = {
@@ -530,7 +536,15 @@ export default function Inventory() {
                         category: cols[idx('category')] || '',
                       }
                       if (payload.name) {
-                        try { await createMutation.mutateAsync(payload) } catch { }
+                        toCreate.push(payload)
+                      }
+                    }
+                    if (toCreate.length > 0) {
+                      try { 
+                        await base44.entities.Product.createMany(toCreate)
+                        queryClient.invalidateQueries(['products'])
+                      } catch (err) {
+                        alert('Erro na importação em massa')
                       }
                     }
                     setShowImportDialog(false)

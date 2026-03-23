@@ -302,9 +302,9 @@ export default function Settings() {
         </header>
 
         <div className="flex flex-col md:flex-row gap-8">
-          {/* Sidebar Navigation */}
-          <aside className="w-full md:w-64 shrink-0">
-            <nav className="space-y-1 bg-gray-50/50 p-2 rounded-2xl border border-gray-100">
+          {/* Sidebar Navigation / Horizontal Scroll on Mobile */}
+          <aside className="w-full md:w-64 shrink-0 overflow-hidden">
+            <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 scrollbar-hide bg-gray-50/50 p-2 rounded-2xl border border-gray-100">
               {categories.map((cat) => {
                 const Icon = cat.icon
                 const isActive = activeCategory === cat.id
@@ -312,25 +312,25 @@ export default function Settings() {
                   <button
                     key={cat.id}
                     onClick={() => setActiveCategory(cat.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
+                    className={`whitespace-nowrap flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-medium transition-all duration-200 shrink-0 ${isActive
                       ? 'bg-white text-blue-600 shadow-sm border border-gray-100 ring-1 ring-black/5'
                       : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
                       }`}
                   >
-                    <Icon className={`w-5 h-5 ${cat.color} ${isActive ? 'opacity-100' : 'opacity-70'}`} />
+                    <Icon className={`w-4 h-4 md:w-5 md:h-5 ${cat.color} ${isActive ? 'opacity-100' : 'opacity-70'}`} />
                     {cat.label}
                   </button>
                 )
               })}
-              <div className="pt-4 mt-4 border-t border-gray-100 px-4 pb-2">
-                <button
-                  onClick={handleRestartTutorial}
-                  className="text-xs text-gray-400 hover:text-blue-600 flex items-center gap-2 transition-colors"
-                >
-                  Reiniciar Tutorial
-                </button>
-              </div>
             </nav>
+            <div className="hidden md:block pt-4 mt-4 border-t border-gray-100 px-4 pb-2">
+              <button
+                onClick={handleRestartTutorial}
+                className="text-xs text-gray-400 hover:text-blue-600 flex items-center gap-2 transition-colors"
+              >
+                Reiniciar Tutorial
+              </button>
+            </div>
           </aside>
 
           {/* Settings Content */}

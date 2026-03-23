@@ -94,7 +94,7 @@ function makeRepo(table) {
   }
   const genId = () => Math.random().toString(36).slice(2)
   return {
-    list: async (order) => {
+    list: async (order, filters = {}) => {
       const userId = await getCurrentUserId()
       if (!userId) return []
 
@@ -105,12 +105,30 @@ function makeRepo(table) {
 
       while (hasMore) {
         let q = supabase.from(table).select('*').eq('user_id', userId).range(from, from + limit - 1)
+        
+        // Apply filters
+        if (filters.after) q.gte('created_date', filters.after)
+        if (filters.before) q.lte('created_date', filters.before)
+        if (filters.sale_after) q.gte('sale_date', filters.sale_after)
+        if (filters.sale_before) q.lte('sale_date', filters.sale_before)
+        if (filters.eq) {
+          Object.entries(filters.eq).forEach(([k, v]) => {
+            q.eq(k, v)
+          })
+        }
+        if (filters.search && filters.searchFields) {
+          const searchConditions = filters.searchFields.map(field => `${field}.ilike.%${filters.search}%`).join(',')
+          q.or(searchConditions)
+        }
+
         if (order === '-created_date') {
           q.order('created_date', { ascending: false })
         } else if (order === '-due_date') {
           q.order('due_date', { ascending: false })
         } else if (order === 'due_date') {
           q.order('due_date', { ascending: true })
+        } else if (order === '-sale_date') {
+          q.order('sale_date', { ascending: false })
         }
 
         const { data, error } = await q
@@ -122,7 +140,7 @@ function makeRepo(table) {
             hasMore = false;
           } else {
             from += limit;
-            if (from >= 15000) hasMore = false; // safety break
+            if (from >= 25000) hasMore = false; // safety break increased slightly
           }
         } else {
           hasMore = false;
@@ -154,6 +172,29 @@ function makeRepo(table) {
       console.log(`[base44] Insert into "${table}" successful:`, data)
       return data
     },
+    createMany: async (objs) => {
+      const userId = await getCurrentUserId()
+      if (!userId) throw new Error('No user session')
+      if (!Array.isArray(objs) || objs.length === 0) return []
+
+      const items = objs.map(obj => {
+        const normalized = normalizePayload(table, obj)
+        return {
+          id: obj.id || genId(),
+          created_date: new Date().toISOString(),
+          ...normalized,
+          user_id: userId
+        }
+      })
+
+      console.log(`[base44] Attempting bulk insert of ${items.length} items into "${table}"...`)
+      const { data, error } = await supabase.from(table).insert(items).select()
+      if (error) {
+        console.error(`[base44] Bulk insert into "${table}" failed:`, error)
+        throw error
+      }
+      return data
+    },
     update: async (id, patch) => {
       const userId = await getCurrentUserId()
       if (!userId) throw new Error('No user session')
@@ -178,6 +219,7 @@ export const base44 = {
     Customer: makeRepo('customers'),
     Product: makeRepo('products'),
     Sale: makeRepo('sales'),
+    SuspendedSale: makeRepo('suspended_sales'),
     Expense: makeRepo('expenses'),
     Staff: makeRepo('staff_profiles'),
     User: makeRepo('users'),

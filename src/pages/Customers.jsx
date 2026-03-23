@@ -110,16 +110,18 @@ export default function Customers() {
   const cleanSearch = search.replace(/\D/g, "");
 
   const filteredCustomers = customers.filter(c => {
-    const searchLower = search.toLowerCase();
+    const searchWords = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (searchWords.length === 0) return true;
+
     const phoneClean = (c.phone || '').replace(/\D/g, "");
     const cpfClean = (c.cpf || '').replace(/\D/g, "");
+    const cleanSearch = search.replace(/\D/g, "");
 
-    return (c.name || '').toLowerCase().includes(searchLower) ||
-      (c.email || '').toLowerCase().includes(searchLower) ||
-      (c.phone || '').includes(search) || // keep literal match just in case
-      (cleanSearch && phoneClean.includes(cleanSearch)) ||
-      (c.cpf || '').includes(search) ||
-      (cleanSearch && cpfClean.includes(cleanSearch));
+    // Direct numeric match for phone/cpf bypasses word split if it's a long number
+    if (cleanSearch.length >= 4 && (phoneClean.includes(cleanSearch) || cpfClean.includes(cleanSearch))) return true;
+
+    const targetStr = `${c.name} ${c.phone} ${c.email || ''} ${c.cpf || ''}`.toLowerCase();
+    return searchWords.every(word => targetStr.includes(word));
   });
 
   const sortedCustomers = React.useMemo(() => {

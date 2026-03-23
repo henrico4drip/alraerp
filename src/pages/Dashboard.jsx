@@ -13,6 +13,7 @@ import {
   Settings as SettingsIcon,
   MessageSquare,
 } from "lucide-react";
+import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -41,9 +42,15 @@ export default function Dashboard() {
       url: 'https://www.sciencedirect.com/science/article/abs/pii/S0148296321008857',
     },
   ];
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  const startOfMonthStr = format(new Date(currentYear, currentMonth, 1), 'yyyy-MM-dd');
+
   const { data: sales = [] } = useQuery({
-    queryKey: ['sales'],
-    queryFn: () => base44.entities.Sale.list('-created_date'),
+    queryKey: ['sales', startOfMonthStr],
+    queryFn: () => base44.entities.Sale.list('-created_date', {
+      sale_after: startOfMonthStr
+    }),
     initialData: [],
   });
 
@@ -171,10 +178,10 @@ export default function Dashboard() {
   const monthUniqueCustomers = Object.keys(monthCustomerCounts).length;
 
   return (
-    <div className="bg-white p-4 w-full">
-      <div className="max-w-4xl mx-auto w-full flex flex-col items-center transform -translate-y-[7px]">
+    <div className="bg-white p-2 sm:p-4 w-full min-h-screen">
+      <div className="max-w-4xl mx-auto w-full flex flex-col items-center">
         {/* Logo / Inserção de Logo */}
-        <div className="mb-6 flex items-center justify-center">
+        <div className="mb-4 sm:mb-8 flex items-center justify-center w-full px-4">
           {(() => {
             const hasLogo = Boolean((settings?.logo_url) || (logoUrl && logoUrl !== '/logo-fallback.svg'));
             return hasLogo ? (
@@ -200,8 +207,8 @@ export default function Dashboard() {
           })()}
         </div>
 
-        {/* Ações em linha */}
-        <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-8 py-2">
+        {/* Ações em linha / Grid adaptativo */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-3 sm:gap-8 py-2 w-full max-w-[360px] sm:max-w-none px-2">
           {actions.map((a) => {
             let summaryLabel = '';
             let summaryValue = '';

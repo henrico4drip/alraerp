@@ -132,6 +132,7 @@ export default function CashierPayment() {
   const [showPixSuccess, setShowPixSuccess] = useState(false);
   const [carneResult, setCarneResult] = useState({ show: false, success: false, message: '' });
   const amountInputRef = useRef(null);
+  const [activeTab, setActiveTab] = useState("payment"); // 'payment' | 'summary'
   useEffect(() => {
     const animatePayment = sessionStorage.getItem('animateCashierPaymentEntry') === 'true';
     if (animatePayment) {
@@ -955,7 +956,6 @@ export default function CashierPayment() {
         </div>
       )}
 
-      {/* PIX QR Code Dialog */}
       <Dialog open={showPixDialog} onOpenChange={(open) => {
         if (!open) {
           setShowPixDialog(false);
@@ -1001,10 +1001,26 @@ export default function CashierPayment() {
         </DialogContent>
       </Dialog>
 
+      {/* Mobile Tabs */}
+      <div className="lg:hidden flex border-b border-gray-100 bg-white shrink-0">
+        <button
+          onClick={() => setActiveTab("payment")}
+          className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'payment' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}
+        >
+          PAGAMENTO
+        </button>
+        <button
+          onClick={() => setActiveTab("summary")}
+          className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'summary' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}
+        >
+          RESUMO
+        </button>
+      </div>
+
       <div className="flex-1 max-w-[1600px] w-full mx-auto flex flex-col lg:flex-row gap-3 sm:gap-4 overflow-hidden">
 
         {/* Left Column: Cart Summary (1/3) */}
-        <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-3xl border border-gray-200/60 shadow-sm relative order-2 lg:order-1 mb-20">
+        <div className={`flex-1 overflow-hidden flex flex-col bg-white lg:rounded-3xl border-x lg:border border-gray-200/60 shadow-sm relative order-2 lg:order-1 ${activeTab === 'summary' ? 'flex' : 'hidden lg:flex'}`}>
           <div className="shrink-0 px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white relative z-10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-500">
@@ -1048,7 +1064,7 @@ export default function CashierPayment() {
         </div>
 
         {/* Right Column: Payment & Customer (2/3) */}
-        <div className="flex-[1.5] lg:flex-[2] overflow-hidden flex flex-col bg-white rounded-3xl border border-gray-200/60 shadow-sm relative order-1 lg:order-2 mb-20">
+        <div className={`flex-[1.5] lg:flex-[2] overflow-hidden flex flex-col bg-white lg:rounded-3xl border lg:border border-gray-200/60 shadow-sm relative order-1 lg:order-2 ${activeTab === 'payment' ? 'flex' : 'hidden lg:flex'}`}>
           {/* Header / Tools */}
           <div className="shrink-0 px-4 sm:px-6 py-2 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2 bg-white relative z-10">
             <div className="flex flex-wrap items-center gap-2">

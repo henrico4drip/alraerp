@@ -37,22 +37,25 @@ import {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function Reports() {
-  const { data: sales = [] } = useQuery({
-    queryKey: ['sales'],
-    queryFn: () => base44.entities.Sale.list('-created_date'),
-    initialData: [],
-  });
-
-  const { data: products = [] } = useQuery({
-    queryKey: ['products'],
-    queryFn: () => base44.entities.Product.list(),
-    initialData: [],
-  });
-
   // Default to current month
   const [dateRange, setDateRange] = useState({
     from: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
     to: format(endOfMonth(new Date()), 'yyyy-MM-dd')
+  });
+
+  const { data: sales = [], isLoading: isLoadingSales } = useQuery({
+    queryKey: ['sales', dateRange],
+    queryFn: () => base44.entities.Sale.list('-sale_date', {
+      sale_after: dateRange.from,
+      sale_before: dateRange.to + 'T23:59:59.999Z'
+    }),
+    initialData: [],
+  });
+
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => base44.entities.Product.list(),
+    initialData: [],
   });
 
   const [filters, setFilters] = useState({
@@ -83,14 +86,9 @@ export default function Reports() {
 
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
-      if (!sale.sale_date) return false;
-      const d = parseISO(sale.sale_date); // using parseISO for better reliability
-      const start = parseISO(dateRange.from);
-      const end = new Date(parseISO(dateRange.to));
-      end.setHours(23, 59, 59, 999);
-
-      if (d < start || d > end) return false;
-
+      // Filtering is now mostly done at the database level via params, 
+      // but we keep some client-side filters like payment and search.
+      
       if (filters.payment !== "all" && sale.payment_method !== filters.payment) return false;
 
       if (filters.search) {
@@ -102,7 +100,7 @@ export default function Reports() {
 
       return true;
     });
-  }, [sales, dateRange, filters]);
+  }, [sales, filters]);
 
   const summary = useMemo(() => {
     const totalRevenue = filteredSales.reduce((sum, s) => {
@@ -175,9 +173,12 @@ export default function Reports() {
 
   // Category Sales Data
   const categoryData = useMemo(() => {
+    // If products are still loading, don't calculate categories yet to avoid "Sem Categoria" flickering
+    if (isLoadingProducts && products.length === 0) return [];
+    
     const counts = filteredSales.reduce((acc, s) => {
       (s.items || []).forEach(it => {
-        const category = productCategoryMap.get(it.product_id) || 'Sem Categoria';
+        const category = productCategoryMap.get(it.product_id) || (isLoadingProducts ? 'Carregando...' : 'Sem Categoria');
         const total = Number(it.total_price || 0);
         acc[category] = (acc[category] || 0) + total;
       });
@@ -187,7 +188,7 @@ export default function Reports() {
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [filteredSales, productCategoryMap]);
+  }, [filteredSales, productCategoryMap, isLoadingProducts]);
 
   // Top Lists
   const topProducts = useMemo(() => {
@@ -294,6 +295,23 @@ export default function Reports() {
     show: { opacity: 1, y: 0 }
   };
 
+  if (isLoadingSales && sales.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#fafbfc] pt-6 pb-20 px-8 animate-pulse">
+        <div className="max-w-[1600px] mx-auto space-y-8">
+          <div className="h-20 bg-white rounded-3xl border border-slate-100 shadow-sm"></div>
+          <div className="grid grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-white rounded-2xl border border-slate-100 shadow-sm"></div>)}
+          </div>
+          <div className="grid grid-cols-3 gap-6">
+            <div className="col-span-2 h-[400px] bg-white rounded-3xl border border-slate-100 shadow-sm"></div>
+            <div className="h-[400px] bg-white rounded-3xl border border-slate-100 shadow-sm"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fafbfc] pt-6 pb-20 px-4 md:px-8">
       <div className="max-w-[1600px] mx-auto space-y-8">
@@ -315,6 +333,7 @@ export default function Reports() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            {isLoadingSales && <span className="text-xs text-blue-500 animate-pulse font-medium">Carregando dados...</span>}
             <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200">
               <Input
                 type="date"
