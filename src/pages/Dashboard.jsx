@@ -178,8 +178,8 @@ export default function Dashboard() {
   const monthUniqueCustomers = Object.keys(monthCustomerCounts).length;
 
   return (
-    <div className="bg-white p-2 sm:p-4 w-full min-h-screen">
-      <div className="max-w-4xl mx-auto w-full flex flex-col items-center">
+    <div className="bg-white p-2 sm:p-4 w-full min-h-screen flex flex-col items-center justify-center">
+      <div className="max-w-4xl mx-auto w-full flex flex-col items-center py-8">
         {/* Logo / Inserção de Logo */}
         <div className="mb-4 sm:mb-8 flex items-center justify-center w-full px-4">
           {(() => {

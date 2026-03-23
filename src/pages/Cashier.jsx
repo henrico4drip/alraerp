@@ -33,7 +33,7 @@ import Receipt from "@/components/Receipt";
 import { supabase } from "@/api/supabaseClient";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
-export default function Cashier() {
+function Cashier() {
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -1000,33 +1000,35 @@ export default function Cashier() {
                   )}
                 </div>
 
-                <Button
-                  onClick={handleFinalizeSale}
-                  className="w-full mt-4 bg-green-600 hover:bg-green-700 rounded-xl h-11 text-base font-semibold"
-                  disabled={cart.length === 0 || (payments.length === 0 && remainingAmount() > 0.01)}
-                >
-                  <DollarSign className="w-5 h-5 mr-2" />
-                  Finalizar Venda (F8)
-                </Button>
+                <div className="mt-4 flex flex-col gap-2">
+                  <Button
+                    onClick={handleFinalizeSale}
+                    className="w-full bg-green-600 hover:bg-green-700 rounded-xl h-11 text-base font-bold shadow-md"
+                    disabled={cart.length === 0 || (payments.length === 0 && remainingAmount() > 0.01)}
+                  >
+                    <DollarSign className="w-5 h-5 mr-2" />
+                    Finalizar Venda (F8)
+                  </Button>
 
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleSuspendSale}
-                    className="flex-1 rounded-xl h-10 border-amber-200 text-amber-700 hover:bg-amber-50"
-                    disabled={cart.length === 0}
-                  >
-                    <Pause className="w-4 h-4 mr-2" />
-                    Suspender (F7)
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowSuspendedDialog(true)}
-                    className="flex-1 rounded-xl h-10 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                  >
-                    <List className="w-4 h-4 mr-2" />
-                    Abertos (F10)
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleSuspendSale}
+                      className="rounded-xl h-10 border-amber-300 text-amber-700 hover:bg-amber-50 font-semibold"
+                      disabled={cart.length === 0}
+                    >
+                      <Pause className="w-4 h-4 mr-2" />
+                      Pausar (F7)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowSuspendedDialog(true)}
+                      className="rounded-xl h-10 border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-semibold"
+                    >
+                      <List className="w-4 h-4 mr-2" />
+                      Abertos (F10)
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
