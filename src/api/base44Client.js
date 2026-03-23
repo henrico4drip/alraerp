@@ -277,8 +277,8 @@ export const base44 = {
       const { data: { session } } = await supabase.auth.getSession()
       const userId = session?.user?.id
       if (!userId) return
-      // const flagKey = `migrated_${userId}`
-      // if (localStorage.getItem(flagKey) === 'true') return
+      const flagKey = `migrated_${userId}`
+      if (localStorage.getItem(flagKey) === 'true') return
       const tables = ['settings', 'customers', 'products', 'sales', 'expenses', 'staff_profiles']
       for (const table of tables) {
         const local = JSON.parse(localStorage.getItem(table) || '[]')

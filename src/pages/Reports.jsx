@@ -370,7 +370,7 @@ export default function Reports() {
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4"
         >
           {[
             {
@@ -392,10 +392,18 @@ export default function Reports() {
             {
               label: "Vendas Realizadas",
               value: summary.count,
-              sub: `Ticket Médio: R$ ${summary.avgTicket.toFixed(2)}`,
+              sub: "Volume de Pedidos",
               icon: Receipt,
               color: "text-purple-600",
               bg: "bg-purple-50"
+            },
+            {
+              label: "Ticket Médio",
+              value: `R$ ${summary.avgTicket.toFixed(2)}`,
+              sub: "Valor Médio / Venda",
+              icon: TrendingUp,
+              color: "text-indigo-600",
+              bg: "bg-indigo-50"
             },
             {
               label: "Cashback Gerado",
