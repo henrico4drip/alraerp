@@ -225,6 +225,11 @@ export default function CashierProducts() {
                 </button>
               )}
             </div>
+            {searchTerm && filteredProducts.length > 0 && (
+              <p className="mt-1.5 px-1 text-[10px] text-gray-400 font-medium flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1">
+                <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-[9px] text-gray-500 font-black shadow-sm">↵ ENTER</kbd> para adicionar <span className="text-gray-900 font-bold">"{filteredProducts[0].name}"</span>
+              </p>
+            )}
           </div>
 
           {/* Product List */}

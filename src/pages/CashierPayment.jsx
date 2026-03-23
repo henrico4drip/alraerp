@@ -1119,6 +1119,7 @@ export default function CashierPayment() {
                   <Check className="w-2.5 h-2.5" />
                 </div>
                 <span className="text-gray-700 font-medium text-sm">{selectedCustomer ? selectedCustomer.name : 'Cliente'}</span>
+                <kbd className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded shadow-sm text-slate-400 font-bold">F4</kbd>
               </Button>
 
               <Button variant="outline" className="h-8 rounded-xl border-gray-200 hover:bg-gray-50 hover:border-pink-200 transition-colors px-3 text-sm" onClick={() => setShowDiscountDialog(true)}>
@@ -1127,6 +1128,7 @@ export default function CashierPayment() {
                 ) : (
                   <span className="text-gray-600 text-sm">Desconto</span>
                 )}
+                <kbd className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded shadow-sm text-slate-400 font-bold">F9</kbd>
               </Button>
             </div>
 
@@ -1156,8 +1158,9 @@ export default function CashierPayment() {
                   { id: 'Boleto', icon: FileText },
                   { id: 'Cashback', icon: Gift },
                   { id: 'Outros', icon: MoreHorizontal }
-                ].map((m) => {
+                ].map((m, idx) => {
                   const isActive = paymentDraft.method === m.id;
+                  const shortcutKey = idx < 8 ? idx + 1 : null;
 
                   // Classes fixas para cada método
                   const getButtonClasses = () => {
@@ -1234,6 +1237,11 @@ export default function CashierPayment() {
 
                       {isActive && (
                         <div className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full shadow-sm ${getDotClasses()}`} />
+                      )}
+                      {shortcutKey && (
+                        <kbd className="absolute top-1 bottom-auto left-auto right-1 px-1 py-0.5 text-[8px] bg-white/40 border border-white/20 rounded shadow-sm text-gray-400 font-black">
+                          {shortcutKey}
+                        </kbd>
                       )}
                     </button>
                   );

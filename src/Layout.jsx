@@ -1082,7 +1082,8 @@ export default function Layout({ children, currentPageName }) {
                 className="h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
                 title="Pausar Venda (F7)"
               >
-                <Pause className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Pausar (F7)</span>
+                <Pause className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Pausar</span>
+                <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded shadow-sm text-slate-400 font-bold">F7</kbd>
               </button>
               <button
                 onClick={() => setShowSuspendedDialog(true)}
@@ -1090,7 +1091,8 @@ export default function Layout({ children, currentPageName }) {
                 title="Vendas em Aberto (F10)"
               >
                 <Clock className="w-3.5 h-3.5" /> 
-                <span className="hidden sm:inline">Abertos (F10)</span>
+                <span className="hidden sm:inline">Abertos</span>
+                <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-50 border border-slate-200 rounded shadow-sm text-slate-400 font-bold">F10</kbd>
                 {suspendedSales?.length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow-md">
                     {suspendedSales.length}
@@ -1126,7 +1128,7 @@ export default function Layout({ children, currentPageName }) {
                 {isFinalizing ? (
                   <>Finalizando... <Loader2 className="w-6 h-6 animate-spin" /></>
                 ) : location.pathname.includes('/payment') ? (
-                  <>Finalizar (F8) <Check className="w-6 h-6" /></>
+                  <>Finalizar <kbd className="px-1.5 py-0.5 text-[10px] bg-white/20 border border-white/30 rounded shadow-sm text-white font-bold ml-1">F8</kbd> <Check className="w-6 h-6" /></>
                 ) : (
                   <>Pagamento <ChevronRight className="w-6 h-6" /></>
                 )}
