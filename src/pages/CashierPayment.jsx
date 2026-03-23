@@ -132,6 +132,7 @@ export default function CashierPayment() {
   const [showPixSuccess, setShowPixSuccess] = useState(false);
   const [carneResult, setCarneResult] = useState({ show: false, success: false, message: '' });
   const amountInputRef = useRef(null);
+  const customerSearchRef = useRef(null);
   const [activeTab, setActiveTab] = useState("payment"); // 'payment' | 'summary'
   useEffect(() => {
     const animatePayment = sessionStorage.getItem('animateCashierPaymentEntry') === 'true';
@@ -848,18 +849,63 @@ export default function CashierPayment() {
     }
   };
 
-  // Atalho: Enter finaliza pagamento quando habilitado
+  // Atalhos de teclado
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Enter') {
+    const handleShortcuts = (e) => {
+      const isInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+
+      // F1 ou F4: Adicionar Cliente
+      if (e.key === 'F1' || e.key === 'F4') {
+        e.preventDefault();
+        setShowNewCustomerDialog(true);
+        setTimeout(() => customerSearchRef.current?.focus(), 150);
+      }
+
+      // F9: Desconto
+      if (e.key === 'F9') {
+        e.preventDefault();
+        setShowDiscountDialog(true);
+      }
+
+      // 1-8: Selecionar Meio de Pagamento (somente se não estiver editando texto)
+      if (!isInput && e.key >= '1' && e.key <= '8') {
+        const methods = ['PIX', 'Dinheiro', 'Cartão de Débito', 'Cartão de Crédito', 'Carnê', 'Boleto', 'Cashback', 'Outros'];
+        const m = methods[parseInt(e.key) - 1];
+        if (m) {
+          e.preventDefault();
+          if (m === 'Cashback') {
+            if (selectedCustomer && Number(selectedCustomer.cashback_balance || 0) > 0) {
+              setPaymentDraft({ ...paymentDraft, method: 'Cashback', amount: String(Math.min(maxCashbackToUse, remainingAmount())) });
+              setTimeout(() => amountInputRef.current?.focus(), 100);
+            }
+          } else {
+            handleSelectPaymentMethod(m);
+            setTimeout(() => amountInputRef.current?.focus(), 100);
+          }
+        }
+      }
+
+      // Enter finaliza pagamento: movido para useEffect dedicado ou incorporado aqui
+      if (e.key === 'Enter' && !isInput) {
         if (!(cart.length === 0 || payments.length === 0 || remainingAmount() > 0)) {
           handleFinalizeSale();
         }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart.length, payments.length, remainingAmount]);
+    window.addEventListener('keydown', handleShortcuts);
+    return () => window.removeEventListener('keydown', handleShortcuts);
+  }, [cart.length, payments.length, remainingAmount, selectedCustomer, maxCashbackToUse, paymentDraft]);
+
+  // Navegar de volta para produtos com Esc (se não houver dialogs abertos)
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && !showNewCustomerDialog && !showDiscountDialog && !showReceiptDialog) {
+        navigate('/cashier/products');
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [showNewCustomerDialog, showDiscountDialog, showReceiptDialog]);
 
   const handleSendCashbackWhatsApp = async () => {
     if (!lastSale || waSending || waSent) return;
@@ -934,7 +980,7 @@ export default function CashierPayment() {
   }, [handleSaleFinishEvent]);
 
   return (
-    <div className="fixed inset-0 top-[60px] pb-[100px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
+    <div className="fixed inset-0 top-[60px] pb-[120px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
       {showSuccess && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300">
           <Alert className="bg-green-50 border-green-200 rounded-2xl shadow-lg">
@@ -1379,6 +1425,7 @@ export default function CashierPayment() {
               <div>
                 <Label className="text-sm text-gray-700">Buscar cliente</Label>
                 <Input
+                  ref={customerSearchRef}
                   value={customerSearchTerm}
                   onChange={(e) => setCustomerSearchTerm(e.target.value)}
                   placeholder="Nome ou telefone"

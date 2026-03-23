@@ -569,7 +569,7 @@ export default function Layout({ children, currentPageName }) {
         <main className={
           isCrmRoute ? 'flex-1 h-full overflow-hidden' :
             isDashboard ? 'flex-1 flex flex-col items-center justify-center p-0 min-h-[calc(100vh-120px)] sm:min-h-[calc(100vh-140px)] w-full' :
-              'flex-1 pb-20'
+              isCashierRoute ? 'flex-1 pb-[140px] md:pb-[120px]' : 'flex-1 pb-20'
         }>
           {isDashboard ? <div className="ios-home-reveal w-full h-full flex items-center justify-center">{children}</div> : children}
         </main>
