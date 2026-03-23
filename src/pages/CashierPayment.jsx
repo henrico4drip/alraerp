@@ -980,7 +980,7 @@ export default function CashierPayment() {
   }, [handleSaleFinishEvent]);
 
   return (
-    <div className="fixed inset-0 top-[60px] pb-[120px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
+    <div className="fixed inset-0 top-[60px] pb-[150px] sm:pb-[140px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
       {showSuccess && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300">
           <Alert className="bg-green-50 border-green-200 rounded-2xl shadow-lg">

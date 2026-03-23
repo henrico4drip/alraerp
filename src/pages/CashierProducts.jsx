@@ -151,7 +151,7 @@ export default function CashierProducts() {
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
 
   return (
-    <div className="fixed inset-0 top-[48px] sm:top-[60px] pb-[100px] sm:pb-[120px] bg-white lg:bg-slate-50/50 p-0 sm:p-4 overflow-hidden flex flex-col">
+    <div className="fixed inset-0 top-[60px] pb-[150px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
       {/* Mobile Tabs */}
       <div className="lg:hidden flex border-b border-gray-100 bg-white shrink-0">
         <button
