@@ -137,8 +137,36 @@ export function CashierProvider({ children }) {
 
   const sumPayments = () => payments.reduce((s, p) => s + (p.amount || 0), 0);
 
+  const _calculateSubtotal = (settings) => {
+    const baseTotal = cart.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
+    const pricingBase = settings?.pricing_base || 'pix';
+    const cardSurcharge = Number(settings?.card_surcharge_percentage || 0);
+    const pixDiscount = Number(settings?.pix_discount_percentage || 0);
+
+    if (isPixMode && pricingBase === 'card') return baseTotal * (1 - pixDiscount / 100);
+    if (!isPixMode && pricingBase === 'pix') return baseTotal * (1 + cardSurcharge / 100);
+    return baseTotal;
+  };
+
+  const _calculateTotal = (settings) => {
+    const sub = cart.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
+    const pricingBase = settings?.pricing_base || 'pix';
+    const cardSurcharge = Number(settings?.card_surcharge_percentage || 0);
+    const pixDiscount = Number(settings?.pix_discount_percentage || 0);
+
+    let adjusted = sub;
+    if (isPixMode && pricingBase === 'card') {
+      adjusted = sub * (1 - pixDiscount / 100);
+    } else if (!isPixMode && pricingBase === 'pix') {
+      adjusted = sub * (1 + cardSurcharge / 100);
+    }
+
+    const discVal = (adjusted * (discountPercent || 0)) / 100;
+    return Math.max(0, adjusted - discVal - (cashbackToUse || 0));
+  };
+
   const remainingAmount = (settings) => {
-    const total = calculateTotal(settings);
+    const total = _calculateTotal(settings);
     const remaining = Math.max(0, total - sumPayments());
     return remaining;
   };
@@ -172,32 +200,8 @@ export function CashierProvider({ children }) {
     setIsFinalizing,
     isPixMode,
     setIsPixMode,
-    calculateSubtotal: (settings) => {
-      const baseTotal = cart.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
-      const pricingBase = settings?.pricing_base || 'pix';
-      const cardSurcharge = Number(settings?.card_surcharge_percentage || 0);
-      const pixDiscount = Number(settings?.pix_discount_percentage || 0);
-
-      if (isPixMode && pricingBase === 'card') return baseTotal * (1 - pixDiscount / 100);
-      if (!isPixMode && pricingBase === 'pix') return baseTotal * (1 + cardSurcharge / 100);
-      return baseTotal;
-    },
-    calculateTotal: (settings) => {
-      const sub = cart.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
-      const pricingBase = settings?.pricing_base || 'pix';
-      const cardSurcharge = Number(settings?.card_surcharge_percentage || 0);
-      const pixDiscount = Number(settings?.pix_discount_percentage || 0);
-
-      let adjusted = sub;
-      if (isPixMode && pricingBase === 'card') {
-        adjusted = sub * (1 - pixDiscount / 100);
-      } else if (!isPixMode && pricingBase === 'pix') {
-        adjusted = sub * (1 + cardSurcharge / 100);
-      }
-
-      const discVal = (adjusted * (discountPercent || 0)) / 100;
-      return Math.max(0, adjusted - discVal - (cashbackToUse || 0));
-    },
+    calculateSubtotal: _calculateSubtotal,
+    calculateTotal: _calculateTotal,
     suspendedSales,
     suspendSale,
     resumeSale,
