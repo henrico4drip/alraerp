@@ -137,6 +137,11 @@ export default function Marketing() {
       return { ...c, score, recency: diffDays };
     })
     .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
+  // 3a. Customer Ranking for Marketing
+  const customerRanking = [...customers]
+    .sort((a, b) => (b.total_spent || 0) - (a.total_spent || 0))
     .slice(0, 5);
 
   // 3b. Inventory Intelligence for AI
@@ -251,8 +256,11 @@ export default function Marketing() {
             outOfStock,
             slowMovers,
             seasonalMonth: new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long' }),
-            seasonalReference: seasonalAdviceMap[selectedMonth - 1]
+            seasonalReference: seasonalAdviceMap[selectedMonth - 1],
+            newCustomers: monthUniqueCustomers
           },
+          customApiKey: settings.ai_api_key,
+          customProvider: settings.ai_provider || 'google',
           financialContext: {
             upcomingDebt,
             monthlyRevenue: monthlyTotal,
@@ -471,9 +479,57 @@ export default function Marketing() {
     const phone = String(customer.phone).replace(/\D/g, '');
 
     if (phone) {
-      navigate(`/crm?phone=${phone}&message=${encodeURIComponent(msg)}`);
+      window.open(`https://chat.alraerp.com.br/tickets?phone=${phone}`, '_blank');
     } else {
       alert('Cliente sem telefone cadastrado.');
+    }
+  };
+
+  // 6. AI Chat Assistant State
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMsg, setChatMsg] = useState('');
+  const [chatHistory, setChatHistory] = useState([
+    { role: 'ai', content: 'Olá! Sou seu assistente de marketing Alra. Como posso ajudar sua empresa hoje?' }
+  ]);
+  const [isChatting, setIsChatting] = useState(false);
+
+  const sendChatMessage = async () => {
+    if (!chatMsg.trim() || isChatting) return;
+    const userText = chatMsg;
+    setChatMsg('');
+    setChatHistory(prev => [...prev, { role: 'user', content: userText }]);
+    setIsChatting(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-ai-analyzer', {
+        body: {
+          action: 'chat',
+          userMessage: userText,
+          customApiKey: settings.ai_api_key,
+          customProvider: settings.ai_provider || 'google',
+          shopInfo: {
+            erpName: settings.erp_name,
+            instagramHandle: settings.instagram_handle,
+            brandVoice: settings.brand_voice,
+            targetAudience: settings.target_audience,
+            mainProducts: settings.main_products
+          },
+          financialContext: {
+            monthlyRevenue: monthlyTotal
+          },
+          insights: {
+            newCustomers: monthUniqueCustomers
+          }
+        }
+      });
+
+      if (error) throw error;
+      setChatHistory(prev => [...prev, { role: 'ai', content: data.reply }]);
+    } catch (err) {
+      console.error('Chat AI Error:', err);
+      setChatHistory(prev => [...prev, { role: 'ai', content: 'Desculpe, tive um problema ao processar sua mensagem. Verifique sua chave de API nas configurações.' }]);
+    } finally {
+      setIsChatting(false);
     }
   };
 
@@ -595,6 +651,28 @@ export default function Marketing() {
             </CardContent>
           </Card>
         </div>
+
+        {/* CUSTOMER RANKING SECTION */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-6 h-6 text-emerald-500" />
+            <h2 className="text-xl font-black text-gray-900 tracking-tight uppercase">Top Clientes de Elite</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+            {customerRanking.map((c, idx) => (
+              <Card key={c.id} className="rounded-3xl border-none shadow-sm bg-white overflow-hidden group hover:scale-105 transition-all">
+                <CardContent className="p-5 flex flex-col items-center text-center relative">
+                  <span className="absolute top-3 right-3 text-[10px] font-black text-gray-300">#{idx + 1}</span>
+                  <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mb-3 group-hover:bg-emerald-50 transition-colors">
+                    <Users className="w-6 h-6 text-gray-300 group-hover:text-emerald-500" />
+                  </div>
+                  <h4 className="font-bold text-gray-900 truncate w-full">{c.name}</h4>
+                  <p className="text-xs font-black text-emerald-600 mt-1">R$ {Number(c.total_spent || 0).toLocaleString()}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
 
         {/* AI Planning Section */}
         <section className="space-y-6">
@@ -1349,6 +1427,70 @@ export default function Marketing() {
         </section>
 
       </div>
+      {/* Floating AI Chat Assistant */}
+      <div className={`fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 transition-all ${chatOpen ? 'w-80 sm:w-96' : 'w-auto'}`}>
+        {chatOpen && (
+          <Card className="w-full h-[500px] rounded-3xl shadow-2xl border-none overflow-hidden flex flex-col animate-in slide-in-from-bottom-10">
+            <header className="p-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Brain className="w-5 h-5" />
+                <h3 className="font-bold text-sm">Marketing Assistant</h3>
+              </div>
+              <Button size="icon" variant="ghost" className="hover:bg-white/20 h-8 w-8 text-white" onClick={() => setChatOpen(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </header>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+              {chatHistory.map((m, i) => (
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] p-3 rounded-2xl text-xs font-medium leading-relaxed ${
+                    m.role === 'user' 
+                      ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-200' 
+                      : 'bg-white text-gray-800 rounded-tl-none border border-gray-100 shadow-sm'
+                  }`}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {isChatting && (
+                <div className="flex justify-start">
+                  <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm">
+                    <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
+              <Input 
+                value={chatMsg}
+                onChange={e => setChatMsg(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && sendChatMessage()}
+                placeholder="Pergunte algo sobre sua loja..."
+                className="rounded-xl border-gray-200 text-xs h-10"
+              />
+              <Button 
+                onClick={sendChatMessage}
+                disabled={isChatting || !chatMsg.trim()}
+                className="rounded-xl bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0 grow-0 shrink-0"
+              >
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </Card>
+        )}
+        
+        <Button
+          onClick={() => setChatOpen(!chatOpen)}
+          className={`h-14 w-14 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 ${
+            chatOpen ? 'bg-white text-blue-600 border border-gray-200' : 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white ring-4 ring-blue-100'
+          }`}
+        >
+          {chatOpen ? <X className="w-6 h-6" /> : <Brain className="w-6 h-6" />}
+        </Button>
+      </div>
+
     </div>
   )
 }

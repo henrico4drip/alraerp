@@ -13,6 +13,7 @@ export function CashierProvider({ children }) {
   // Desconto em % (0–100)
   const [discountPercent, setDiscountPercent] = useState(0);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isPixMode, setIsPixMode] = useState(true); // Default to Pix mode if base is pix
   const [suspendedSales, setSuspendedSales] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('alraerp_suspended_sales') || '[]');
@@ -100,13 +101,20 @@ export function CashierProvider({ children }) {
     setCart(cart.filter((item) => item.product_id !== productId));
   };
 
-  const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
-  };
+  // Simple raw subtotal (no pricing rules)
+  const rawSubtotal = () => cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
 
-  const discountAmount = () => {
-    const total = calculateTotal();
-    return Math.max(0, total * (Number(discountPercent) || 0) / 100);
+  const discountAmount = (settings) => {
+    const sub = rawSubtotal();
+    const pricingBase = settings?.pricing_base || 'pix';
+    const cardSurcharge = Number(settings?.card_surcharge_percentage || 0);
+    const pixDiscount = Number(settings?.pix_discount_percentage || 0);
+
+    let adjusted = sub;
+    if (isPixMode && pricingBase === 'card') adjusted = sub * (1 - pixDiscount / 100);
+    else if (!isPixMode && pricingBase === 'pix') adjusted = sub * (1 + cardSurcharge / 100);
+
+    return Math.max(0, adjusted * (Number(discountPercent) || 0) / 100);
   };
 
   const addPayment = () => {
@@ -129,10 +137,9 @@ export function CashierProvider({ children }) {
 
   const sumPayments = () => payments.reduce((s, p) => s + (p.amount || 0), 0);
 
-  const remainingAmount = () => {
-    const total = calculateTotal();
-    const finalTotal = Math.max(0, total - discountAmount() - cashbackToUse);
-    const remaining = Math.max(0, finalTotal - sumPayments());
+  const remainingAmount = (settings) => {
+    const total = calculateTotal(settings);
+    const remaining = Math.max(0, total - sumPayments());
     return remaining;
   };
 
@@ -158,13 +165,39 @@ export function CashierProvider({ children }) {
     removePayment,
     sumPayments,
     remainingAmount,
-    calculateTotal,
-    // desconto
     discountPercent,
     setDiscountPercent,
     discountAmount,
     isFinalizing,
     setIsFinalizing,
+    isPixMode,
+    setIsPixMode,
+    calculateSubtotal: (settings) => {
+      const baseTotal = cart.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
+      const pricingBase = settings?.pricing_base || 'pix';
+      const cardSurcharge = Number(settings?.card_surcharge_percentage || 0);
+      const pixDiscount = Number(settings?.pix_discount_percentage || 0);
+
+      if (isPixMode && pricingBase === 'card') return baseTotal * (1 - pixDiscount / 100);
+      if (!isPixMode && pricingBase === 'pix') return baseTotal * (1 + cardSurcharge / 100);
+      return baseTotal;
+    },
+    calculateTotal: (settings) => {
+      const sub = cart.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
+      const pricingBase = settings?.pricing_base || 'pix';
+      const cardSurcharge = Number(settings?.card_surcharge_percentage || 0);
+      const pixDiscount = Number(settings?.pix_discount_percentage || 0);
+
+      let adjusted = sub;
+      if (isPixMode && pricingBase === 'card') {
+        adjusted = sub * (1 - pixDiscount / 100);
+      } else if (!isPixMode && pricingBase === 'pix') {
+        adjusted = sub * (1 + cardSurcharge / 100);
+      }
+
+      const discVal = (adjusted * (discountPercent || 0)) / 100;
+      return Math.max(0, adjusted - discVal - (cashbackToUse || 0));
+    },
     suspendedSales,
     suspendSale,
     resumeSale,

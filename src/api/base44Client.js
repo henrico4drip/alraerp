@@ -107,10 +107,12 @@ function makeRepo(table) {
         let q = supabase.from(table).select('*').eq('user_id', userId).range(from, from + limit - 1)
         
         // Apply filters
-        if (filters.after) q.gte('created_date', filters.after)
-        if (filters.before) q.lte('created_date', filters.before)
+        if (filters.after || filters.created_after) q.gte('created_date', filters.after || filters.created_after)
+        if (filters.before || filters.created_before) q.lte('created_date', filters.before || filters.created_before)
         if (filters.sale_after) q.gte('sale_date', filters.sale_after)
         if (filters.sale_before) q.lte('sale_date', filters.sale_before)
+        if (filters.due_after) q.gte('due_date', filters.due_after)
+        if (filters.due_before) q.lte('due_date', filters.due_before)
         if (filters.eq) {
           Object.entries(filters.eq).forEach(([k, v]) => {
             q.eq(k, v)
@@ -129,6 +131,8 @@ function makeRepo(table) {
           q.order('due_date', { ascending: true })
         } else if (order === '-sale_date') {
           q.order('sale_date', { ascending: false })
+        } else if (order === 'sale_date') {
+          q.order('sale_date', { ascending: true })
         }
 
         const { data, error } = await q

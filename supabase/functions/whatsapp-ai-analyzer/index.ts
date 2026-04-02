@@ -11,61 +11,101 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
-    console.log("AI Analyzer: Starting analysis...")
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const geminiKey = Deno.env.get('GEMINI_API_KEY') || ''
     const supabaseClient = createClient(supabaseUrl, supabaseKey)
 
-    if (!geminiKey) {
-        console.error("AI Analyzer: GEMINI_API_KEY is not set!")
-        return new Response(JSON.stringify({ error: "Configuração pendente: GEMINI_API_KEY não encontrada." }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    async function fetchGemini(prompt, apiKey, config = { temperature: 0.7 }) {
+        const effectiveKey = apiKey || geminiKey
+        if (!effectiveKey) return { error: "GEMINI_API_KEY não configurada." }
+
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${effectiveKey}`
+        
+        const response = await fetch(geminiApiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: config
+            })
+        })
+
+        if (!response.ok) {
+            const errorText = await response.text()
+            return { error: `Gemini API returned ${response.status}`, details: errorText }
+        }
+        return await response.json()
     }
 
-    async function fetchGemini(prompt, config = { temperature: 0.7 }) {
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
+    async function fetchOpenAI(prompt, apiKey, config = { temperature: 0.7 }) {
+        if (!apiKey) return { error: "OpenAI API Key não fornecida." }
 
-        let attempts = 0
-        const maxAttempts = 2
-
-        while (attempts < maxAttempts) {
-            attempts++
-            const response = await fetch(geminiApiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: config
-                })
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o",
+                messages: [{ role: "user", content: prompt }],
+                temperature: config.temperature
             })
+        })
 
-            if (response.status === 429 && attempts < maxAttempts) {
-                console.warn(`AI Analyzer: Gemini 429 detected. Attempt ${attempts} failed. Waiting 5s...`)
-                await new Promise(r => setTimeout(r, 5000))
-                continue
-            }
-
-            if (!response.ok) {
-                const errorText = await response.text()
-                console.error(`AI Analyzer: Gemini API Error (Attempt ${attempts}):`, errorText)
-                return { error: `Gemini API returned ${response.status}`, details: errorText }
-            }
-
-            return await response.json()
+        if (!response.ok) {
+            const errorText = await response.text()
+            return { error: `OpenAI API returned ${response.status}`, details: errorText }
         }
-        return { error: "Gemini API failed after multiple retries due to 429." }
+
+        const data = await response.json()
+        return {
+            candidates: [{
+                content: {
+                    parts: [{ text: data.choices[0].message.content }]
+                }
+            }]
+        }
     }
 
     try {
         const body = await req.json().catch(() => ({}))
-        console.log("AI Analyzer: Received body:", JSON.stringify(body))
-        const { customerId, phone, action, shopInfo, products, insights, financialContext, previousPlan, targetMonth, targetYear } = body
+        const { 
+            customerId, phone, action, shopInfo, products, insights, 
+            financialContext, previousPlan, targetMonth, targetYear,
+            customApiKey, customProvider, userMessage 
+        } = body
+
+        const fetchAI = (prompt, options) => {
+            if (customProvider === 'openai') return fetchOpenAI(prompt, customApiKey, options)
+            return fetchGemini(prompt, customApiKey, options)
+        }
+
+        if (action === 'chat') {
+            const prompt = `
+            Você é o Assistente de Marketing da Alra ERP+. Você tem acesso aos seguintes dados da empresa:
+            - Nome: ${shopInfo?.erpName}
+            - Instagram: ${shopInfo?.instagramHandle}
+            - Voz: ${shopInfo?.brandVoice}
+            - Público: ${shopInfo?.targetAudience}
+            - Produtos Principais: ${shopInfo?.mainProducts}
+            
+            Contexto de Vendas Recentes:
+            - Receita Mês: R$ ${financialContext?.monthlyRevenue}
+            - Clientes Novos: ${insights?.newCustomers}
+            
+            Pergunta do Usuário: ${userMessage}
+            
+            Responda de forma estratégica, consultiva e motivadora, focando em como aumentar as vendas usando as ferramentas do ERP (Cashback, WhatsApp, Marketing Sazonal).
+            `
+            const data = await fetchAI(prompt, { temperature: 0.7 })
+            if (data.error) throw new Error(data.error)
+            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Desculpe, não consegui processar sua mensagem."
+            return new Response(JSON.stringify({ success: true, reply }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
 
         if (action === 'marketing_plan') {
-            console.log(`AI Analyzer: Generating Plan for ${targetMonth}/${targetYear} with Growth Strategy...`)
-
-            // 1. Algoritmo de Pressão de Caixa (Confidencial)
             const revenue = Number(financialContext?.monthlyRevenue || 1);
             const debt = Number(financialContext?.upcomingDebt || 0);
             const revenueGoal = Number(financialContext?.revenueGoal || revenue * 1.1);
@@ -83,327 +123,97 @@ serve(async (req) => {
                 strategyFocus = 'Equilíbrio entre Valor e Volume';
             }
 
-            // 2. Score de Oportunidade (Algoritmo de Priorização)
-            // Fórmula: (Preço normalizado * 30) + (Sazonalidade * 40) + (Bônus de Caixa * 30)
             const maxPrice = Math.max(...(products || []).map((p: any) => Number(p.price || 0)), 1);
             const seasonalKeywords = (insights?.seasonalReference?.focus || []).map((k: string) => k.toLowerCase());
 
             const scoredProducts = (products || []).map((p: any) => {
-                const priceScore = (Number(p.price || 0) / maxPrice) * 30; // Peso 30 no Ticket
-
+                const priceScore = (Number(p.price || 0) / maxPrice) * 30;
                 const pName = p.name.toLowerCase();
                 const isSeasonal = seasonalKeywords.some((k: string) => pName.includes(k));
-                const seasonalScore = isSeasonal ? 40 : 0; // Peso 40 na Sazonalidade
-
-                // Se Caixa = ALTO, priorizar Best Sellers (Giro Rápido)
+                const seasonalScore = isSeasonal ? 40 : 0;
                 const isBestSeller = (insights?.bestSellers || []).some((b: any) => b.name === p.name);
                 let cashNeedBonus = 0;
-                if (cashNeedLevel === 'ALTO') {
-                    cashNeedBonus = isBestSeller ? 30 : 5;
-                } else {
-                    // Se Caixa = BAIXO, priorizar Margem/Ticket (mesmo que gire menos)
-                    cashNeedBonus = 15;
-                }
-
+                if (cashNeedLevel === 'ALTO') cashNeedBonus = isBestSeller ? 30 : 5;
+                else cashNeedBonus = 15;
                 const totalScore = priceScore + seasonalScore + cashNeedBonus;
-
                 return { ...p, score: totalScore, isSeasonal };
             }).sort((a: any, b: any) => b.score - a.score).slice(0, 6);
 
             const prompt = `
-            Você é um Diretor Criativo e Estrategista de Vendas de Elite.
-            Sua missão é criar um PLANEJAMENTO ESTRATÉGICO DE CRESCIMENTO para ${insights?.seasonalMonth}/${targetYear}.
-
-            === CONTEXTO DE CRESCIMENTO ===
-            Mês Alvo: ${insights?.seasonalMonth} ${targetYear}
+            Crie um PLANEJAMENTO ESTRATÉGICO DE CRESCIMENTO para ${insights?.seasonalMonth}/${targetYear}.
             Meta de Faturamento: R$ ${revenueGoal.toFixed(2)}
-            Faturamento do Mês Anterior: R$ ${previousRevenue.toFixed(2)}
-            Crescimento Esperado: ${((revenueGoal / previousRevenue - 1) * 100).toFixed(0)}%
-
-            ${previousPlan ? `
-            === HISTÓRICO DO MÊS ANTERIOR ===
-            Taxa de Conclusão: ${previousPlan.completionRate?.toFixed(0) || 0}%
-            Faturamento Real: R$ ${previousPlan.revenue?.toFixed(2) || '0.00'}
+            Faturamento Anterior: R$ ${previousRevenue.toFixed(2)}
             
-            APRENDIZADOS AUTOMÁTICOS:
-            ${previousPlan.completionRate < 50 ? '⚠️ Baixa execução - Planejar conteúdo mais simples e acionável' : ''}
-            ${previousPlan.completionRate >= 80 ? '✅ Alta execução - Pode aumentar volume de conteúdo' : ''}
-            ${previousPlan.revenue < previousRevenue ? '📉 Meta não atingida - Focar em produtos de alto ticket' : ''}
-
-            ${Object.keys(previousPlan.weeklyNotes || {}).length > 0 ? `
-            === FEEDBACK DO USUÁRIO (O QUE ELE REALMENTE FEZ) ===
-            ${Object.entries(previousPlan.weeklyNotes || {}).map(([week, note]: [string, any]) => `
-            Semana ${week}: "${note}"
-            `).join('\n')}
+            CONTEXTO:
+            Pressão de Caixa: ${cashNeedLevel}
+            Foco: ${strategyFocus}
+            Produtos Recomendados (Score): ${scoredProducts.map((p: any) => p.name).join(', ')}
             
-            ⚡ IMPORTANTE: Use este feedback para adaptar o novo plano! Se ele mudou gatilhos, tipos de post ou estratégias, APRENDA com isso e incorpore no próximo mês.
-            ` : ''}
-            ` : ''}
-
-            === MONITORAMENTO FINANCEIRO (CONFIDENCIAL) ===
-            [DADOS INTERNOS - NÃO REVELAR VALORES]
-            Nível de Pressão de Caixa: ${cashNeedLevel}
-            Foco Estratégico Obrigatório: ${strategyFocus}
+            Sazonalidade: ${insights?.seasonalReference?.advice}
+            Branding: ${shopInfo?.brandVoice}, Público: ${shopInfo?.targetAudience}
             
-            === TOP OPORTUNIDADES (SCORE IA) ===
-            Estes são os produtos "Campeões" definidos pelo algoritmo (Ticket + Sazonalidade + Giro):
-            ${scoredProducts.map((p: any) => `- ${p.name} (Score: ${Math.round(p.score)}/100) ${p.isSeasonal ? '★ Sazonal' : ''}`).join('\n')}
-
-            === INTELIGÊNCIA SAZONAL (REFERÊNCIA OBRIGATÓRIA) ===
-            Mês: ${insights?.seasonalMonth}
-            Temporada: ${insights?.seasonalReference?.season}
-            Foco Sazonal: ${insights?.seasonalReference?.focus?.join(', ')}
-            DIRETRIZ MESTRA: ${insights?.seasonalReference?.advice}
-
-            === CATÁLOGO DISPONÍVEL (ESTOQUE REAL) ===
-            Use APENAS estes produtos para criar os posts e stories. Se não estiver aqui, NÃO EXISTE.
-            ${(products || []).slice(0, 50).map((p: any) => `- ${p.name} (R$ ${p.price})`).join('\n')}
-
-            === CONTEXTO DA LOJA (DEEP DIVE) ===
-            Instagram: @${shopInfo?.instagramHandle}
-            Website: ${shopInfo?.websiteUrl || 'Não informado'}
-            Tom de Voz: ${shopInfo?.brandVoice}
-            Público: ${shopInfo?.targetAudience}
-
-            [INSTRUÇÃO DE ANÁLISE PROFUNDA]
-            1. Análise Visual: Se baseie na estética típica de lojas com o perfil acima (Ex: Minimalista para Luxo, Vibrante para Jovem).
-            2. Análise de Conteúdo: Se houver website, simule uma análise da estrutura de categorias para sugerir posts mais alinhados com a navegação do cliente.
-            3. Identidade: O tom de voz deve permear legendas e scripts de stories.
-
-            === INSIGHTS DO ESTOQUE (PROVAS E OPORTUNIDADES) ===
-            - BEST SELLERS (Prova Social/FOMO): ${insights?.bestSellers?.map(p => p.name).join(', ') || 'Vários itens'}
-            - SLOW MOVERS (Liquidar/Promoção): ${insights?.slowMovers?.map(p => p.name).join(', ') || 'Itens selecionados'}
-            - BAIXO ESTOQUE (Urgência): ${insights?.lowStock?.map(p => p.name).join(', ') || 'Poucas unidades'}
-            - FORA DE ESTOQUE (Desejo/Lista de Espera): ${insights?.outOfStock?.map(p => p.name).join(', ') || 'Reposições em breve'}
-
-            Instruções do Planejamento (VOLUME MÁXIMO):
-            1. REGRA DE OURO: Você SÓ pode criar conteúdo sobre os produtos do "CATÁLOGO DISPONÍVEL" ou "TOP OPORTUNIDADES". Proibido inventar itens.
-            2. OBRIGATÓRIO: O array "weeks" DEVE conter exatamente 4 SEMANAS (Semana 1, 2, 3 e 4). Não pare na primeira.
-            3. STORIES (VOLUME EXTREMO): No mínimo 35 Sequências de Stories por semana (5+ POR DIA).
-            4. FEED (CONSISTÊNCIA): No mínimo 7 posts por semana (1 por dia).
-
-            IMPORTANTE: Retorne APENAS um objeto JSON puro seguindo exatamente esta estrutura (GERE AS 4 SEMANAS):
+            Retorne APENAS um JSON:
             {
-              "monthly_strategy": {
-                "title": "Título da Estratégia Mensal",
-                "description": "Texto detalhado do plano de ação para o mês",
-                "seasonal_focus": "Foco sazonal (ex: Verão, Volta às Aulas)"
-              },
+              "monthly_strategy": { "title": "...", "description": "...", "seasonal_focus": "..." },
               "weeks": [
                 {
                   "week_number": 1,
-                  "title": "Título Semana 1",
-                  "main_action": "Estratégia Principal S1",
-                  "feed_posts": [
-                    { "day": "Segunda-feira", "type": "Reels/Carrossel", "photo_style": "Visual", "caption": "Legenda" }
-                  ],
-                  "stories_sequences": [
-                    { "name": "Segunda-feira (Tópico)", "steps": ["St1: ...", "St2: ..."] }
-                  ],
-                  "prospecting": ["Ação Direta"],
-                  "triggers": ["Gatilho usado"]
+                  "title": "...",
+                  "main_action": "...",
+                  "feed_posts": [{ "day": "...", "type": "...", "photo_style": "...", "caption": "..." }],
+                  "stories_sequences": [{ "name": "...", "steps": ["...", "..."] }],
+                  "prospecting": ["..."],
+                  "triggers": ["..."]
                 },
-                {
-                  "week_number": 2,
-                  "title": "Título Semana 2 (Continuação Obrigatória)",
-                  "main_action": "Estratégia Principal S2",
-                  "feed_posts": [],
-                  "stories_sequences": [],
-                  "prospecting": [],
-                  "triggers": []
-                },
-                { "week_number": 3, "title": "Título Semana 3...", "main_action": "...", "feed_posts": [], "stories_sequences": [], "prospecting": [], "triggers": [] },
-                { "week_number": 4, "title": "Título Semana 4...", "main_action": "...", "feed_posts": [], "stories_sequences": [], "prospecting": [], "triggers": [] }
+                ... (GERE PARA AS 4 SEMANAS)
               ]
             }
             `
-
-            const geminiData = await fetchGemini(prompt, { temperature: 0.8 })
-
-            if (!geminiData || geminiData.error) {
-                console.error("Gemini API returned an error:", geminiData?.error || "Unknown error")
-                return new Response(JSON.stringify({ error: `Erro na API do Gemini: ${geminiData?.error || "Serviço indisponível"}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-            }
-
-            if (!geminiData.candidates || geminiData.candidates.length === 0) {
-                const reason = geminiData.promptFeedback?.blockReason || 'Causa desconhecida (possível filtro de segurança)'
-                return new Response(JSON.stringify({ error: `A IA não conseguiu gerar o texto. Motivo: ${reason}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-            }
-
-            const resultText = geminiData.candidates[0].content.parts[0].text
-
-            // Extrator robusto de JSON: busca tudo entre a primeira { e a última }
+            const geminiData = await fetchAI(prompt, { temperature: 0.8 })
+            if (geminiData.error) throw new Error(geminiData.error)
+            const resultText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
             let cleanJson = resultText;
             const firstBrace = resultText.indexOf('{');
             const lastBrace = resultText.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1) cleanJson = resultText.substring(firstBrace, lastBrace + 1);
 
-            if (firstBrace !== -1 && lastBrace !== -1) {
-                cleanJson = resultText.substring(firstBrace, lastBrace + 1);
-            }
-
-            return new Response(JSON.stringify({ success: true, plan: cleanJson }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 200,
-            })
+            return new Response(JSON.stringify({ success: true, plan: cleanJson }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        console.log(`AI Analyzer: Analyzing customer ${customerId} with phone ${phone}`)
+        if (action === 'analyze_customer') {
+            const [{ data: messages }, { data: sales }, { data: customer }] = await Promise.all([
+                supabaseClient.from('whatsapp_messages').select('content, direction, created_at').eq('contact_phone', phone).order('created_at', { ascending: false }).limit(30),
+                supabaseClient.from('sales').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(5),
+                supabaseClient.from('customers').select('*').eq('id', customerId).single()
+            ])
 
-        if (!customerId || !phone) {
-            return new Response(JSON.stringify({ error: "Ação inválida ou dados do cliente ausentes (customerId/phone)." }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
+            const history = (messages || []).slice().reverse().map(m => `${m.direction === 'inbound' ? 'CLIENTE' : 'ATENDENTE'}: ${m.content}`).join('\n')
+            
+            const prompt = `Analise a conversa e dê um score de propensão de compra (0-100), status, recomendação e mensagem sugerida.
+            Conversa:
+            ${history}
+            Retorne apenas JSON: { "score": 80, "status": "...", "recommendation": "...", "suggested_message": "..." }`
 
-        // Fetch context (more messages for better ranking)
-        const [{ data: messages }, { data: sales }, { data: customer }] = await Promise.all([
-            supabaseClient.from('whatsapp_messages').select('content, direction, created_at').eq('contact_phone', phone).order('created_at', { ascending: false }).limit(50),
-            supabaseClient.from('sales').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(5),
-            supabaseClient.from('customers').select('*').eq('id', customerId).single()
-        ])
+            const data = await fetchAI(prompt, { temperature: 0.1 })
+            if (data.error) throw new Error(data.error)
+            const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+            const jsonMatch = resultText.match(/\{[\s\S]*\}/)
+            const aiInsights = JSON.parse(jsonMatch ? jsonMatch[0] : '{}')
 
-        const history = (messages || []).slice().reverse().map(m => {
-            const cleanContent = (m.content || '').replace(/\n/g, ' ').trim()
-            return `[${new Date(m.created_at).toLocaleString('pt-BR')}] ${m.direction === 'inbound' ? 'CLIENTE' : 'ATENDENTE'}: ${cleanContent}`
-        }).join('\n')
-        const purchases = (sales || []).map(s => `Venda em ${s.sale_date}: R$ ${s.total_amount}`).join('\n') || 'Nenhuma compra recente.'
-
-        // --- CALCULATED METRICS (Force Logic) ---
-        const sortedMsgs = (messages || []).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        const lastMsg = sortedMsgs[sortedMsgs.length - 1]
-        const lastSender = lastMsg?.direction === 'inbound' ? 'CLIENTE' : 'ATENDENTE'
-        const lastMsgTime = lastMsg ? new Date(lastMsg.created_at) : new Date()
-        const diffMs = new Date().getTime() - lastMsgTime.getTime()
-        const minutesSinceLast = Math.floor(diffMs / 60000)
-
-        let consecutiveClientMessages = 0
-        for (let i = sortedMsgs.length - 1; i >= 0; i--) {
-            if (sortedMsgs[i].direction === 'inbound') consecutiveClientMessages++
-            else break
-        }
-
-        const prompt = `
-        Analise a conversa de WhatsApp abaixo entre um atendente e um cliente de uma loja de roupas e cosméticos.
-        Data Atual: ${new Date().toLocaleString('pt-BR')}
-        
-        === DADOS DO SISTEMA (PRIORIDADE MÁXIMA) ===
-        Quem falou por último: ${lastSender}
-        Minutos desde a última msg: ${minutesSinceLast}
-        Mensagens seguidas do cliente sem resposta: ${consecutiveClientMessages}
-        ============================================
-
-        Objetivo: Classificar o cliente (Ranking 0-100) e sugerir a próxima mensagem para vender.
-        
-        Histórico de Conversa (com datas):
-        ${history}
-        
-        Histórico de Compras:
-        ${purchases}
-        
-        Instruções de Ranking (Score 0-100):
-        
-        REGRA SUPREMA (Use os DADOS DO SISTEMA acima):
-        
-        1. Se "Quem falou por último" for "CLIENTE":
-           - O SCORE DEVE SER NO MÍNIMO 90. PROIBIDO DAR MENOS DE 90.
-           - Se "Mensagens seguidas" >= 2: SCORE 100 (Prioridade Máxima).
-           - Se "Minutos desde a última msg" < 60 (1 hora): SCORE 99.
-           - Se "Minutos desde a última msg" > 60: SCORE 95.
-           
-        2. Se "Quem falou por último" for "ATENDENTE":
-           - O cliente já foi respondido. Score baixo/médio (20-60).
-        
-        3. Se o conteúdo for "preço", "comprar", "gostaria", "ver": Aumente para 100 se não respondido.
-
-        NÃO ANALISE O SENTIMENTO SE A REGRA TÉCNICA (QUEM FALOU POR ÚLTIMO) JÁ DEFINIR O SCORE.
-        SE O CLIENTE ESTÁ ESPERANDO (Last Sender = CLIENTE), É URGENTE. PONTO FINAL.
-        
-        Retorne APENAS um JSON:
-        {
-            "score": (número 0-100),
-            "status": "Resumo curto do status (ex: Urgente - Esperando resposta sobre camiseta)",
-            "recommendation": "Ação recomendada (ex: Responder preço agora)",
-            "suggested_message": "Texto da mensagem sugerida"
-        }
-        `
-
-        const geminiData = await fetchGemini(prompt, { temperature: 0.1, topP: 1, topK: 1 })
-
-        if (!geminiData || geminiData.error) {
-            console.error("AI Analyzer: Gemini API Error", geminiData?.error || "Unknown error")
-            return new Response(JSON.stringify({ error: `Erro na API do Gemini: ${geminiData?.error || "Serviço indisponível"}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
-
-        const resultText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
-        console.log("AI Analyzer: Raw Gemini Output:", resultText)
-
-        // Robust JSON extraction
-        let cleanJson = resultText.trim()
-        const jsonMatch = resultText.match(/\{[\s\S]*\}/)
-        if (jsonMatch) cleanJson = jsonMatch[0]
-
-        let aiInsights = { score: 0, status: 'Não analisado', recommendation: 'Tente novamente', summary: '', suggested_message: '' }
-        try {
-            aiInsights = JSON.parse(cleanJson)
-        } catch (e) {
-            console.error('AI Analyzer: Failed to parse JSON', e)
-        }
-
-        // --- HARD OVERRIDE LOGIC ---
-        // Ensure consistency regardless of LLM "opinion"
-        if (lastSender === 'CLIENTE') {
-            let forcedScore = 90
-            let urgencyReason = ''
-
-            if (consecutiveClientMessages >= 2) {
-                forcedScore = 100
-                urgencyReason = ' (Cliente insistente - Várias mensagens)'
-            } else if (minutesSinceLast < 60) {
-                forcedScore = 99
-                urgencyReason = ' (Mensagem recente - < 1h)'
-            } else {
-                forcedScore = 95
-                urgencyReason = ' (Aguardando resposta)'
-            }
-
-            // Only override if LLM gave a lower score
-            if ((aiInsights.score || 0) < forcedScore) {
-                console.log(`AI Analyzer: Overriding score from ${aiInsights.score} to ${forcedScore}`)
-                aiInsights.score = forcedScore
-                aiInsights.status = `URGENTE${urgencyReason}`
-            }
-        }
-
-        // 4. Update Database
-        const { error: updateError } = await supabaseClient
-            .from('customers')
-            .update({
+            await supabaseClient.from('customers').update({
                 ai_score: aiInsights.score || 0,
                 ai_status: aiInsights.status || 'Neutro',
-                ai_recommendation: aiInsights.recommendation || 'Gere uma análise.',
-                ai_suggested_message: aiInsights.suggested_message || 'Olá! Como posso ajudar?',
+                ai_recommendation: aiInsights.recommendation || 'Analise gerada.',
+                ai_suggested_message: aiInsights.suggested_message || 'Olá!',
                 last_ai_analysis: new Date().toISOString()
-            })
-            .eq('id', customerId)
+            }).eq('id', customerId)
 
-        if (updateError) {
-            console.error("AI Analyzer: DB Update Error", updateError)
-            throw updateError
+            return new Response(JSON.stringify({ success: true, insights: aiInsights }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        console.log("AI Analyzer: Successfully updated customer profile")
-        return new Response(JSON.stringify({ success: true, insights: aiInsights }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-        })
+        return new Response(JSON.stringify({ error: "Ação não suportada" }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
     } catch (error) {
-        console.error("AI Analyzer: Unexpected Error", error)
-        return new Response(JSON.stringify({
-            error: error.message,
-            stack: error.stack,
-            context: "Edge Function Catch"
-        }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500,
-        })
+        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 })

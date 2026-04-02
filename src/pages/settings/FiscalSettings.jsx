@@ -112,17 +112,21 @@ export default function FiscalSettings() {
                     cnpj: effectiveDetails.company_cnpj?.replace(/\D/g, ''),
                     razao_social: effectiveDetails.erp_name,
                     nome_fantasia: effectiveDetails.erp_name,
-                    // We need to ensure we have address fields in settings or use defaults/validate
-                    logradouro: effectiveDetails.company_address || 'Endereço não informado', // Demo fallback
-                    numero: '0', // Demo fallback
+                    logradouro: effectiveDetails.company_address || 'Endereço não informado',
+                    numero: '0',
                     bairro: 'Centro',
                     municipio: effectiveDetails.company_city || 'Cidade',
                     uf: effectiveDetails.company_state || 'UF',
                     cep: effectiveDetails.company_zip || '00000000',
-                    inscricao_estadual: 'ISENTO', // We need to add IE to settings if not there
+                    inscricao_estadual: effectiveDetails.company_ie || 'ISENTO',
                     regime_tributario: regime,
                     certificado_b64: certB64,
-                    senha_certificado: certPassword
+                    senha_certificado: certPassword,
+                    // CSC é obrigatório para NFCe funcionar
+                    csc_nfce_producao: cscToken || undefined,
+                    id_token_nfce_producao: cscId || undefined,
+                    csc_nfce_homologacao: cscToken || undefined,
+                    id_token_nfce_homologacao: cscId || undefined,
                 }
             }
         })

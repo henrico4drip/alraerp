@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Plus, Edit, Trash2, Printer, TrendingUp } from "lucide-react";
+import { Package, Plus, Edit, Trash2, Printer, TrendingUp, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -24,6 +24,25 @@ export default function Inventory() {
   const settingsEff = useEffectiveSettings();
   const navigate = useNavigate();
   const wholesaleEnabled = !!settingsEff?.wholesale_enabled;
+
+  // Pricing helpers
+  const pricingBase = settingsEff?.pricing_base || 'pix';
+  const cardSurcharge = Number(settingsEff?.card_surcharge_percentage || 0);
+  const pixDiscount = Number(settingsEff?.pix_discount_percentage || 0);
+  const hasCardColumn = cardSurcharge > 0 || pixDiscount > 0;
+
+  const getCardPrice = (price) => {
+    const p = Number(price || 0);
+    if (pricingBase === 'pix' && cardSurcharge > 0) return p * (1 + cardSurcharge / 100);
+    if (pricingBase === 'card') return p; // price IS already the card price
+    return p;
+  };
+  const getPixPrice = (price) => {
+    const p = Number(price || 0);
+    if (pricingBase === 'card' && pixDiscount > 0) return p * (1 - pixDiscount / 100);
+    if (pricingBase === 'pix') return p; // price IS already the pix price
+    return p;
+  };
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState({
@@ -267,11 +286,12 @@ export default function Inventory() {
             <InventorySkeleton />
           ) : (
             <>
-              <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 px-3 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200">
+              <div className={`hidden lg:grid ${hasCardColumn ? 'grid-cols-[2fr_1fr_1fr_110px_110px_100px_140px]' : 'grid-cols-[2fr_1fr_1fr_120px_100px_140px]'} gap-6 px-3 sm:px-8 py-3 text-[11px] font-normal text-[#707887] tracking-wide border-b border-gray-200`}>
                 <div>PRODUTO</div>
                 <div>CÓDIGO</div>
                 <div>CATEGORIA</div>
-                <div className="text-right">PREÇO</div>
+                <div className="text-right">{pricingBase === 'card' ? 'PIX/DINHEIRO' : 'PREÇO'}</div>
+                {hasCardColumn && <div className="text-right">CARTÃO</div>}
                 <div className="text-right">ESTOQUE</div>
                 <div className="flex items-center justify-end">AÇÕES</div>
               </div>
@@ -279,7 +299,7 @@ export default function Inventory() {
                 {sortedProducts.map((product) => (
                   <React.Fragment key={product.id}>
                     {/* Desktop row */}
-                    <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_120px_100px_140px] gap-6 items-center px-3 sm:px-8 py-3 hover:bg-gray-50/70">
+                    <div className={`hidden lg:grid ${hasCardColumn ? 'grid-cols-[2fr_1fr_1fr_110px_110px_100px_140px]' : 'grid-cols-[2fr_1fr_1fr_120px_100px_140px]'} gap-6 items-center px-3 sm:px-8 py-3 hover:bg-gray-50/70`}>
                       <div className="flex items-center gap-2 min-w-0">
                         <Package className="w-5 h-5 text-indigo-600 shrink-0" />
                         <p className="font-medium text-sm text-gray-900 truncate">{product.name}</p>
@@ -293,9 +313,17 @@ export default function Inventory() {
                             <p className="font-semibold text-green-600 text-sm">R$ {Number(product.promo_price).toFixed(2)}</p>
                           </div>
                         ) : (
-                          <p className="font-semibold text-green-600 text-sm">R$ {Number(product.price).toFixed(2)}</p>
+                          <p className="font-semibold text-green-600 text-sm">R$ {(pricingBase === 'card' ? getPixPrice(product.price) : Number(product.price)).toFixed(2)}</p>
                         )}
                       </div>
+                      {hasCardColumn && (
+                        <div className="text-right tabular-nums">
+                          <p className="font-semibold text-amber-600 text-sm flex items-center justify-end gap-1">
+                            <CreditCard className="w-3 h-3" />
+                            R$ {getCardPrice(product.promo_price && Number(product.promo_price) < Number(product.price) ? product.promo_price : product.price).toFixed(2)}
+                          </p>
+                        </div>
+                      )}
                       <div className="text-right tabular-nums">
                         <p className={`font-semibold text-sm ${(product.stock || 0) > 10 ? 'text-green-600' :
                           (product.stock || 0) > 0 ? 'text-yellow-600' :
@@ -329,6 +357,9 @@ export default function Inventory() {
                             </div>
                           ) : (
                             <div className="text-xs font-semibold text-green-600">R$ {Number(product.price).toFixed(2)}</div>
+                          )}
+                          {hasCardColumn && (
+                            <div className="text-[10px] text-amber-600 font-medium">Cartão: R$ {getCardPrice(product.promo_price && Number(product.promo_price) < Number(product.price) ? product.promo_price : product.price).toFixed(2)}</div>
                           )}
                           <div className={`text-[11px] ${(product.stock || 0) > 10 ? 'text-green-600' :
                             (product.stock || 0) > 0 ? 'text-yellow-600' :

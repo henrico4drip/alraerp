@@ -89,7 +89,12 @@ serve(async (req) => {
                 arquivo_certificado_base64: certificado_b64,
                 senha_certificado,
                 habilita_nfce: true,
-                habilita_nfe: true
+                habilita_nfe: true,
+                // CSC é obrigatório para NFCe
+                ...(payload.csc_nfce_producao ? { csc_nfce_producao: payload.csc_nfce_producao } : {}),
+                ...(payload.id_token_nfce_producao ? { id_token_nfce_producao: payload.id_token_nfce_producao } : {}),
+                ...(payload.csc_nfce_homologacao ? { csc_nfce_homologacao: payload.csc_nfce_homologacao } : {}),
+                ...(payload.id_token_nfce_homologacao ? { id_token_nfce_homologacao: payload.id_token_nfce_homologacao } : {}),
             }
 
             console.log('Sending registration to Focus:', baseUrl + '/v2/empresas')

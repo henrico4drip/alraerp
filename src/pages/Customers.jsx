@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Users, Plus, Edit, Trash2, Wallet, Eye } from "lucide-react";
+import { Users, Plus, Edit, Trash2, Wallet, Eye, TrendingUp, MessageCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -198,21 +198,62 @@ export default function Customers() {
       <div className="mx-auto max-w-full sm:max-w-7xl">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-            <p className="text-gray-500 mt-1">Gerencie seu programa de cashback</p>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Clientes</h1>
+            <p className="text-gray-500 mt-1">Gerencie seu programa de cashback e fidelidade</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => setShowImportDialog(true)} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">Importar</Button>
-            <Button onClick={() => setShowExportDialog(true)} className="rounded-xl bg-slate-600 hover:bg-slate-700">Exportar</Button>
+            <Button onClick={() => setShowImportDialog(true)} variant="outline" className="rounded-xl border-gray-200 hover:bg-white shadow-sm font-semibold">Importar</Button>
+            <Button onClick={() => setShowExportDialog(true)} variant="outline" className="rounded-xl border-gray-200 hover:bg-white shadow-sm font-semibold">Exportar</Button>
             <Button
               onClick={() => handleOpenDialog()}
               data-tutorial="new-customer-btn"
-              className="bg-pink-600 hover:bg-pink-700 rounded-xl"
+              className="bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl shadow-lg shadow-pink-200 transition-all hover:scale-105 active:scale-95 px-6"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-5 h-5 mr-1" />
               Novo Cliente
             </Button>
           </div>
+        </div>
+
+        {/* Dashboard de Insights Rápidos */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="rounded-[2rem] border-none shadow-sm bg-white overflow-hidden group">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-blue-50 rounded-2xl group-hover:bg-blue-600 transition-colors">
+                  <Users className="w-6 h-6 text-blue-600 group-hover:text-white" />
+                </div>
+              </div>
+              <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">Total de Clientes</p>
+              <h3 className="text-4xl font-black text-gray-900 mt-1">{customers.length}</h3>
+              <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-widest">Base de dados ativa</p>
+            </CardContent>
+          </Card>
+
+          <Card className="md:col-span-2 rounded-[2rem] border-none shadow-sm bg-white overflow-hidden group">
+            <CardHeader className="pb-2 border-b border-gray-50">
+              <CardTitle className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-500" /> Ranking de Compradores (Top 5)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                {[...customers]
+                  .sort((a, b) => (b.total_spent || 0) - (a.total_spent || 0))
+                  .slice(0, 5)
+                  .map((c, idx) => (
+                    <div key={c.id} className="relative p-3 rounded-2xl bg-gray-50/50 border border-gray-100 flex flex-col items-center text-center group hover:bg-emerald-50 hover:border-emerald-100 transition-all">
+                      <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-white border border-gray-100 flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:text-emerald-600 group-hover:border-emerald-200">{idx + 1}</span>
+                      <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center mb-2 overflow-hidden border border-gray-50">
+                        <span className="text-xs font-bold text-gray-400">{c.name.charAt(0)}</span>
+                      </div>
+                      <p className="text-[11px] font-bold text-gray-900 truncate w-full">{c.name.split(' ')[0]}</p>
+                      <p className="text-[10px] font-black text-emerald-600">R$ {Number(c.total_spent || 0).toFixed(0)}</p>
+                    </div>
+                  ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="mb-6">
@@ -279,6 +320,9 @@ export default function Customers() {
                         <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(customer)} title="Editar cliente">
                           <Edit className="w-4 h-4" />
                         </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { const phone = String(customer.phone || '').replace(/\D/g, ''); if (phone) window.open(`https://chat.alraerp.com.br/tickets?phone=${phone}`, '_blank'); else alert('Sem telefone'); }} title="Abrir WaTicket">
+                          <MessageCircle className="w-4 h-4 text-green-600" />
+                        </Button>
                         <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteCustomerId(customer.id); setShowConfirmDeleteCustomer(true); }} title="Excluir cliente">
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </Button>
@@ -315,6 +359,9 @@ export default function Customers() {
                         </Button>
                         <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(customer)} title="Editar cliente">
                           <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { const phone = String(customer.phone || '').replace(/\D/g, ''); if (phone) window.open(`https://chat.alraerp.com.br/tickets?phone=${phone}`, '_blank'); else alert('Sem telefone'); }} title="Abrir WaTicket">
+                          <MessageCircle className="w-4 h-4 text-green-600" />
                         </Button>
                         <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteCustomerId(customer.id); setShowConfirmDeleteCustomer(true); }} title="Excluir cliente">
                           <Trash2 className="w-4 h-4 text-red-500" />
@@ -370,6 +417,7 @@ export default function Customers() {
                 </div>
                 <div className="pt-3 flex gap-2">
                   <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowViewDialog(false)}>Fechar</Button>
+                  <Button className="flex-1 rounded-xl bg-green-500 hover:bg-green-600 text-white" onClick={() => { const phone = String(viewCustomer.phone || '').replace(/\D/g, ''); if (phone) window.open(`https://chat.alraerp.com.br/tickets?phone=${phone}`, '_blank'); else alert('Sem telefone'); }}>WhatsApp</Button>
                   <Button className="flex-1 rounded-xl" onClick={() => { setShowViewDialog(false); handleOpenDialog(viewCustomer); }}>Editar</Button>
                 </div>
               </div>

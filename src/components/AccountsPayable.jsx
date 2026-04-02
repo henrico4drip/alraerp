@@ -30,19 +30,27 @@ export default function AccountsPayable() {
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showExportDialog, setShowExportDialog] = useState(false);
 
-    const { data: expenses = [] } = useQuery({
-        queryKey: ['expenses'],
-        queryFn: () => base44.entities.Expense.list('-due_date'),
+    const startMonthStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+    const endMonthStr = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+
+    const { data: expenses = [], isLoading: isLoadingExpenses } = useQuery({
+        queryKey: ['expenses', startMonthStr],
+        queryFn: () => base44.entities.Expense.list('-due_date', {
+            due_after: format(startOfMonth(subMonths(currentMonth, 2)), 'yyyy-MM-dd'),
+            due_before: format(endOfMonth(addMonths(currentMonth, 2)), 'yyyy-MM-dd')
+        }),
         initialData: []
     });
 
-    const { data: sales = [] } = useQuery({
-        queryKey: ['sales'],
-        queryFn: () => base44.entities.Sale.list('-sale_date'),
+    const { data: sales = [], isLoading: isLoadingSales } = useQuery({
+        queryKey: ['sales', startMonthStr],
+        queryFn: () => base44.entities.Sale.list('-sale_date', {
+            sale_after: format(subMonths(new Date(), 18), 'yyyy-MM-dd')
+        }), // Needs historical for receivables, 18mo is enough for most cases
         initialData: []
     });
 
-    const { data: products = [] } = useQuery({
+    const { data: products = [], isLoading: isLoadingProducts } = useQuery({
         queryKey: ['products'],
         queryFn: () => base44.entities.Product.list(),
         initialData: []
@@ -246,6 +254,8 @@ export default function AccountsPayable() {
         }, { total: 0, paid: 0, open: 0 });
     }, [filteredExpenses]);
 
+    const isLoading = isLoadingExpenses || isLoadingSales || isLoadingProducts;
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Summary Cards */}
@@ -277,7 +287,12 @@ export default function AccountsPayable() {
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
+                {isLoading && (
+                    <div className="absolute inset-x-0 bottom-0 h-1 bg-gray-100 overflow-hidden">
+                        <div className="h-full bg-red-500 animate-[loading_1s_infinite_linear]" style={{ width: '40%', backgroundImage: 'linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent)' }}></div>
+                    </div>
+                )}
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 bg-gray-50 rounded-xl p-1">
                         <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="rounded-lg h-8 w-8 hover:bg-white hover:shadow-sm">‹</Button>
@@ -327,8 +342,17 @@ export default function AccountsPayable() {
                                 <th className="px-6 py-4 text-right">Ações</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {filteredExpenses.length === 0 ? (
+                        <tbody className="divide-y divide-gray-50 relative min-h-[200px]">
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-400">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="w-10 h-10 border-4 border-red-100 border-t-red-600 rounded-full animate-spin"></div>
+                                            <p className="font-medium animate-pulse text-gray-500">Buscando informações na base de dados...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filteredExpenses.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="px-6 py-12 text-center text-gray-400">
                                         <div className="flex flex-col items-center gap-2">

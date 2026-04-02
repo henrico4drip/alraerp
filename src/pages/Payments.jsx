@@ -6,13 +6,14 @@ import { useNavigate } from 'react-router-dom'
 import { base44 } from '@/api/base44Client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Banknote, FileText, Search, MessageCircle } from 'lucide-react'
+import { Banknote, FileText, Search, MessageCircle, Users } from 'lucide-react'
 import { useEffectiveSettings } from '@/hooks/useEffectiveSettings'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import RequirePermission from '@/components/RequirePermission'
 import Receipt from '@/components/Receipt'
 import AccountsPayable from '@/components/AccountsPayable'
+import CustomerStatement from '@/components/CustomerStatement'
 import { useProfile } from '@/context/ProfileContext'
 
 const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -84,8 +85,14 @@ const asPaymentsArray = (p) => Array.isArray(p) ? p : (p ? [p] : [])
 
 export default function Payments() {
   const queryClient = useQueryClient()
-  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list('-created_date'), initialData: [] })
-  const { data: customers = [] } = useQuery({ queryKey: ['customers'], queryFn: () => base44.entities.Customer.list('-created_date'), initialData: [] })
+  const { data: sales = [], isLoading: isLoadingSales } = useQuery({ 
+    queryKey: ['sales'], 
+    queryFn: () => base44.entities.Sale.list('-created_date', {
+      created_after: format(subMonths(new Date(), 18), 'yyyy-MM-dd') // Fetching last 18 months for performance
+    }), 
+    initialData: [] 
+  })
+  const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({ queryKey: ['customers'], queryFn: () => base44.entities.Customer.list('-created_date'), initialData: [] })
   const effectiveSettings = useEffectiveSettings()
   const { isAdmin, currentProfile } = useProfile()
   const hasPixConfigured = Boolean(effectiveSettings?.pix_key)
@@ -104,7 +111,7 @@ export default function Payments() {
 
   // --- STATE ---
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('receivables') // 'receivables' | 'payables'
+  const [activeTab, setActiveTab] = useState('receivables') // 'receivables' | 'statement' | 'payables'
 
   // Force receivables if payables is blocked and user is on payables tab
   React.useEffect(() => {
@@ -138,6 +145,9 @@ export default function Payments() {
   const [showBoletoDialog, setShowBoletoDialog] = useState(false)
   const [boletoPagesHtml, setBoletoPagesHtml] = useState('')
   const boletoRef = useRef(null)
+
+  // Estado do extrato do cliente
+  const [showCustomerStatement, setShowCustomerStatement] = useState(false)
 
 
   // --- DATA PROCESSING ---
@@ -532,28 +542,46 @@ export default function Payments() {
     <RequirePermission permission="financial">
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold text-gray-900">Financeiro</h1>
-          <div className="bg-gray-100 p-1 rounded-xl flex">
-            <button
-              onClick={() => setActiveTab('receivables')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'receivables' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              A Receber
-            </button>
-            {!isPayablesBlocked && (
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+          <div>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Financeiro</h1>
+            <p className="text-slate-500 text-sm mt-1">Gestão de recebíveis, extratos e contas a pagar</p>
+          </div>
+          
+          <div className="bg-slate-100 p-1 rounded-2xl flex shadow-inner w-full md:w-auto overflow-x-auto no-scrollbar">
+            {[
+              { id: 'receivables', label: 'Geral', icon: <Banknote className="w-4 h-4" /> },
+              { id: 'statement', label: 'Por Cliente', icon: <Users className="w-4 h-4" /> },
+              { id: 'payables', label: 'A Pagar', icon: <FileText className="w-4 h-4" />, hidden: isPayablesBlocked },
+            ].filter(t => !t.hidden).map(tab => (
               <button
-                onClick={() => setActiveTab('payables')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'payables' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                  activeTab === tab.id 
+                    ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-200/50 scale-[1.02]' 
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
               >
-                A Pagar
+                {tab.icon}
+                {tab.label}
               </button>
-            )}
+            ))}
           </div>
         </div>
 
         {activeTab === 'payables' && !isPayablesBlocked ? (
           <AccountsPayable />
+        ) : activeTab === 'statement' ? (
+          <div className="animate-in fade-in slide-in-from-bottom-6 duration-500 bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden min-h-[600px]">
+             <CustomerStatement 
+                sales={sales} 
+                customers={customers} 
+                open={true} 
+                onOpenChange={() => setActiveTab('receivables')} 
+                inline={true} 
+             />
+          </div>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header Cards */}
@@ -644,7 +672,13 @@ export default function Payments() {
 
               {/* List Section (Right Side) */}
               <div className="lg:col-span-8">
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden min-h-[500px] flex flex-col relative">
+                  {isLoadingSales && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-600 font-bold animate-pulse tracking-tight text-sm uppercase">Puxando dados da base...</p>
+                    </div>
+                  )}
                   <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/50">
                     <div className="flex-1 w-full">
                       <div className="flex items-center justify-between mb-4">
@@ -890,6 +924,14 @@ export default function Payments() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Customer Statement Dialog */}
+        <CustomerStatement
+          sales={sales}
+          customers={customers}
+          open={showCustomerStatement}
+          onOpenChange={setShowCustomerStatement}
+        />
       </div>
     </RequirePermission >
   )

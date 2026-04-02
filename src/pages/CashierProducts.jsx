@@ -18,7 +18,7 @@ export default function CashierProducts() {
   const queryClient = useQueryClient();
   const searchRef = useRef(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const { cart, addToCart, updateQuantity, removeFromCart, calculateTotal } = useCashier();
+  const { cart, setCart, addToCart, updateQuantity, removeFromCart, calculateTotal } = useCashier();
   const [showNewProductDialog, setShowNewProductDialog] = useState(false);
   const [newProductForm, setNewProductForm] = useState({
     name: "",
@@ -237,36 +237,61 @@ export default function CashierProducts() {
             {isLoading ? (
               <LoadingSpinner />
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 auto-rows-max p-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1.5 auto-rows-max p-1.5">
                 {filteredProducts.map((product) => (
                   <button
                     key={product.id}
                     onClick={() => addToCart(product)}
-                    className="group flex items-start gap-3 p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all text-left bg-white"
+                    className="group flex items-start gap-2 p-2 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all text-left bg-white"
                   >
-                    <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 group-hover:border-blue-100 transition-colors">
+                    <div className="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 group-hover:border-blue-100 transition-colors">
                       {(product.image_url || product.imageUrl) ? (
                         <img src={product.image_url || product.imageUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <Package className="w-5 h-5 text-gray-300 group-hover:text-blue-400" />
+                        <Package className="w-4 h-4 text-gray-300 group-hover:text-blue-400" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-gray-900 text-[13px] sm:text-sm truncate leading-tight mb-0.5">{product.name}</h3>
-                      <p className="text-[11px] text-gray-400 truncate mb-1.5">{product.barcode || 'Sem código'}</p>
-                      <div className="flex items-center justify-between">
-                        {product.promo_price && Number(product.promo_price) < Number(product.price) ? (
-                          <div className="flex flex-col leading-none">
-                            <span className="text-[10px] text-gray-400 line-through">R$ {Number(product.price).toFixed(2)}</span>
-                            <span className="text-sm font-bold text-green-600">R$ {Number(product.promo_price).toFixed(2)}</span>
+                      <h3 className="font-semibold text-gray-900 text-[11px] sm:text-[12px] truncate leading-tight mb-0.5">{product.name}</h3>
+                      {(() => {
+                        const base = Number(product.price || 0);
+                        const pBase = settings?.pricing_base || 'pix';
+                        const surcharge = Number(settings?.card_surcharge_percentage || 0);
+                        const discount = Number(settings?.pix_discount_percentage || 0);
+                        const hasRules = surcharge > 0 || discount > 0;
+
+                        let pPix, pCard;
+                        if (pBase === 'pix') {
+                          pPix = base;
+                          pCard = base * (1 + surcharge / 100);
+                        } else {
+                          pPix = base * (1 - discount / 100);
+                          pCard = base;
+                        }
+
+                        const effectivePrice = product.promo_price && Number(product.promo_price) < base ? Number(product.promo_price) : base;
+
+                        return (
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5">
+                              {product.promo_price && Number(product.promo_price) < base ? (
+                                <>
+                                  <span className="text-[9px] text-gray-400 line-through">R${base.toFixed(2)}</span>
+                                  <span className="text-[11px] font-bold text-green-600">R${Number(product.promo_price).toFixed(2)}</span>
+                                </>
+                              ) : (
+                                <span className="text-[11px] sm:text-[12px] font-bold text-gray-800 group-hover:text-blue-600 transition-colors">R$ {base.toFixed(2)}</span>
+                              )}
+                            </div>
+                            {hasRules && (
+                              <div className="text-[9px] text-amber-600 font-medium mt-0.5">Cartão R$ {(pBase === 'pix' ? pCard : pCard).toFixed(2)}</div>
+                            )}
                           </div>
-                        ) : (
-                          <span className="text-[13px] sm:text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">R$ {Number(product.price).toFixed(2)}</span>
-                        )}
-                        <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-90 group-hover:scale-100">
-                          <Plus className="w-4 h-4" />
-                        </div>
-                      </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="w-5 h-5 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0 self-center">
+                      <Plus className="w-3 h-3" />
                     </div>
                   </button>
                 ))}

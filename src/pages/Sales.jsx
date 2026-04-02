@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Plus, FileText, Download, Pencil, Trash2, Wallet } from "lucide-react";
+import { Search, Filter, Plus, FileText, Download, Pencil, Trash2, Wallet, MessageCircle } from "lucide-react";
 import Receipt from "@/components/Receipt";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +15,11 @@ export default function Sales() {
   const { data: sales = [] } = useQuery({
     queryKey: ['sales'],
     queryFn: () => base44.entities.Sale.list('-created_date'),
+    initialData: [],
+  });
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => base44.entities.Customer.list(),
     initialData: [],
   });
   const { data: settings = [] } = useQuery({
@@ -145,7 +150,7 @@ export default function Sales() {
                 <div>CLIENTE <span className="ml-2 text-[10px] font-normal text-gray-400">VENDEDOR</span></div>
                 <div>PAGAMENTO</div>
                 <div className="text-right">FATURADO <span className="ml-2 text-[10px] font-normal text-gray-400">CASHBACK</span></div>
-                <div className="flex items-center justify-end gap-2"></div>
+                <div className="flex items-center justify-end pr-8">CHAT</div>
               </div>
               <div className="divide-y divide-gray-100">
                 {filteredSales.map((sale) => (
@@ -190,6 +195,21 @@ export default function Sales() {
                         <Button size="icon" variant="ghost" className="h-6 w-6 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setConfirmDeleteSaleObj(sale); setShowConfirmDeleteSale(true); }}>
                           <Trash2 className="w-3.5 h-3.5 text-red-500" />
                         </Button>
+                        {sale.customer_id && (
+                          <Button 
+                            variant="secondary" 
+                            size="icon" 
+                            className="h-6 w-6 rounded bg-green-50 text-green-600 border border-green-200" 
+                            onClick={() => {
+                              const c = customers.find(x => x.id === sale.customer_id);
+                              const phone = String(c?.phone || '').replace(/\D/g, '');
+                              if (phone) window.open(`https://chat.alraerp.com.br/tickets?phone=${phone}`, '_blank');
+                              else alert('Cliente sem telefone');
+                            }}
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     <div className="lg:hidden px-3 py-2 hover:bg-gray-50/70">
@@ -222,6 +242,20 @@ export default function Sales() {
                         <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => { setConfirmDeleteSaleId(sale.id); setConfirmDeleteSaleObj(sale); setShowConfirmDeleteSale(true); }}>
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </Button>
+                        {sale.customer_id && (
+                          <Button 
+                            size="icon" 
+                            className="h-8 w-8 rounded bg-green-50 text-green-600 border border-green-200" 
+                            onClick={() => {
+                              const c = customers.find(x => x.id === sale.customer_id);
+                              const phone = String(c?.phone || '').replace(/\D/g, '');
+                              if (phone) window.open(`https://chat.alraerp.com.br/tickets?phone=${phone}`, '_blank');
+                              else alert('Cliente sem telefone');
+                            }}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </React.Fragment>

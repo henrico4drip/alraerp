@@ -86,6 +86,7 @@ export default function CashierPayment() {
     sumPayments,
     remainingAmount,
     calculateTotal,
+    calculateSubtotal,
     updateQuantity,
     removeFromCart,
     discountPercent,
@@ -93,6 +94,8 @@ export default function CashierPayment() {
     discountAmount,
     isFinalizing,
     setIsFinalizing,
+    isPixMode,
+    setIsPixMode,
   } = useCashier();
   const settings = useEffectiveSettings();
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
@@ -218,14 +221,26 @@ export default function CashierPayment() {
     : null;
   const maxCashbackToUse = customer ? Math.min(
     Number(customer.cashback_balance || 0),
-    Math.max(0, calculateTotal() - discountAmount())
+    Math.max(0, calculateTotal(settings) - discountAmount(settings))
   ) : 0;
 
   // Destaca método selecionado e preenche valor automaticamente
   const handleSelectPaymentMethod = (method) => {
-    const autoFillMethods = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Carnê'];
+    // Toggle pricing mode if method matches surcharge or discount lists
+    const surchargeMethods = settings?.surcharge_methods || ['Cartão de Crédito', 'Cartão de Débito'];
+    const discountMethods = settings?.discount_methods || ['PIX', 'Dinheiro'];
+    const methodLower = (method || '').toLowerCase();
+    
+    // Check exact match first, then fuzzy match for common card/cash names
+    if (surchargeMethods.includes(method) || methodLower.includes('cartão') || methodLower.includes('crédito') || methodLower.includes('débito') || methodLower.includes('carnê')) {
+      setIsPixMode(false);
+    } else if (discountMethods.includes(method) || methodLower.includes('pix') || methodLower.includes('dinheiro')) {
+      setIsPixMode(true);
+    }
+
+    const autoFillMethods = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Carnê', ... (settings?.payment_methods || [])];
     const shouldAutoFill = autoFillMethods.includes(method);
-    const amt = shouldAutoFill ? remainingAmount().toFixed(2) : (paymentDraft.amount || '');
+    const amt = shouldAutoFill ? remainingAmount(settings).toFixed(2) : (paymentDraft.amount || '');
     const installments = (method === 'Cartão de Crédito' || method === 'Carnê') ? (paymentDraft.installments || 1) : 1;
     setPaymentDraft({ ...paymentDraft, method: method, amount: amt, installments });
   };
@@ -442,8 +457,10 @@ export default function CashierPayment() {
   };
 
   const cashbackEarnedPreview = selectedCustomer
-    ? Math.max(0, calculateTotal() - discountAmount() - (cashbackToUse || 0)) * ((settings?.cashback_percentage ?? 5) / 100)
+    ? Math.max(0, calculateTotal(settings) - discountAmount(settings) - (cashbackToUse || 0)) * ((settings?.cashback_percentage ?? 5) / 100)
     : 0;
+  const subtotal = calculateTotal(settings);
+  const finalTotal = Math.max(0, subtotal - discountAmount(settings) - (cashbackToUse || 0));
 
   const printReceipt = (sale) => {
     if (!sale) return;
@@ -529,7 +546,7 @@ export default function CashierPayment() {
       return { ...item, unit_price: Number(price), total_price: Number(price) * Number(item.quantity || 0) }
     })
     const total = effectiveItems.reduce((sum, it) => sum + (it.total_price || 0), 0)
-    const finalTotalLocal = Math.max(0, total - discountAmount() - cashbackToUse);
+    const finalTotalLocal = Math.max(0, total - discountAmount(settings) - cashbackToUse);
 
     if (payments.length === 0) {
       alert("Adicione pelo menos um pagamento.");
@@ -580,10 +597,10 @@ export default function CashierPayment() {
           total_price: item.total_price,
         })),
         total_amount: total,
-        discount_amount: discountAmount(),
+        discount_amount: discountAmount(settings),
         discount_percent: Number(discountPercent) || 0,
         cashback_used: Number(cashbackToUse || 0),
-        cashback_earned: (() => { const percent = settings?.cashback_percentage ?? 5; return Number((Math.max(0, total - discountAmount() - (cashbackToUse || 0)) * (percent / 100)).toFixed(2)); })(),
+        cashback_earned: (() => { const percent = settings?.cashback_percentage ?? 5; return Number((Math.max(0, total - discountAmount(settings) - (cashbackToUse || 0)) * (percent / 100)).toFixed(2)); })(),
         payment_method: payments.map((p) => p.method).join(" + "),
         payments: paymentsWithSchedule.map((p) => ({ method: p.method, amount: p.amount, installments: p.installments, first_due_days: p.first_due_days, schedule: p.schedule })),
         observations,
@@ -695,41 +712,40 @@ export default function CashierPayment() {
           const nfe_payload = {
             natureza_operacao: 'Venda ao Consumidor',
             data_emissao: saleData.sale_date,
-            tipo_documento: 1, // 1=Saída
-            finalidade_emissao: 1, // 1=Normal
-            presenca_comprador: 1, // 1=Presencial
+            presenca_comprador: '1',  // 1=Presencial
+            modalidade_frete: '9',     // 9=Sem frete (obrigatório para NFCe)
+            local_destino: '1',        // 1=Operação interna (obrigatório)
+            indicador_inscricao_estadual_destinatario: '9', // 9=Não contribuinte (obrigatório para NFCe)
             cnpj_emitente: settings.company_cnpj?.replace(/\D/g, ''),
-            nome_destinatario: saleData.customer_name || undefined, // Optional for NFCe < 10k normally
+            nome_destinatario: saleData.customer_name || undefined,
             cpf_destinatario: selectedCustomer?.cpf ? selectedCustomer.cpf.replace(/\D/g, '') : undefined,
             items: saleData.items.map((item, idx) => {
-              // Try to find full product details locally
               const product = products.find(p => p.id === item.product_id);
+              const isSimples = settings.fiscal_regime === '1';
               return {
                 numero_item: idx + 1,
-                codigo_produto: item.product_id,
+                codigo_produto: product?.barcode || String(item.product_id).replace(/-/g, '').slice(0, 20),
                 descricao: item.name,
-                base_calculo_icms: item.total_price, // Simplifying for Simples Nacional
-                valor_icms: 0,
-                valor_bruto: item.total_price,
-                quantidade_comercial: item.quantity,
-                quantidade_tributavel: item.quantity,
-                valor_unitario_comercial: item.unit_price,
-                valor_unitario_tributavel: item.unit_price,
+                quantidade_comercial: String(item.quantity),
+                quantidade_tributavel: String(item.quantity),
+                valor_unitario_comercial: String(item.unit_price),
+                valor_unitario_tributavel: String(item.unit_price),
+                valor_bruto: String(item.total_price),
                 unidade_comercial: 'UN',
                 unidade_tributavel: 'UN',
-                codigo_ncm: product?.ncm || settings.fiscal_ncm_default || '00000000', // Default fallback
+                codigo_ncm: product?.ncm || settings.fiscal_ncm_default || '00000000',
                 cfop: settings.fiscal_cfop_default || '5102',
                 icms_origem: '0',
-                icms_situacao_tributaria: settings.fiscal_regime === '1' ? '102' : '00',
-                // PIS/COFINS defaults for Simples
-                pis_situacao_tributaria: '07',
-                cofins_situacao_tributaria: '07'
+                icms_situacao_tributaria: isSimples ? '102' : '00',
+                // PIS/COFINS para Simples Nacional
+                pis_situacao_tributaria: isSimples ? '07' : '01',
+                cofins_situacao_tributaria: isSimples ? '07' : '01',
               }
             }),
             formas_pagamento: payments.map(p => ({
               forma_pagamento: mapPaymentMethodToCode(p.method),
-              valor_pagamento: p.amount,
-              troco: 0
+              valor_pagamento: String(p.amount),
+              troco: '0'
             }))
           };
 
@@ -875,7 +891,7 @@ export default function CashierPayment() {
           e.preventDefault();
           if (m === 'Cashback') {
             if (selectedCustomer && Number(selectedCustomer.cashback_balance || 0) > 0) {
-              setPaymentDraft({ ...paymentDraft, method: 'Cashback', amount: String(Math.min(maxCashbackToUse, remainingAmount())) });
+              setPaymentDraft({ ...paymentDraft, method: 'Cashback', amount: String(Math.min(maxCashbackToUse, remainingAmount(settings))) });
               setTimeout(() => amountInputRef.current?.focus(), 100);
             }
           } else {
@@ -887,7 +903,7 @@ export default function CashierPayment() {
 
       // Enter finaliza pagamento: movido para useEffect dedicado ou incorporado aqui
       if (e.key === 'Enter' && !isInput) {
-        if (!(cart.length === 0 || payments.length === 0 || remainingAmount() > 0)) {
+        if (!(cart.length === 0 || payments.length === 0 || remainingAmount(settings) > 0)) {
           handleFinalizeSale();
         }
       }
@@ -935,7 +951,7 @@ export default function CashierPayment() {
 
       // Fallback: abrir WhatsApp Web no navegador
       if (!delivered && phone) {
-        const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+        const url = `https://chat.alraerp.com.br/tickets?phone=${phone}&text=${encodeURIComponent(msg)}`;
         window.open(url, "_blank");
         delivered = true; // Considera ação iniciada pelo usuário
       }
@@ -962,8 +978,8 @@ export default function CashierPayment() {
 
   const handleSaleFinishEvent = useCallback(() => {
     // Check validation again just in case, though button disabled state handles UI
-    const total = calculateTotal();
-    const finalTotalLocal = Math.max(0, total - discountAmount() - (cashbackToUse || 0));
+    const total = calculateTotal(settings);
+    const finalTotalLocal = Math.max(0, total - discountAmount(settings) - (cashbackToUse || 0));
     const sum = Number(sumPayments().toFixed(2));
     const finalDue = Number(finalTotalLocal.toFixed(2));
 
@@ -1097,13 +1113,13 @@ export default function CashierPayment() {
           </div>
 
           <div className="shrink-0 bg-white border-t border-gray-100 p-5 space-y-2 z-10">
-            <div className="flex justify-between text-sm text-gray-500"><span>Subtotal</span><span>R$ {calculateTotal().toFixed(2)}</span></div>
-            {discountAmount() > 0 && <div className="flex justify-between text-sm text-pink-600"><span>Desconto</span><span>- R$ {discountAmount().toFixed(2)}</span></div>}
+            <div className="flex justify-between text-sm text-gray-500"><span>Subtotal</span><span>R$ {calculateSubtotal(settings).toFixed(2)}</span></div>
+            {discountAmount(settings) > 0 && <div className="flex justify-between text-sm text-pink-600"><span>Desconto</span><span>- R$ {discountAmount(settings).toFixed(2)}</span></div>}
             {cashbackToUse > 0 && <div className="flex justify-between text-sm text-purple-600"><span>Cashback</span><span>- R$ {Number(cashbackToUse).toFixed(2)}</span></div>}
             <div className="pt-2 border-t border-gray-100 mt-2">
               <div className="flex justify-between items-end">
                 <span className="text-xs font-semibold uppercase text-gray-400">Total Final</span>
-                <span className="text-2xl font-bold text-gray-900">R$ {Math.max(0, calculateTotal() - discountAmount() - (cashbackToUse || 0)).toFixed(2)}</span>
+                <span className="text-2xl font-bold text-gray-900">R$ {calculateTotal(settings).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -1221,7 +1237,7 @@ export default function CashierPayment() {
                             alert('Selecione um cliente com saldo de cashback.');
                             return;
                           }
-                          setPaymentDraft({ ...paymentDraft, method: 'Cashback', amount: String(Math.min(maxCashbackToUse, remainingAmount())) })
+                          setPaymentDraft({ ...paymentDraft, method: 'Cashback', amount: String(Math.min(maxCashbackToUse, remainingAmount(settings))) })
                           setTimeout(() => amountInputRef.current?.focus(), 100);
                         } else {
                           handleSelectPaymentMethod(m.id);
@@ -1395,19 +1411,19 @@ export default function CashierPayment() {
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <div className="p-2 rounded-xl bg-slate-100 border-2 border-slate-200">
                 <p className="text-[9px] text-slate-600 font-bold uppercase">Total</p>
-                <p className="text-xs font-bold text-slate-900">R$ {Math.max(0, calculateTotal() - discountAmount() - (cashbackToUse || 0)).toFixed(2)}</p>
+                <p className="text-xs font-bold text-slate-900">R$ {calculateTotal(settings).toFixed(2)}</p>
               </div>
               <div className="p-2 rounded-xl bg-green-100 border-2 border-green-200">
                 <p className="text-[9px] text-green-700 font-bold uppercase">Pago</p>
                 <p className="text-xs font-bold text-green-800">R$ {sumPayments().toFixed(2)}</p>
               </div>
-              <div className={`p-2 rounded-xl border-2 ${remainingAmount() > 0 ? 'bg-red-100 border-red-200' : 'bg-gray-100 border-gray-200 opacity-50'}`}>
-                <p className={`text-[9px] font-bold uppercase ${remainingAmount() > 0 ? 'text-red-700' : 'text-gray-500'}`}>Falta</p>
-                <p className={`text-xs font-bold ${remainingAmount() > 0 ? 'text-red-800' : 'text-gray-600'}`}>R$ {remainingAmount().toFixed(2)}</p>
+              <div className={`p-2 rounded-xl border-2 ${remainingAmount(settings) > 0 ? 'bg-red-100 border-red-200' : 'bg-gray-100 border-gray-200 opacity-50'}`}>
+                <p className={`text-[9px] font-bold uppercase ${remainingAmount(settings) > 0 ? 'text-red-700' : 'text-gray-500'}`}>Falta</p>
+                <p className={`text-xs font-bold ${remainingAmount(settings) > 0 ? 'text-red-800' : 'text-gray-600'}`}>R$ {remainingAmount(settings).toFixed(2)}</p>
               </div>
               <div className="p-2 rounded-xl bg-blue-100 border-2 border-blue-200">
                 <p className="text-[9px] text-blue-700 font-bold uppercase">Troco</p>
-                <p className="text-xs font-bold text-blue-900">R$ {sumPayments() > Math.max(0, calculateTotal() - discountAmount() - cashbackToUse) ? (sumPayments() - Math.max(0, calculateTotal() - discountAmount() - cashbackToUse)).toFixed(2) : '0.00'}</p>
+                <p className="text-xs font-bold text-blue-900">R$ {sumPayments() > calculateTotal(settings) ? (sumPayments() - calculateTotal(settings)).toFixed(2) : '0.00'}</p>
               </div>
               {selectedCustomer && (
                 <div className="p-2 rounded-xl bg-purple-100 border-2 border-purple-200">
@@ -1521,7 +1537,7 @@ export default function CashierPayment() {
                     value={
                       discountMode === 'percent'
                         ? discountPercent
-                        : discountAmount().toFixed(2) // Mostra o valor calculado em R$
+                        : discountAmount(settings).toFixed(2) // Mostra o valor calculado em R$
                     }
                     onChange={(e) => {
                       const val = parseFloat(e.target.value) || 0;
@@ -1531,7 +1547,7 @@ export default function CashierPayment() {
                         setDiscountPercent(Math.min(100, Math.max(0, val)));
                       } else {
                         // Modo Valor Fixo: Converte R$ para % baseado no total
-                        const total = calculateTotal();
+                        const total = calculateTotal(settings);
                         if (total > 0) {
                           const percent = (val / total) * 100;
                           setDiscountPercent(Math.min(100, Math.max(0, percent)));
@@ -1551,7 +1567,7 @@ export default function CashierPayment() {
                   </span>
                   <span className="font-bold text-pink-700">
                     {discountMode === 'percent'
-                      ? `R$ ${discountAmount().toFixed(2)}`
+                      ? `R$ ${discountAmount(settings).toFixed(2)}`
                       : `${discountPercent.toFixed(2)}%`
                     }
                   </span>

@@ -364,9 +364,10 @@ export default function Contacts() {
                           className="h-8 w-8 rounded-xl text-blue-500 hover:bg-blue-50"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/crm/inbox?contactId=${contact.id}`);
+                            const phone = contact.phone.replace(/\D/g, '');
+                            window.open(`https://chat.alraerp.com.br/tickets?phone=${phone}`, '_blank');
                           }}
-                          title="Abrir chat"
+                          title="Abrir no WaTicket"
                         >
                           <MessageCircle className="h-4 w-4" />
                         </Button>

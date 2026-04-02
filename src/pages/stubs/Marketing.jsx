@@ -64,7 +64,7 @@ export default function Marketing() {
     const phone = String(customer.phone).replace(/\D/g, '');
 
     if (phone) {
-      navigate(`/crm?phone=${phone}&message=${encodeURIComponent(msg)}`);
+      window.open(`https://chat.alraerp.com.br/tickets?phone=${phone}`, '_blank');
     } else {
       alert('Cliente sem telefone cadastrado.');
     }

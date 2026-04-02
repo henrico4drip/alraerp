@@ -218,16 +218,31 @@ function RequireProfile({ children }) {
 
 import { EvolutionProvider } from './contexts/EvolutionContext'
 import { CrmProvider } from './contexts/CrmContext'
+import { ChatwootProvider } from './contexts/ChatwootContext'
 
 function App() {
+  // Force data migration from localStorage to Supabase if logged in
+  useEffect(() => {
+    const runMigration = async () => {
+      try {
+        await base44.migrate.toSupabase();
+        console.log('[App] Migration check completed.');
+      } catch (e) {
+        console.warn('[App] Migration failed:', e);
+      }
+    };
+    runMigration();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ProfileProvider>
           <EvolutionProvider>
-            <CrmProvider>
-              <CashierProvider>
-                <BrowserRouter>
+            <ChatwootProvider>
+              <CrmProvider>
+                <CashierProvider>
+                  <BrowserRouter>
                   <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/select-profile" element={<RequireAuth><SelectProfilePage /></RequireAuth>} />
@@ -325,10 +340,11 @@ function App() {
                 </BrowserRouter>
               </CashierProvider>
             </CrmProvider>
-          </EvolutionProvider>
-        </ProfileProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+          </ChatwootProvider>
+        </EvolutionProvider>
+      </ProfileProvider>
+    </AuthProvider>
+  </QueryClientProvider>
   )
 }
 

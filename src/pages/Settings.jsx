@@ -42,6 +42,7 @@ export default function Settings() {
   const [companyZip, setCompanyZip] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
+  const [companyIe, setCompanyIe] = useState('')
   const [blockPayables, setBlockPayables] = useState(false)
   const [newPaymentMethod, setNewPaymentMethod] = useState('')
   const [showConfirmRemovePaymentMethod, setShowConfirmRemovePaymentMethod] = useState(false)
@@ -57,11 +58,19 @@ export default function Settings() {
   const [wholesaleEnabled, setWholesaleEnabled] = useState(false)
   const [wholesaleType, setWholesaleType] = useState('global') // 'global' | 'item'
   const [wholesaleMinCount, setWholesaleMinCount] = useState(5)
+  // Pricing Rules State
+  const [pricingBase, setPricingBase] = useState('pix') // 'pix' | 'card'
+  const [cardSurchargePercentage, setCardSurchargePercentage] = useState(0)
+  const [pixDiscountPercentage, setPixDiscountPercentage] = useState(0)
+  const [surchargeMethods, setSurchargeMethods] = useState(['Cartão de Crédito', 'Cartão de Débito'])
+  const [discountMethods, setDiscountMethods] = useState(['PIX', 'Dinheiro'])
 
   // Local PIX Gateway State
   const [pixGateway, setPixGateway] = useState('none') // 'none' | 'asaas' | 'mercadopago'
   const [asaasApiKey, setAsaasApiKey] = useState('')
   const [mpAccessToken, setMpAccessToken] = useState('')
+  const [aiProvider, setAiProvider] = useState('google') // 'google' | 'openai'
+  const [aiApiKey, setAiApiKey] = useState('')
 
   useEffect(() => {
     loadStaff()
@@ -128,6 +137,7 @@ export default function Settings() {
     setCompanyZip(effective.company_zip || '')
     setCompanyEmail(effective.contact_email || '')
     setCompanyPhone(effective.company_phone || '')
+    setCompanyIe(effective.company_ie || '')
     setBlockPayables(!!effective.block_payables)
 
     // Wholesale load
@@ -139,11 +149,18 @@ export default function Settings() {
     setBrandVoice(effective.brand_voice || '')
     setTargetAudience(effective.target_audience || '')
     setMainProducts(effective.main_products || '')
+    setPricingBase(effective.pricing_base || 'pix')
+    setCardSurchargePercentage(effective.card_surcharge_percentage || 0)
+    setPixDiscountPercentage(effective.pix_discount_percentage || 0)
+    setSurchargeMethods(effective.surcharge_methods || ['Cartão de Crédito', 'Cartão de Débito'])
+    setDiscountMethods(effective.discount_methods || ['PIX', 'Dinheiro'])
 
     try {
       setPixGateway(effective.pix_gateway || localStorage.getItem('pix_gateway') || 'none')
       setAsaasApiKey(effective.asaas_api_key || localStorage.getItem('asaas_api_key') || '')
       setMpAccessToken(effective.mp_access_token || localStorage.getItem('mp_access_token') || '')
+      setAiProvider(effective.ai_provider || 'google')
+      setAiApiKey(effective.ai_api_key || '')
     } catch { }
 
     setIsLoading(false)
@@ -175,6 +192,7 @@ export default function Settings() {
       company_zip: companyZip,
       contact_email: companyEmail,
       company_phone: companyPhone,
+      company_ie: companyIe,
       block_payables: blockPayables,
       // Wholesale save
       wholesale_enabled: wholesaleEnabled,
@@ -188,6 +206,13 @@ export default function Settings() {
       pix_gateway: pixGateway,
       asaas_api_key: asaasApiKey,
       mp_access_token: mpAccessToken,
+      ai_provider: aiProvider,
+      ai_api_key: aiApiKey,
+      pricing_base: pricingBase,
+      card_surcharge_percentage: Number(cardSurchargePercentage) || 0,
+      pix_discount_percentage: Number(pixDiscountPercentage) || 0,
+      surcharge_methods: surchargeMethods,
+      discount_methods: discountMethods,
     }
     try {
       if (settings) {
@@ -287,6 +312,7 @@ export default function Settings() {
     { id: 'marketing', label: 'Marketing', icon: Megaphone, color: 'text-pink-600' },
     { id: 'wholesale', label: 'Atacado & Varejo', icon: Package, color: 'text-amber-600' },
     { id: 'fiscal', label: 'Fiscal', icon: Mail, color: 'text-indigo-600' },
+    { id: 'ai', label: 'I.A. / Motor', icon: Brain, color: 'text-purple-600' },
     { id: 'team', label: 'Equipe', icon: Users, color: 'text-slate-600' },
     { id: 'subscription', label: 'Assinatura', icon: Crown, color: 'text-amber-500' },
   ]
@@ -408,6 +434,10 @@ export default function Settings() {
                       <div className="space-y-2">
                         <Label className="text-gray-700">CNPJ</Label>
                         <Input value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} className="h-11 rounded-xl border-gray-200" placeholder="00.000.000/0000-00" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700">Inscrição Estadual</Label>
+                        <Input value={companyIe} onChange={(e) => setCompanyIe(e.target.value)} className="h-11 rounded-xl border-gray-200" placeholder="ISENTO" />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-gray-700">Telefone / WhatsApp</Label>
@@ -566,6 +596,100 @@ export default function Settings() {
                       </div>
                     </div>
 
+                    <div className="space-y-4 pt-6 border-t border-gray-50">
+                      <Label className="text-gray-700 font-semibold flex items-center gap-2 text-lg">
+                        Regras de Preços e Acréscimos
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase">PDV</span>
+                      </Label>
+                      <p className="text-sm text-gray-500 mb-4">Defina como o caixa deve calcular os preços quando uma forma de pagamento é selecionada.</p>
+                      
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <Label className="text-gray-600">Seus produtos hoje estão cadastrados com:</Label>
+                          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                            <button 
+                              onClick={() => setPricingBase('pix')}
+                              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${pricingBase === 'pix' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                              Preço à Vista (PIX)
+                            </button>
+                            <button 
+                              onClick={() => setPricingBase('card')}
+                              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${pricingBase === 'card' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                              Preço Cheio (Cartão)
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-gray-400 italic">
+                            {pricingBase === 'pix' ? 'O sistema irá ADICIONAR uma taxa quando vender no cartão.' : 'O sistema irá dar DESCONTO quando vender no PIX ou Dinheiro.'}
+                          </p>
+                        </div>
+
+                        {pricingBase === 'pix' ? (
+                          <div className="space-y-2">
+                            <Label className="text-gray-600">Acréscimo fixo para Cartão (%)</Label>
+                            <Input 
+                              type="number" 
+                              value={cardSurchargePercentage} 
+                              onChange={(e) => setCardSurchargePercentage(e.target.value)} 
+                              className="h-11 rounded-xl border-gray-200"
+                              placeholder="5.0"
+                            />
+                            <p className="text-[11px] text-gray-500">Ex: Se o produto é R$ 100, no cartão ficará R$ 105 (com 5%).</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label className="text-gray-600">Desconto fixo para PIX/Dinheiro (%)</Label>
+                            <Input 
+                              type="number" 
+                              value={pixDiscountPercentage} 
+                              onChange={(e) => setPixDiscountPercentage(e.target.value)} 
+                              className="h-11 rounded-xl border-gray-200"
+                              placeholder="5.0"
+                            />
+                            <p className="text-[11px] text-gray-500">Ex: Se o produto é R$ 100, no PIX ficará R$ 95 (com 5%).</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-6 pt-2">
+                        <div className="space-y-2">
+                          <Label className="text-gray-600">Formas de Pagamento com Acréscimo</Label>
+                          <div className="flex flex-wrap gap-1.5 p-3 border border-gray-100 rounded-2xl bg-gray-50/50">
+                            {paymentMethods.map(m => (
+                              <button
+                                key={m}
+                                onClick={() => {
+                                  if (surchargeMethods.includes(m)) setSurchargeMethods(prev => prev.filter(x => x !== m))
+                                  else setSurchargeMethods(prev => [...prev, m])
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${surchargeMethods.includes(m) ? 'bg-amber-100 border-amber-200 text-amber-700 shadow-sm' : 'bg-white border-gray-200 text-gray-400 opacity-60'}`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-600">Formas de Pagamento com Desconto</Label>
+                          <div className="flex flex-wrap gap-1.5 p-3 border border-gray-100 rounded-2xl bg-gray-50/50">
+                            {paymentMethods.map(m => (
+                              <button
+                                key={m}
+                                onClick={() => {
+                                  if (discountMethods.includes(m)) setDiscountMethods(prev => prev.filter(x => x !== m))
+                                  else setDiscountMethods(prev => [...prev, m])
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${discountMethods.includes(m) ? 'bg-green-100 border-green-200 text-green-700 shadow-sm' : 'bg-white border-gray-200 text-gray-400 opacity-60'}`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="pt-6 border-t border-gray-100 space-y-4">
                       <Label className="text-gray-900 font-semibold">Nível de Acesso Financeiro (Staff)</Label>
                       <div className="grid md:grid-cols-2 gap-4">
@@ -688,6 +812,51 @@ export default function Settings() {
             {activeCategory === 'fiscal' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                 <FiscalSettings />
+              </div>
+            )}
+
+            {activeCategory === 'ai' && (
+              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                <Card className="shadow-sm border-gray-100 rounded-3xl overflow-hidden">
+                  <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                      <Brain className="w-5 h-5 text-purple-600" /> Inteligência Artificial
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+                    <p className="text-sm text-gray-500">
+                      Configure o motor de I.A. que será usado em todo o sistema (Marketing, Insights de Estoque, Chat Assistente).
+                    </p>
+                    
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Provedor de I.A.</Label>
+                        <select 
+                          value={aiProvider} 
+                          onChange={(e) => setAiProvider(e.target.value)}
+                          className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                        >
+                          <option value="google">Google Gemini (Recomendado)</option>
+                          <option value="openai">OpenAI (GPT-4o)</option>
+                        </select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Chave de API (API Key)</Label>
+                        <Input 
+                          type="password"
+                          value={aiApiKey}
+                          onChange={(e) => setAiApiKey(e.target.value)}
+                          className="h-11 rounded-xl border-gray-200"
+                          placeholder={aiProvider === 'google' ? 'AIzaSy...' : 'sk-...'}
+                        />
+                        <p className="text-[10px] text-gray-400 italic">
+                          Sua chave é salva de forma segura e usada apenas para processar suas solicitações de I.A. no ERP.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
