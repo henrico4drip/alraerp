@@ -227,21 +227,20 @@ export default function CashierPayment() {
   // Destaca método selecionado e preenche valor automaticamente
   const handleSelectPaymentMethod = (method) => {
     // Toggle pricing mode if method matches surcharge or discount lists
-    const surchargeMethods = settings?.surcharge_methods || ['Cartão de Crédito', 'Cartão de Débito'];
-    const discountMethods = settings?.discount_methods || ['PIX', 'Dinheiro'];
+    const surchargeMethods = settings?.surcharge_methods || ['Cartão de Crédito'];
+    const discountMethods = settings?.discount_methods || ['PIX', 'Dinheiro', 'Cartão de Débito'];
     const methodLower = (method || '').toLowerCase();
     
-    // Check exact match first, then fuzzy match for common card/cash names
-    if (surchargeMethods.includes(method) || methodLower.includes('cartão') || methodLower.includes('crédito') || methodLower.includes('débito') || methodLower.includes('carnê')) {
-      setIsPixMode(false);
-    } else if (discountMethods.includes(method) || methodLower.includes('pix') || methodLower.includes('dinheiro')) {
+    if (discountMethods.includes(method) || methodLower.includes('pix') || methodLower.includes('dinheiro') || methodLower.includes('débito')) {
       setIsPixMode(true);
+    } else if (surchargeMethods.includes(method) || methodLower.includes('cartão') || methodLower.includes('crédito') || methodLower.includes('carnê')) {
+      setIsPixMode(false);
     }
 
     const autoFillMethods = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Carnê', ... (settings?.payment_methods || [])];
     const shouldAutoFill = autoFillMethods.includes(method);
     const amt = shouldAutoFill ? remainingAmount(settings).toFixed(2) : (paymentDraft.amount || '');
-    const installments = (method === 'Cartão de Crédito' || method === 'Carnê') ? (paymentDraft.installments || 1) : 1;
+    const installments = (method === 'Cartão de Crédito' || ['Carnê', 'Boleto', 'Boleto Bancário'].includes(method)) ? (paymentDraft.installments || 1) : 1;
     setPaymentDraft({ ...paymentDraft, method: method, amount: amt, installments });
   };
 
@@ -569,7 +568,7 @@ export default function CashierPayment() {
         try { return new Date(saleDateTime).toISOString() } catch { return new Date().toISOString() }
       })();
       const paymentsWithSchedule = payments.map((p) => {
-        if (p.method === 'Carnê') {
+        if (['Carnê', 'Boleto', 'Boleto Bancário'].includes(p.method)) {
           const installments = Number(p.installments || 1)
           const amount = Number(p.amount || 0)
           const firstDays = Number(p.first_due_days || 30)
@@ -996,7 +995,7 @@ export default function CashierPayment() {
   }, [handleSaleFinishEvent]);
 
   return (
-    <div className="fixed inset-0 top-[60px] pb-[150px] sm:pb-[140px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
+    <div className="fixed top-[48px] sm:top-[56px] left-0 right-0 bottom-[90px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
       {showSuccess && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300">
           <Alert className="bg-green-50 border-green-200 rounded-2xl shadow-lg">
@@ -1326,7 +1325,7 @@ export default function CashierPayment() {
                     className="h-9 rounded-xl border-gray-200 text-base font-bold bg-white shadow-sm"
                   />
                 </div>
-                {(paymentDraft.method === 'Cartão de Crédito' || paymentDraft.method === 'Carnê') && (
+                {(paymentDraft.method === 'Cartão de Crédito' || ['Carnê', 'Boleto', 'Boleto Bancário'].includes(paymentDraft.method)) && (
                   <div className="w-full sm:w-24 space-y-1">
                     <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Parcelas</Label>
                     <Input
@@ -1337,7 +1336,7 @@ export default function CashierPayment() {
                     />
                   </div>
                 )}
-                {paymentDraft.method === 'Carnê' && (
+                {['Carnê', 'Boleto', 'Boleto Bancário'].includes(paymentDraft.method) && (
                   <div className="w-full sm:w-24 space-y-1">
                     <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">1ª Parc. (dias)</Label>
                     <Input

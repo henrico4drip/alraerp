@@ -18,6 +18,7 @@ export default function CashierProducts() {
   const queryClient = useQueryClient();
   const searchRef = useRef(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const { cart, setCart, addToCart, updateQuantity, removeFromCart, calculateTotal } = useCashier();
   const [showNewProductDialog, setShowNewProductDialog] = useState(false);
   const [newProductForm, setNewProductForm] = useState({
@@ -131,6 +132,7 @@ export default function CashierProducts() {
 
   const handleSearchProducts = (value) => {
     setSearchTerm(value);
+    setSelectedIndex(0);
     const productByBarcode = products.find((p) => p.barcode === value);
     if (productByBarcode) {
       addToCart(productByBarcode);
@@ -151,7 +153,7 @@ export default function CashierProducts() {
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
 
   return (
-    <div className="fixed inset-0 top-[60px] pb-[150px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
+    <div className="fixed top-[48px] sm:top-[56px] left-0 right-0 bottom-[90px] bg-[#fdfdfd] lg:bg-slate-50/50 p-2 sm:p-4 overflow-hidden flex flex-col">
       {/* Mobile Tabs */}
       <div className="lg:hidden flex border-b border-gray-100 bg-white shrink-0">
         <button
@@ -196,105 +198,118 @@ export default function CashierProducts() {
           </div>
 
           {/* Search Bar */}
-          <div className="shrink-0 px-3 sm:px-6 py-2 sm:py-3 border-b border-gray-100/50 bg-gray-50/30">
+          <div className="shrink-0 px-3 sm:px-6 py-2 sm:py-3 border-b border-gray-100/50 bg-gray-50/30 relative z-20">
             <div className="relative group">
               <Input
                 ref={searchRef}
                 value={searchTerm}
                 onChange={(e) => handleSearchProducts(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    if (filteredProducts.length > 0) {
+                      setSelectedIndex((prev) => {
+                        const next = (prev + 1) % filteredProducts.length;
+                        document.getElementById(`product-option-${next}`)?.scrollIntoView({ block: "nearest" });
+                        return next;
+                      });
+                    }
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    if (filteredProducts.length > 0) {
+                      setSelectedIndex((prev) => {
+                        const next = (prev - 1 + filteredProducts.length) % filteredProducts.length;
+                        document.getElementById(`product-option-${next}`)?.scrollIntoView({ block: "nearest" });
+                        return next;
+                      });
+                    }
+                  } else if (e.key === "Enter") {
+                    e.preventDefault();
                     if (filteredProducts.length > 0 && searchTerm.trim() !== "") {
-                      addToCart(filteredProducts[0]);
+                      addToCart(filteredProducts[selectedIndex] || filteredProducts[0]);
                       setSearchTerm("");
+                      setSelectedIndex(0);
                     }
                   }
                 }}
                 onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
+                onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                 placeholder="Buscar produto (nome ou código)..."
-                className="w-full h-9 sm:h-11 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-white border-gray-200 border-0 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all text-sm"
+                className="w-full h-9 sm:h-11 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-white border-gray-200 border-0 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all text-sm relative z-20"
               />
 
               {searchTerm && (
                 <button
                   onClick={() => { setSearchTerm(''); searchRef.current?.focus(); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 z-30"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                 </button>
               )}
+
+              {/* Autocomplete Dropdown */}
+              {isSearching && searchTerm.trim().length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] z-50 max-h-[300px] overflow-y-auto py-2">
+                  {filteredProducts.length === 0 ? (
+                    <div className="p-4 text-center text-gray-400 text-sm">Nenhum produto encontrado.</div>
+                  ) : (
+                    filteredProducts.map((product, index) => (
+                      <button
+                        key={product.id}
+                        id={`product-option-${index}`}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // Evita perder foco do input
+                          addToCart(product);
+                          setSearchTerm('');
+                          setSelectedIndex(0);
+                          searchRef.current?.focus();
+                        }}
+                        className={`w-full text-left px-4 py-3 border-b border-gray-50 flex items-center justify-between group transition-colors first:rounded-t-xl last:rounded-b-xl last:border-0 ${index === selectedIndex ? 'bg-blue-50' : 'hover:bg-blue-50'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 border border-gray-100 group-hover:bg-white transition-colors">
+                            {(product.image_url || product.imageUrl) ? (
+                              <img src={product.image_url || product.imageUrl} alt="" className="w-full h-full object-cover rounded-lg" />
+                            ) : (
+                              <Package className="w-5 h-5 text-gray-300 group-hover:text-blue-400" />
+                            )}
+                          </div>
+                          <div>
+                            <span className="block text-sm font-semibold text-gray-900 leading-tight">{product.name}</span>
+                            <span className="block text-xs text-gray-400 mt-0.5 max-w-[150px] sm:max-w-[200px] truncate">{product.category || 'Sem categoria'}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                           <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">R$ {Number(product.price).toFixed(2)}</span>
+                           {product.stock !== undefined && <span className="text-[10px] text-gray-500 font-medium">Estoque: {product.stock}</span>}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             {searchTerm && filteredProducts.length > 0 && (
               <p className="mt-1.5 px-1 text-[10px] text-gray-400 font-medium flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1">
-                <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-[9px] text-gray-500 font-black shadow-sm">↵ ENTER</kbd> para adicionar <span className="text-gray-900 font-bold">"{filteredProducts[0].name}"</span>
+                <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-[9px] text-gray-500 font-black shadow-sm">↵ ENTER</kbd> para adicionar <span className="text-gray-900 font-bold">"{(filteredProducts[selectedIndex] || filteredProducts[0]).name}"</span>
               </p>
             )}
           </div>
 
-          {/* Product List */}
-          <div className="flex-1 overflow-y-auto min-h-0 bg-white p-1 sm:p-2">
+          {/* Main Area (Logo View) */}
+          <div className="flex-1 overflow-hidden bg-[#fafafa] flex flex-col items-center justify-center p-4 relative z-0">
             {isLoading ? (
               <LoadingSpinner />
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1.5 auto-rows-max p-1.5">
-                {filteredProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    onClick={() => addToCart(product)}
-                    className="group flex items-start gap-2 p-2 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all text-left bg-white"
-                  >
-                    <div className="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 group-hover:border-blue-100 transition-colors">
-                      {(product.image_url || product.imageUrl) ? (
-                        <img src={product.image_url || product.imageUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <Package className="w-4 h-4 text-gray-300 group-hover:text-blue-400" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-gray-900 text-[11px] sm:text-[12px] truncate leading-tight mb-0.5">{product.name}</h3>
-                      {(() => {
-                        const base = Number(product.price || 0);
-                        const pBase = settings?.pricing_base || 'pix';
-                        const surcharge = Number(settings?.card_surcharge_percentage || 0);
-                        const discount = Number(settings?.pix_discount_percentage || 0);
-                        const hasRules = surcharge > 0 || discount > 0;
-
-                        let pPix, pCard;
-                        if (pBase === 'pix') {
-                          pPix = base;
-                          pCard = base * (1 + surcharge / 100);
-                        } else {
-                          pPix = base * (1 - discount / 100);
-                          pCard = base;
-                        }
-
-                        const effectivePrice = product.promo_price && Number(product.promo_price) < base ? Number(product.promo_price) : base;
-
-                        return (
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5">
-                              {product.promo_price && Number(product.promo_price) < base ? (
-                                <>
-                                  <span className="text-[9px] text-gray-400 line-through">R${base.toFixed(2)}</span>
-                                  <span className="text-[11px] font-bold text-green-600">R${Number(product.promo_price).toFixed(2)}</span>
-                                </>
-                              ) : (
-                                <span className="text-[11px] sm:text-[12px] font-bold text-gray-800 group-hover:text-blue-600 transition-colors">R$ {base.toFixed(2)}</span>
-                              )}
-                            </div>
-                            {hasRules && (
-                              <div className="text-[9px] text-amber-600 font-medium mt-0.5">Cartão R$ {(pBase === 'pix' ? pCard : pCard).toFixed(2)}</div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    <div className="w-5 h-5 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0 self-center">
-                      <Plus className="w-3 h-3" />
-                    </div>
-                  </button>
-                ))}
+              <div className="flex flex-col items-center justify-center opacity-30 pointer-events-none select-none transition-all duration-500">
+                {settings?.logo_url ? (
+                  <img src={settings.logo_url} alt="Logo" className="w-[150px] sm:w-[250px] lg:w-[350px] h-auto object-contain grayscale" />
+                ) : (
+                  <>
+                    <ShoppingCart className="w-24 h-24 sm:w-32 sm:h-32 text-gray-300 mb-4" />
+                    <p className="text-gray-400 font-medium text-lg tracking-wide">CAIXA ABERTO</p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -384,26 +399,38 @@ export default function CashierProducts() {
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] sm:text-xs text-gray-500">Unit: R$ {unitForItem(item).toFixed(2)}</p>
-                      <div className="flex items-center gap-1.5 sm:gap-2 bg-gray-50 rounded-md sm:rounded-lg p-0.5 border border-gray-100">
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 sm:gap-2 bg-gray-50 rounded-md sm:rounded-lg p-0.5 border border-gray-100">
+                          <button
+                            onClick={() => {
+                              if (item.quantity === 1) {
+                                setConfirmRemoveCartItemId(item.product_id);
+                                setShowConfirmRemoveCartItem(true);
+                              } else {
+                                updateQuantity(item.product_id, -1);
+                              }
+                            }}
+                            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-md hover:bg-white text-gray-500 hover:text-red-500 transition-colors"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-[11px] sm:text-xs font-bold text-gray-700 w-4 text-center">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.product_id, 1)}
+                            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-md hover:bg-white text-gray-500 hover:text-green-600 transition-colors"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
                         <button
                           onClick={() => {
-                            if (item.quantity === 1) {
-                              setConfirmRemoveCartItemId(item.product_id);
-                              setShowConfirmRemoveCartItem(true);
-                            } else {
-                              updateQuantity(item.product_id, -1);
-                            }
+                            setConfirmRemoveCartItemId(item.product_id);
+                            setShowConfirmRemoveCartItem(true);
                           }}
-                          className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-md hover:bg-white text-gray-500 hover:text-red-500 transition-colors"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                          title="Remover item"
                         >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="text-[11px] sm:text-xs font-bold text-gray-700 w-4 text-center">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.product_id, 1)}
-                          className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-md hover:bg-white text-gray-500 hover:text-green-600 transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -414,15 +441,11 @@ export default function CashierProducts() {
           </div>
 
           {/* Totals Section */}
-          <div className="shrink-0 bg-white border-t border-gray-100 p-3 sm:p-5 space-y-2 sm:space-y-3 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.03)]">
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[11px] sm:text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Total a Pagar</p>
-                <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-                  R$ {effectiveTotal.toFixed(2)}
-                </h3>
-              </div>
-            </div>
+          <div className="shrink-0 bg-white border-t border-gray-100 p-3 sm:p-5 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] flex flex-col items-end">
+            <p className="text-[11px] sm:text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Subtotal (Itens)</p>
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+              R$ {effectiveTotal.toFixed(2)}
+            </h3>
           </div>
         </div>
       </div>

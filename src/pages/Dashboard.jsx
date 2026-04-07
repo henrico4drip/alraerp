@@ -46,11 +46,10 @@ export default function Dashboard() {
   const currentMonth = new Date().getMonth();
   const startOfMonthStr = format(new Date(currentYear, currentMonth, 1), 'yyyy-MM-dd');
 
+  // Busca todas as vendas (sem filtro de mês) para calcular crediário vencido
   const { data: sales = [] } = useQuery({
-    queryKey: ['sales', startOfMonthStr],
-    queryFn: () => base44.entities.Sale.list('-created_date', {
-      sale_after: startOfMonthStr
-    }),
+    queryKey: ['sales-all'],
+    queryFn: () => base44.entities.Sale.list('-created_date'),
     initialData: [],
   });
 
@@ -144,29 +143,31 @@ export default function Dashboard() {
   /* Financial Calculation Logic */
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // fim do dia de hoje
 
   // 1. Revenue (Faturamento Total do Mês)
   const monthSales = (sales || []).filter(s => s?.sale_date && new Date(s.sale_date) >= startOfMonth && new Date(s.sale_date) <= endOfMonth);
   const monthlyTotal = monthSales.reduce((acc, s) => acc + Number(s.total_amount || 0), 0);
 
-  // 2. Receivables (A Receber do Mês - Carnê em aberto)
-  const monthReceivables = (sales || []).reduce((acc, s) => {
+  // 2. Crediário Vencido (todas as parcelas de Carnê não pagas com vencimento até hoje)
+  const overdueCrediario = (sales || []).reduce((acc, s) => {
     if (!s.payments || !Array.isArray(s.payments)) return acc;
     const carnePayments = s.payments.filter(p => p.method === 'Carnê' && Array.isArray(p.schedule));
 
-    let saleReceivables = 0;
+    let overdue = 0;
     for (const p of carnePayments) {
       for (const inst of p.schedule) {
         if (inst.status !== 'paid' && inst.due_date) {
           const dueDate = new Date(inst.due_date);
-          // Check if due_date is in current month
-          if (dueDate >= startOfMonth && dueDate <= endOfMonth) {
-            saleReceivables += Number(inst.amount || 0);
+          // Vencido: data de vencimento <= hoje
+          if (dueDate <= today) {
+            overdue += Number(inst.amount || 0);
           }
         }
       }
     }
-    return acc + saleReceivables;
+    return acc + overdue;
   }, 0);
 
   // 3. Customers Analytics
@@ -217,8 +218,8 @@ export default function Dashboard() {
               summaryLabel = 'Vendas';
               summaryValue = monthSales.length;
             } else if (a.label === 'PAGAMENTOS') {
-              summaryLabel = 'A Receber';
-              summaryValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(monthReceivables);
+              summaryLabel = 'Vencido';
+              summaryValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(overdueCrediario);
             } else if (a.label === '+ CLIENTE') {
               summaryLabel = 'Novos';
               summaryValue = monthUniqueCustomers;

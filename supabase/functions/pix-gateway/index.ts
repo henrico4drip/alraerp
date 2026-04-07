@@ -211,8 +211,6 @@ serve(async (req: Request) => {
           value: totalAmount,
           dueDate: dueDateStr,
           description: description || 'Carnê ERP',
-          interest: { value: 0 },
-          fine: { value: 0 },
         };
 
         if (installmentCount > 1) {

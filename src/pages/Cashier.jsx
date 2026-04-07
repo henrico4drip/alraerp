@@ -33,7 +33,7 @@ import Receipt from "@/components/Receipt";
 import { supabase } from "@/api/supabaseClient";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
-function Cashier() {
+export default function Cashier() {
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -454,7 +454,7 @@ function Cashier() {
     const newEntry = {
       method: paymentDraft.method,
       amount: amt,
-      installments: (paymentDraft.method === 'Cartão de Crédito' || paymentDraft.method === 'Carnê') ? parseInt(paymentDraft.installments || 1, 10) : 1,
+      installments: (paymentDraft.method === 'Cartão de Crédito' || ['Carnê', 'Boleto', 'Boleto Bancário'].includes(paymentDraft.method)) ? parseInt(paymentDraft.installments || 1, 10) : 1,
     };
     setPayments([...payments, newEntry]);
     setPaymentDraft({ method: "", amount: "", installments: 1 });
@@ -925,7 +925,7 @@ function Cashier() {
                         className="rounded-xl border-gray-200"
                       />
                     </div>
-                    {(paymentDraft.method === 'Cartão de Crédito' || paymentDraft.method === 'Carnê') && (
+                    {(paymentDraft.method === 'Cartão de Crédito' || ['Carnê', 'Boleto', 'Boleto Bancário'].includes(paymentDraft.method)) && (
                       <div className="w-28">
                         <Label className="text-xs text-gray-500">Parcelas</Label>
                         <Input
