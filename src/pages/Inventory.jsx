@@ -61,13 +61,59 @@ export default function Inventory() {
   const [showPrintLabelsModal, setShowPrintLabelsModal] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showConfirmDedupe, setShowConfirmDedupe] = useState(false);
+
+  // Count duplicates for UI
+  const duplicateCount = React.useMemo(() => {
+    const seen = new Map();
+    let count = 0;
+    rawProducts.forEach(p => {
+      const key = String(p.barcode || '').trim() || p.id;
+      if (seen.has(key)) count++;
+      else seen.set(key, true);
+    });
+    return count;
+  }, [rawProducts]);
+
+  const handleRemoveDuplicates = async () => {
+    const seen = new Map();
+    const toDelete = [];
+    rawProducts.forEach(p => {
+      const key = String(p.barcode || '').trim() || p.id;
+      if (seen.has(key)) {
+        toDelete.push(p.id);
+      } else {
+        seen.set(key, true);
+      }
+    });
+    if (toDelete.length === 0) return;
+    try {
+      for (const id of toDelete) {
+        await deleteMutation.mutateAsync(id);
+      }
+      setShowConfirmDedupe(false);
+    } catch (err) {
+      alert('Erro ao remover duplicatas: ' + (err?.message || ''));
+    }
+  };
 
   const queryClient = useQueryClient();
 
-  const { data: products = [], isLoading } = useQuery({
+  const { data: rawProducts = [], isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => base44.entities.Product.list('-created_date'),
   });
+
+  // Deduplicate products by barcode (keep oldest) to handle existing duplicates
+  const products = React.useMemo(() => {
+    const seen = new Map();
+    return rawProducts.filter(p => {
+      const key = String(p.barcode || '').trim() || p.id;
+      if (seen.has(key)) return false;
+      seen.set(key, true);
+      return true;
+    });
+  }, [rawProducts]);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Product.create(data),
@@ -166,6 +212,18 @@ export default function Inventory() {
       if (editingProduct) {
         await updateMutation.mutateAsync({ id: editingProduct.id, data });
       } else {
+        // Prevent duplicate products with same barcode
+        const barcode = String(data.barcode || '').trim();
+        if (barcode && products.some(p => String(p.barcode || '').trim() === barcode)) {
+          alert('Já existe um produto com esse código de barras!');
+          return;
+        }
+        // Prevent duplicate products with same name (case-insensitive)
+        const name = String(data.name || '').trim().toLowerCase();
+        if (name && products.some(p => String(p.name || '').trim().toLowerCase() === name)) {
+          alert('Já existe um produto com esse nome!');
+          return;
+        }
         await createMutation.mutateAsync(data);
       }
     } catch (err) {
@@ -242,6 +300,11 @@ export default function Inventory() {
             <div className="flex gap-2 w-full md:w-auto">
               <Button onClick={() => setShowImportDialog(true)} variant="secondary" className="flex-1 md:flex-none rounded-xl h-9 text-xs">Importar</Button>
               <Button onClick={() => setShowExportDialog(true)} variant="secondary" className="flex-1 md:flex-none rounded-xl h-9 text-xs">Exportar</Button>
+              {duplicateCount > 0 && (
+                <Button onClick={() => setShowConfirmDedupe(true)} variant="destructive" className="flex-1 md:flex-none rounded-xl h-9 text-xs">
+                  Remover {duplicateCount} duplicata{duplicateCount > 1 ? 's' : ''}
+                </Button>
+              )}
               <Button
                 onClick={() => setShowPrintLabelsModal(true)}
                 variant="secondary"
@@ -536,6 +599,17 @@ export default function Inventory() {
           settings={settingsEff}
           open={showPrintLabelsModal}
           onOpenChange={setShowPrintLabelsModal}
+        />
+
+        <ConfirmDialog
+          open={showConfirmDedupe}
+          onOpenChange={setShowConfirmDedupe}
+          title="Remover produtos duplicados"
+          description={`Serão removidos ${duplicateCount} produto(s) duplicado(s). O mais antigo de cada grupo será mantido. Continuar?`}
+          confirmText="Remover duplicatas"
+          cancelText="Cancelar"
+          destructive
+          onConfirm={handleRemoveDuplicates}
         />
 
         {/* Import/Export Dialogs */}

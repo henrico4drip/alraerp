@@ -78,11 +78,22 @@ export default function Cashier() {
   const [showConfirmRemovePayment, setShowConfirmRemovePayment] = useState(false);
   const [confirmRemovePaymentIdx, setConfirmRemovePaymentIdx] = useState(null);
 
-  const { data: products = [] } = useQuery({
+  const { data: rawProducts = [] } = useQuery({
     queryKey: ['products'],
     queryFn: () => base44.entities.Product.list(),
     initialData: [],
   });
+
+  // Deduplicate products by barcode (keep oldest)
+  const products = React.useMemo(() => {
+    const seen = new Map();
+    return rawProducts.filter(p => {
+      const key = String(p.barcode || '').trim() || p.id;
+      if (seen.has(key)) return false;
+      seen.set(key, true);
+      return true;
+    });
+  }, [rawProducts]);
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
