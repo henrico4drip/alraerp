@@ -63,6 +63,13 @@ export default function Inventory() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showConfirmDedupe, setShowConfirmDedupe] = useState(false);
 
+  const queryClient = useQueryClient();
+
+  const { data: rawProducts = [], isLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => base44.entities.Product.list('-created_date'),
+  });
+
   // Count duplicates for UI
   const duplicateCount = React.useMemo(() => {
     const seen = new Map();
@@ -97,12 +104,6 @@ export default function Inventory() {
     }
   };
 
-  const queryClient = useQueryClient();
-
-  const { data: rawProducts = [], isLoading } = useQuery({
-    queryKey: ['products'],
-    queryFn: () => base44.entities.Product.list('-created_date'),
-  });
 
   // Deduplicate products by barcode (keep oldest) to handle existing duplicates
   const products = React.useMemo(() => {

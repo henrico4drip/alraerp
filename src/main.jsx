@@ -13,12 +13,12 @@ import Layout from './Layout'
 import Cashier from './pages/Cashier'
 import Sales from './pages/Sales'
 import Customers from './pages/Customers'
-import Inventory from './pages/Inventory'
+const Inventory = React.lazy(() => import('./pages/Inventory'))
 import InventoryInsights from './pages/InventoryInsights'
 import Reports from './pages/Reports'
 import CRM from './pages/CRM'
 import LeadRanking from './pages/LeadRanking'
-import Marketing from './pages/Marketing'
+const Marketing = React.lazy(() => import('./pages/Marketing'))
 import Settings from './pages/Settings'
 import Billing from './pages/Billing'
 import Login from './pages/Login'
@@ -37,6 +37,11 @@ import PaymentCallback from './pages/PaymentCallback'
 import { base44 } from './api/base44Client'
 import { useProfile, ProfileProvider } from './context/ProfileContext'
 import CustomerLogin from './pages/CustomerLogin'
+import SubscriptionLockOverlay from './components/SubscriptionLockOverlay'
+import { EvolutionProvider } from './contexts/EvolutionContext'
+import { CrmProvider } from './contexts/CrmContext'
+import { ChatwootProvider } from './contexts/ChatwootContext'
+
 
 // Force cache invalidation - v3
 const APP_CACHE_VERSION = 'v1.1';
@@ -98,7 +103,6 @@ function RequireAuth({ children }) {
   return children
 }
 
-import SubscriptionLockOverlay from './components/SubscriptionLockOverlay'
 
 function RequireSubscription({ children }) {
   const { user } = useAuth()
@@ -216,9 +220,6 @@ function RequireProfile({ children }) {
   return children
 }
 
-import { EvolutionProvider } from './contexts/EvolutionContext'
-import { CrmProvider } from './contexts/CrmContext'
-import { ChatwootProvider } from './contexts/ChatwootContext'
 
 function App() {
   // Force data migration from localStorage to Supabase if logged in
@@ -292,7 +293,7 @@ function App() {
                     />
                     <Route
                       path="/inventory"
-                      element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Inventory"><Inventory /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+                      element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Inventory"><React.Suspense fallback={<div className="p-8 text-center text-gray-500">Carregando Estoque...</div>}><Inventory /></React.Suspense></Layout></RequireProfile></RequireSubscription></RequireAuth>}
                     />
                     <Route
                       path="/inventory/insights"
@@ -312,7 +313,7 @@ function App() {
                     />
                     <Route
                       path="/marketing"
-                      element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Marketing"><Marketing /></Layout></RequireProfile></RequireSubscription></RequireAuth>}
+                      element={<RequireAuth><RequireSubscription><RequireProfile><Layout currentPageName="Marketing"><React.Suspense fallback={<div className="p-8 text-center text-gray-500">Carregando Marketing...</div>}><Marketing /></React.Suspense></Layout></RequireProfile></RequireSubscription></RequireAuth>}
                     />
                     <Route
                       path="/settings"
