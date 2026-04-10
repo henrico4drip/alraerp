@@ -1408,10 +1408,6 @@ export default function CashierPayment() {
 
             {/* Status Bar + Cashback */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              <div className="p-2 rounded-xl bg-slate-100 border-2 border-slate-200">
-                <p className="text-[9px] text-slate-600 font-bold uppercase">Total</p>
-                <p className="text-xs font-bold text-slate-900">R$ {calculateTotal(settings).toFixed(2)}</p>
-              </div>
               <div className="p-2 rounded-xl bg-green-100 border-2 border-green-200">
                 <p className="text-[9px] text-green-700 font-bold uppercase">Pago</p>
                 <p className="text-xs font-bold text-green-800">R$ {sumPayments().toFixed(2)}</p>
@@ -1430,6 +1426,10 @@ export default function CashierPayment() {
                   <p className="text-xs font-bold text-purple-900">R$ {Number(selectedCustomer.cashback_balance || 0).toFixed(2)}</p>
                 </div>
               )}
+              <div className={`p-2 rounded-xl bg-slate-100 border-2 border-slate-200 ${!selectedCustomer ? 'sm:col-start-5' : ''}`}>
+                <p className="text-[9px] text-slate-600 font-bold uppercase">Total</p>
+                <p className="text-xs font-bold text-slate-900">R$ {calculateTotal(settings).toFixed(2)}</p>
+              </div>
             </div>
           </div>
         </div>
